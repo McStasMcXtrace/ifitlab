@@ -21,7 +21,9 @@ const arrowHeadAngle = 25;
 // some debug colours
 const color = d3.scaleOrdinal().range(d3.schemeCategory20);
 
+//
 // convenience functions
+//
 function remove(lst, element) {
   let index = lst.indexOf(element);
   if (index > -1) {
@@ -45,6 +47,30 @@ function isString(value) {
   return b1;
 }
 
+//
+// Type config tree
+//
+// this function reads and returns an item from a TreeJsonAddr, given a dot-address
+function nodeTypeRead(address) {
+  let branch = nodeTypes;
+  let splt = address.split('.');
+  let key = splt[splt.length-1];
+  try {
+    for (let i=0;i<splt.length-1;i++) {
+      branch = branch[splt[i]]['branch'];
+    }
+    let item = branch[key]["leaf"];
+    return item;
+  }
+  catch(err) {
+    throw "no item found at address: " + address;
+  }
+}
+
+
+//
+// GraphicsNode related
+//
 NodeIconType = {
   CIRCE : 0,
   CIRCLEPAD : 1,
@@ -53,7 +79,6 @@ NodeIconType = {
   FLUFFYPAD : 4,
   HEXAGONAL : 5,
 }
-
 NodeState = {
   DISCONNECTED : 0,
   PASSIVE : 1,
@@ -61,7 +86,6 @@ NodeState = {
   RUNNING : 3,
   FAIL : 4,
 }
-
 function getNodeStateClass(state) {
   if (state==NodeState.DISCONNECTED) {
     return "disconnected";
@@ -81,7 +105,7 @@ function getNodeStateClass(state) {
   else throw "invalid value"
 }
 
-// node type supplying graphical data
+// type supplying graphical data
 class GraphicsNode {
   constructor(owner, label, x, y) {
     this.owner = owner;
@@ -1555,8 +1579,9 @@ class GraphInterface {
     // undo-redo stack
     this.undoredo = new UndoRedoCommandStack();
 
-    // node selections listeners
+    // event listeners
     this._selListn = [];
+    this._updateUiListn = [];
 
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
     this.locked = false;
@@ -1568,14 +1593,21 @@ class GraphInterface {
     this.idxs = {};
     this.undoredo = new UndoRedoCommandStack();
   }
-  get selListn() { return this._selListn; }
+  addUiUpdateListener(lsn) {
+    this._updateUiListn.push(lsn);
+    console.log("ui update listener added ");
+  }
+  addSelectNodeListener(lsn) {
+    this._selListn.push(lsn);
+    console.log("selection listener added ");
+  }
   _exeNodeCB(gNode) {
     this.run(gNode.owner.id);
   }
   // NOTE that node can be null, indicating a total de-selection
   _selNodeCB(node) {
-    for (var i=0;i<this.selListn.length;i++) {
-      let l = this.selListn[i];
+    for (var i=0; i<this._selListn.length; i++) {
+      let l = this._selListn[i];
       l(node);
     }
   }
@@ -1679,7 +1711,13 @@ class GraphInterface {
   }
   updateUi() {
     this.draw.drawAll();
-    if (selectedNodePropertiesCB && this.graphData.selectedNode) selectedNodePropertiesCB(this.graphData.selectedNode.owner);
+
+    if (this.graphData.selectedNode) {
+      for (var i=0; i<this._updateUiListn.length; i++) {
+        let l = this._updateUiListn[i];
+        l(this.graphData.selectedNode.owner);
+      }
+    }
   }
   // from graph to graph description
   extractGraphDefinition() {
@@ -2011,43 +2049,17 @@ class UndoRedoCommandStack {
 let intface = null;
 let menu = null;
 
-// PROGRAM MAIN FUNCTION
-function run() {
-  intface = new GraphInterface();
-  menu = new NodeTypeMenu();
-
-  intface.selListn.push(function(node) {
-    if (node) {
-      pushNodePropertiesToUi(node.owner);
-    }
-    else clearNodeData();
-  });
-
-  //drawTestNodesFormally();
-  //drawTestNodesByGraphDefinition();
-  //drawTestNodesByGraphDefinitionWithPars();
-  intface.updateUi();
-
-  // more tests
-  //testUndoRedo();
-  //testUndoRedoStackLimit();
-  //testUndoRedoDataBuffer();
-}
-
-
-var selectedConf = null;
 clickSvg = function(x, y) {
-  if (selectedConf == null) {
-    return;
-  }
+  let cnf = menu.selectedConf;
+  if (cnf == null) { return; }
+
   // adding the default label, not the type name
-  let rv = intface.node_add(x, y, "", "", selectedConf.label, selectedConf.address);
+  let rv = intface.node_add(x, y, "", "", cnf.label, cnf.address);
 
   intface.draw.resetChargeSim();
   intface.draw.restartCollideSim();
 
   intface.updateUi();
-  selectedConf = null;
 }
 getConfClone = function(conf) {
   return Object.assign({}, conf);
@@ -2080,41 +2092,28 @@ saveGraphDef = function() {
     console.log(msg);
   });
 }
-let selectedNodePropertiesCB = null;
-
-// this function reads and returns an item from a TreeJsonAddr, given a dot-address
-function nodeTypeRead(address) {
-  let branch = nodeTypes;
-  let splt = address.split('.');
-  let key = splt[splt.length-1];
-  try {
-    for (let i=0;i<splt.length-1;i++) {
-      branch = branch[splt[i]]['branch'];
-    }
-    let item = branch[key]["leaf"];
-    return item;
-  }
-  catch(err) {
-    throw "no item found at address: " + address;
-  }
-}
 
 class NodeTypeMenu {
   constructor() {
     this.menus = [];
     this.root = d3.select("#graph_menu");
 
-    //for (var address in nodeAdresses) {
     let address = null;
     let conf = null;
     let c = null;
-    for (var i=0;i<nodeAddresses.length;i++) {
+    for (var i=0; i<nodeAddresses.length; i++) {
       address = nodeAddresses[i];
       conf = nodeTypeRead(address);
       c = getConfClone(conf);
       this.createMenuItem(c);
     }
-    this.selected = null;
+
+    this._selectedConf = null;
+  }
+  // single-read getter
+  get selectedConf() {
+    let ans = this._selectedConf;
+    this._selectedConf = null;
   }
   createMenuItem(conf) {
     // the lbl set-reset hack here is to get the right labels everywhere in a convoluted way...
@@ -2132,7 +2131,7 @@ class NodeTypeMenu {
       .attr("width", 100)
       .attr("height", 100)
       .datum(conf)
-      .on("click", function(d) { selectedConf = d; })
+      .on("click", function(d) { this._selectedConf = d; })
       .append("g")
       .datum(n.gNode)
       .attr("transform", "translate(50, 60)");

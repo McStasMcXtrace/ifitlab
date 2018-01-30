@@ -164,9 +164,19 @@ pushNodePropertiesToUi = function(node) {
 }
 
 $(document).ready(() => {
-  selectedNodePropertiesCB = pushNodePropertiesToUi;
 
-  run();
+  intface = new GraphInterface();
+  menu = new NodeTypeMenu();
+
+  intface.addSelectNodeListener(function(node) {
+    if (node) {
+      pushNodePropertiesToUi(node.owner);
+    }
+    else clearNodeData();
+  });
+  intface.addUiUpdateListener(pushNodePropertiesToUi);
+
+  intface.updateUi();
 });
 </script>
 
