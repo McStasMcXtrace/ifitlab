@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 '''
 matlab interface instance global
 '''
-mintface = Matlab()
+mintface = Matlab('ifit')
 
 
 class IFitObject(ObjReprJson):
