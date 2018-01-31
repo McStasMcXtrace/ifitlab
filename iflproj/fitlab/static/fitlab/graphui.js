@@ -646,7 +646,7 @@ class LinkDouble extends Link {
 
 // responsible for drawing, and acts as an interface
 class GraphDraw {
-  constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB) {
+  constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB) {
     // pythonicism
     self = this;
 
@@ -655,6 +655,7 @@ class GraphDraw {
     this.delNodeCB = delNodeCB;
     this.selectNodeCB = selectNodeCB;
     this.executeNodeCB = executeNodeCB;
+    this.createNodeCB = createNodeCB;
 
     this.color = d3.scaleOrdinal().range(d3.schemeCategory20);
     this.svg = d3.select('#svg_container')
@@ -669,7 +670,7 @@ class GraphDraw {
         let m = d3.mouse(this)
         let svg_x = m[0];
         let svg_y = m[1];
-        clickSvg(svg_x, svg_y);
+        createNodeCB(svg_x, svg_y);
       } )
 
     // force layout simulations
@@ -1560,7 +1561,7 @@ class NodeFunctional extends Node {
   }
 }
 
-// a sort of controller object
+// high/user-level interface to graph data and drawing
 class GraphInterface {
   constructor() {
     this.graphData = new GraphData();
@@ -1568,7 +1569,7 @@ class GraphInterface {
     let delNodeCB = this._delNodeAndLinks.bind(this);
     let selNodeCB = this._selNodeCB.bind(this);
     let exeNodeCB = this._exeNodeCB.bind(this);
-    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB);
+    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, clickSvg);
     this.truth = ConnectionTruthMcWeb;
 
     // id, node dict,for high-level nodes
@@ -1585,21 +1586,6 @@ class GraphInterface {
 
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
     this.locked = false;
-  }
-  reset() {
-    this.graphData = new GraphData();
-    this.draw.graphData = this.graphData;
-    this.nodes = {};
-    this.idxs = {};
-    this.undoredo = new UndoRedoCommandStack();
-  }
-  addUiUpdateListener(lsn) {
-    this._updateUiListn.push(lsn);
-    console.log("ui update listener added ");
-  }
-  addSelectNodeListener(lsn) {
-    this._selListn.push(lsn);
-    console.log("selection listener added ");
   }
   _exeNodeCB(gNode) {
     this.run(gNode.owner.id);
@@ -1638,7 +1624,7 @@ class GraphInterface {
       this.draw.restartPathSim();
     }
   }
-  // this is the ui-update-yourself way of pushing a new node from the gui
+  // used by high-level node constructors taking only a node conf
   _getId(prefix) {
     let id = null;
     if (prefix in this.idxs)
@@ -1654,7 +1640,14 @@ class GraphInterface {
     return id;
   }
 
-  // naiive selected-node actions
+  // UTILITY INTERFACE SECTION
+  //
+  addUiUpdateListener(lsn) {
+    this._updateUiListn.push(lsn);
+  }
+  addSelectNodeListener(lsn) {
+    this._selListn.push(lsn);
+  }
   pushSelectedNodeLabel(text) {
     this.node_label(this.graphData.selectedNode.owner.id, text);
   }
@@ -1670,44 +1663,12 @@ class GraphInterface {
       return;
     }
   }
-
-  // hottest ajax "run node" function right now
-  run(id) {
-    // safeties
-    if (this.lock == true) { console.log("GraphInterface.run call during lock (id: " + id + ")" ); return; }
-    let n = this.nodes[id];
-    if (n.executable == false) { console.log("GraphInterface.run call on non-executable node (id: " + id + ")"); return; }
-
-    this.lock = true;
-    n.gNode.state = NodeState.RUNNING;
-    this.updateUi();
-
-    let syncset = this.undoredo.getSyncSet();
-    let post_data = { json_str: JSON.stringify({ run_id: id, sync: syncset }) };
-    let selfref = this; // replace this with the .bind(this) method on a func object
-
-    // TODO: consider a locking mechanism for the entire ui, or drop data updates completely...
-    simpleajax('/ajax_run_node', post_data,
-      function(msg) {
-        selfref.lock = false; // js is single threaded and finished everything before moving on
-        let obj_full = JSON.parse(msg);
-        n.objFull = obj_full;
-        let obj_setable = obj_full.userdata;
-        selfref.node_data(id, JSON.stringify(obj_setable));
-        selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-        ConnectionTruthMcWeb.updateNodeState(n.gNode);
-        selfref.updateUi();
-
-        // TESTING
-        plot_1d(obj_full.plotdata, d3.select('#node_properties').append("svg"));
-      },
-      function() {
-        console.log("run() ajax fail (id: " + id + ")");
-        selfref.lock = false;
-        ConnectionTruthMcWeb.updateNodeState(n.gNode);
-        selfref.updateUi();
-      }
-    );
+  reset() {
+    this.graphData = new GraphData();
+    this.draw.graphData = this.graphData;
+    this.nodes = {};
+    this.idxs = {};
+    this.undoredo = new UndoRedoCommandStack();
   }
   updateUi() {
     this.draw.drawAll();
@@ -1719,7 +1680,6 @@ class GraphInterface {
       }
     }
   }
-  // from graph to graph description
   extractGraphDefinition() {
     let def = {};
     def.nodes = {};
@@ -1778,7 +1738,45 @@ class GraphInterface {
     console.log(JSON.stringify(lst));
   }
 
-  // FORMAL INTERFACE (also required for undo-redo to work with your operations)
+  // FORMAL INTERFACE SECTION
+  //
+  run(id) {
+    // safeties
+    if (this.lock == true) { console.log("GraphInterface.run call during lock (id: " + id + ")" ); return; }
+    let n = this.nodes[id];
+    if (n.executable == false) { console.log("GraphInterface.run call on non-executable node (id: " + id + ")"); return; }
+
+    this.lock = true;
+    n.gNode.state = NodeState.RUNNING;
+    this.updateUi();
+
+    let syncset = this.undoredo.getSyncSet();
+    let post_data = { json_str: JSON.stringify({ run_id: id, sync: syncset }) };
+    let selfref = this; // replace this with the .bind(this) method on a func object
+
+    // TODO: consider a locking mechanism for the entire ui, or drop data updates completely...
+    simpleajax('/ajax_run_node', post_data,
+      function(msg) {
+        selfref.lock = false; // js is single threaded and finished everything before moving on
+        let obj_full = JSON.parse(msg);
+        n.objFull = obj_full;
+        let obj_setable = obj_full.userdata;
+        selfref.node_data(id, JSON.stringify(obj_setable));
+        selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
+        ConnectionTruthMcWeb.updateNodeState(n.gNode);
+        selfref.updateUi();
+
+        // TESTING
+        plot_1d(obj_full.plotdata, d3.select('#node_properties').append("svg"));
+      },
+      function() {
+        console.log("run() ajax fail (id: " + id + ")");
+        selfref.lock = false;
+        ConnectionTruthMcWeb.updateNodeState(n.gNode);
+        selfref.updateUi();
+      }
+    );
+  }
   _command(cmd) {
     let args = cmd.slice(1);
     let command = cmd[0]
@@ -2093,6 +2091,7 @@ saveGraphDef = function() {
   });
 }
 
+// a single-column node creation menu ui
 class NodeTypeMenu {
   constructor() {
     this.menus = [];
@@ -2114,6 +2113,7 @@ class NodeTypeMenu {
   get selectedConf() {
     let ans = this._selectedConf;
     this._selectedConf = null;
+    return ans;
   }
   createMenuItem(conf) {
     // the lbl set-reset hack here is to get the right labels everywhere in a convoluted way...
@@ -2131,7 +2131,7 @@ class NodeTypeMenu {
       .attr("width", 100)
       .attr("height", 100)
       .datum(conf)
-      .on("click", function(d) { this._selectedConf = d; })
+      .on("click", function(d) { this._selectedConf = d; }.bind(this) )
       .append("g")
       .datum(n.gNode)
       .attr("transform", "translate(50, 60)");
