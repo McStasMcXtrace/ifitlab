@@ -82,49 +82,15 @@
 </head>
 
 <body>
-<script>
-lblDataFocus = function() {
-  let text = document.getElementById("nodeData").value;
-  if (text == "null") {
-    document.getElementById("nodeData").value = "";
-  }
-}
-printGraphDef = function() {
-  intface.extractGraphDefinition();
-}
-printUndoStack = function() {
-  intface.printUndoRedoStack();
-}
-updateDataLbl = function(json_text) {
-  document.getElementById("nodeData").value = json_text;
-}
-pushDataJSON = function() {
-  let text = document.getElementById("nodeData").value;
-  if (text == "") {
-    text = "null";
-    document.getElementById("nodeData").value = text;
-  }
-  intface.pushSelectedNodeData(text);
-  pushNodePropertiesToUi(intface.graphData.selectedNode.owner);
-}
-pushLabelText = function() {
-  let text = document.getElementById("nodeLabel").value;
-  intface.pushSelectedNodeLabel(text);
-  // TODO: update the code below, the call is a little too deep
-  pushNodePropertiesToUi(intface.graphData.selectedNode.owner);
-}
-</script>
 
 <div id="wrapper" style="width: 900px; margin: auto;">
   <div id="buttons" style="width: 900px; height: 30px; margin: auto;">
   <button id="btnUndo">Undo</button>
   <button id="btnRedo">Redo</button>
   <button id="btnRun">Run</button>
-  <button id="btnSave" onClick="intface.saveGraphDef();">Save</button>
-  <button id="btnLoad" onClick="intface.loadGraphDef();">Load</button>
+  <button id="btnSave">Save</button>
+  <button id="btnLoad">Load</button>
   <button id="btnReset">Clear</button>
-  <!--<button onClick="printGraphDef();">Print GrapfDef</button>
-  <button onClick="printUndoStack();">Print UndoRedoStack</button>-->
 </div>
 <table><tr><td>
   <div id="graph_menu" style="height: 700px; overflow-y: auto; width: 112px;"></div></td><td>
@@ -133,8 +99,8 @@ pushLabelText = function() {
     <fieldset><table>
       <tr><td>id</td><td><label id="nodeId"></label></td></tr>
       <tr><td>name</td><td><label id="nodeName"></label></td></tr>
-      <tr><td>label</td><td><input type="text" id="nodeLabel" onChange="pushLabelText();"/></td></tr>
-      <tr><td>data</td><td><input type="text" id="nodeData" onChange="pushDataJSON();" onFocus="lblDataFocus();"></td></tr>
+      <tr><td>label</td><td><input type="text" id="nodeLabel"/></td></tr>
+      <tr><td>data</td><td><input type="text" id="nodeData"></td></tr>
       <tr><td>---</td></tr>
       <tr><td>type</td><td><label id="nodeType"></label></td></tr>
     </table></fieldset>
@@ -150,19 +116,19 @@ pushLabelText = function() {
 <script src="/static/fitlab/plotfuncs.js"></script>
 
 <script>
-clearNodeData = function() {
-  document.getElementById("nodeId").innerHTML = "";
-  document.getElementById("nodeName").innerHTML = "";
-  document.getElementById("nodeLabel").value = "";
-  document.getElementById("nodeData").value = "";
-  document.getElementById("nodeType").innerHTML = "";
+clearDBPanel = function() {
+  $("#nodeId").html("");
+  $("#nodeName").html("");
+  $("#nodeLabel").val("");
+  $("#nodeData").val("");
+  $("#nodeType").html("");
 }
-pushNodePropertiesToUi = function(node) {
-  document.getElementById("nodeId").innerHTML= node.id;
-  document.getElementById("nodeName").innerHTML = node.name;
-  document.getElementById("nodeLabel").value = node.label;
-  document.getElementById("nodeData").value = JSON.stringify(node.obj);
-  document.getElementById("nodeType").innerHTML = node.type + "(" + node.basetype + ")";
+setDBPanelProps = function(node) {
+  $("#nodeId").html(node.id);
+  $("#nodeName").html(node.name);
+  $("#nodeLabel").val(node.label);
+  $("#nodeData").val(JSON.stringify(node.obj));
+  $("#nodeType").html(node.type + "(" + node.basetype + ")");
 }
 
 let intface = null;
@@ -170,21 +136,32 @@ let menu = null;
 
 $(document).ready(() => {
   // set up events
-  $("#btnUndo").click( () => { intface.undo() } );
-  $("#btnRedo").click( () => { intface.redo() } );
-  $("#btnRun").click( () => { intface.runSelectedNode() } );
-  $("#btnSave").click( () => { intface.redo() } );
-  $("#btnLoad").click( () => { intface.redo() } )
-  $("#btnReset").click( () => { intface.reset(); intface.updateUi(); });
+  $("#btnUndo").click( () => { intface.undo() });
+  $("#btnRedo").click( () => { intface.redo() });
+  $("#btnRun").click( () => { intface.runSelectedNode() });
+  $("#btnSave").click( () => { intface.saveGraphDef() });
+  $("#btnLoad").click( () => { intface.loadGraphDef() })
+  $("#btnReset").click( () => { intface.reset() });
+
+  $("#nodeData").focus( () => { if ($("#nodeData").val() == "null") $("#nodeData").val(""); });
+  $("#nodeData").change( () => { if ($("#nodeData").val() == "") $("#nodeData").val("null");
+    intface.pushSelectedNodeData($("#nodeData").val());
+    setDBPanelProps(intface.graphData.selectedNode.owner);
+  });
+  $("#nodeLabel").change( () => {
+    intface.pushSelectedNodeLabel($("#nodeLabel").val());
+    // TODO: update the code below, the call is a little too deep
+    setDBPanelProps(intface.graphData.selectedNode.owner);
+  });
 
   // construct and set up graph engine
   intface = new GraphInterface();
   menu = new NodeTypeMenu(selectConfCB=intface.setCreateNodeConf.bind(intface));
   intface.addSelectNodeListener(function(node) {
-    if (node) { pushNodePropertiesToUi(node.owner); }
-    else clearNodeData();
+    if (node) { setDBPanelProps(node.owner); }
+    else clearDBPanel();
   });
-  intface.addUiUpdateListener(pushNodePropertiesToUi);
+  intface.addUiUpdateListener(setDBPanelProps);
   intface.updateUi();
 });
 </script>

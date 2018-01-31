@@ -1,5 +1,5 @@
 /*
-* A nodespeak compatible graph ui based on d3.js.
+* A nodespeak compatible graph ui using d3.js for drawing and force layouts.
 *
 * Written by Jakob Garde 2017-2018.
 */
@@ -1689,6 +1689,7 @@ class GraphInterface {
     this.nodes = {};
     this.idxs = {};
     this.undoredo = new UndoRedoCommandStack();
+    this.updateUi();
   }
   updateUi() {
     this.draw.drawAll();
