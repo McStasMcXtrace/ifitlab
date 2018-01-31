@@ -89,15 +89,6 @@ lblDataFocus = function() {
     document.getElementById("nodeData").value = "";
   }
 }
-undoClick = function() {
-  intface.undo();
-}
-redoClick = function() {
-  intface.redo();
-}
-runNodeClick = function() {
-  intface.runSelectedNode();
-}
 printGraphDef = function() {
   intface.extractGraphDefinition();
 }
@@ -107,20 +98,31 @@ printUndoStack = function() {
 updateDataLbl = function(json_text) {
   document.getElementById("nodeData").value = json_text;
 }
-resetGraph = function() {
-  intface.reset();
-  intface.updateUi();
+pushDataJSON = function() {
+  let text = document.getElementById("nodeData").value;
+  if (text == "") {
+    text = "null";
+    document.getElementById("nodeData").value = text;
+  }
+  intface.pushSelectedNodeData(text);
+  pushNodePropertiesToUi(intface.graphData.selectedNode.owner);
+}
+pushLabelText = function() {
+  let text = document.getElementById("nodeLabel").value;
+  intface.pushSelectedNodeLabel(text);
+  // TODO: update the code below, the call is a little too deep
+  pushNodePropertiesToUi(intface.graphData.selectedNode.owner);
 }
 </script>
 
 <div id="wrapper" style="width: 900px; margin: auto;">
-<div id="buttons" style="width: 900px; height: 30px; margin: auto;">
-  <button onClick="undoClick();">Undo</button>
-  <button onClick="redoClick();">Redo</button>
-  <button onClick="runNodeClick();">Run</button>
-  <button onClick="saveGraphDef();">Save</button>
-  <button onClick="loadGraphDef();">Load</button>
-  <button onClick="resetGraph();">Clear</button>
+  <div id="buttons" style="width: 900px; height: 30px; margin: auto;">
+  <button id="btnUndo">Undo</button>
+  <button id="btnRedo">Redo</button>
+  <button id="btnRun">Run</button>
+  <button id="btnSave" onClick="intface.saveGraphDef();">Save</button>
+  <button id="btnLoad" onClick="intface.loadGraphDef();">Load</button>
+  <button id="btnReset">Clear</button>
   <!--<button onClick="printGraphDef();">Print GrapfDef</button>
   <button onClick="printUndoStack();">Print UndoRedoStack</button>-->
 </div>
@@ -163,19 +165,26 @@ pushNodePropertiesToUi = function(node) {
   document.getElementById("nodeType").innerHTML = node.type + "(" + node.basetype + ")";
 }
 
+let intface = null;
+let menu = null;
+
 $(document).ready(() => {
+  // set up events
+  $("#btnUndo").click( () => { intface.undo() } );
+  $("#btnRedo").click( () => { intface.redo() } );
+  $("#btnRun").click( () => { intface.runSelectedNode() } );
+  $("#btnSave").click( () => { intface.redo() } );
+  $("#btnLoad").click( () => { intface.redo() } )
+  $("#btnReset").click( () => { intface.reset(); intface.updateUi(); });
 
+  // construct and set up graph engine
   intface = new GraphInterface();
-  menu = new NodeTypeMenu();
-
+  menu = new NodeTypeMenu(selectConfCB=intface.setCreateNodeConf.bind(intface));
   intface.addSelectNodeListener(function(node) {
-    if (node) {
-      pushNodePropertiesToUi(node.owner);
-    }
+    if (node) { pushNodePropertiesToUi(node.owner); }
     else clearNodeData();
   });
   intface.addUiUpdateListener(pushNodePropertiesToUi);
-
   intface.updateUi();
 });
 </script>

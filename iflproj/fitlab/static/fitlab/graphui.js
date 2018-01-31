@@ -66,7 +66,9 @@ function nodeTypeRead(address) {
     throw "no item found at address: " + address;
   }
 }
-
+function cloneConf(conf) {
+  return Object.assign({}, conf);
+}
 
 //
 // GraphicsNode related
@@ -671,7 +673,7 @@ class GraphDraw {
         let svg_x = m[0];
         let svg_y = m[1];
         createNodeCB(svg_x, svg_y);
-      } )
+      } );
 
     // force layout simulations
     this.collideSim = d3.forceSimulation()
@@ -1569,7 +1571,8 @@ class GraphInterface {
     let delNodeCB = this._delNodeAndLinks.bind(this);
     let selNodeCB = this._selNodeCB.bind(this);
     let exeNodeCB = this._exeNodeCB.bind(this);
-    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, clickSvg);
+    let createNodeCB = this._createNodeCB.bind(this);
+    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, createNodeCB);
     this.truth = ConnectionTruthMcWeb;
 
     // id, node dict,for high-level nodes
@@ -1586,6 +1589,23 @@ class GraphInterface {
 
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
     this.locked = false;
+
+    // node create conf pointer
+    this._createConf = null;
+  }
+  setCreateNodeConf(conf) {
+    this._createConf = cloneConf(conf);
+  }
+  _createNodeCB(x, y) {
+    let conf = this._createConf;
+    if (conf == null) return;
+
+    let rv = this.node_add(x, y, "", "", conf.label, conf.address);
+    this.draw.resetChargeSim();
+    this.draw.restartCollideSim();
+    this.updateUi();
+
+    this._createConf = null;
   }
   _exeNodeCB(gNode) {
     this.run(gNode.owner.id);
@@ -1736,6 +1756,19 @@ class GraphInterface {
     let lst = this.undoredo.ur;
     //console.log(JSON.stringify(lst, null, 2));
     console.log(JSON.stringify(lst));
+  }
+  loadGraphDef() {
+    simpleajax('/ajax_load_graph_def', "", function(msg) {
+      this.reset();
+      this.injectGraphDefinition(JSON.parse(msg));
+    }.bind(this));
+  }
+  saveGraphDef() {
+    let graphDef = this.extractGraphDefinition();
+    let post_data = { "graphdef" : graphDef };
+    simpleajax('/ajax_save_graph_def', post_data, function(msg) {
+      console.log(msg);
+    }.bind(this));
   }
 
   // FORMAL INTERFACE SECTION
@@ -2041,61 +2074,12 @@ class UndoRedoCommandStack {
   }
 }
 
-//
-// ui interaction
-//
-let intface = null;
-let menu = null;
-
-clickSvg = function(x, y) {
-  let cnf = menu.selectedConf;
-  if (cnf == null) { return; }
-
-  // adding the default label, not the type name
-  let rv = intface.node_add(x, y, "", "", cnf.label, cnf.address);
-
-  intface.draw.resetChargeSim();
-  intface.draw.restartCollideSim();
-
-  intface.updateUi();
-}
-getConfClone = function(conf) {
-  return Object.assign({}, conf);
-}
-pushLabelText = function() {
-  let text = document.getElementById("nodeLabel").value;
-  intface.pushSelectedNodeLabel(text);
-  // TODO: update the code below, the call is a little too deep
-  pushNodePropertiesToUi(intface.graphData.selectedNode.owner);
-}
-pushDataJSON = function() {
-  let text = document.getElementById("nodeData").value;
-  if (text == "") {
-    text = "null";
-    document.getElementById("nodeData").value = text;
-  }
-  intface.pushSelectedNodeData(text);
-  pushNodePropertiesToUi(intface.graphData.selectedNode.owner);
-}
-loadGraphDef = function() {
-  simpleajax('/ajax_load_graph_def', "", function(msg) {
-    intface.reset();
-    intface.injectGraphDefinition(JSON.parse(msg));
-  });
-}
-saveGraphDef = function() {
-  let graphDef = intface.extractGraphDefinition();
-  let post_data = { "graphdef" : graphDef };
-  simpleajax('/ajax_save_graph_def', post_data, function(msg) {
-    console.log(msg);
-  });
-}
-
 // a single-column node creation menu ui
 class NodeTypeMenu {
-  constructor() {
+  constructor(selectConfCB) {
     this.menus = [];
     this.root = d3.select("#graph_menu");
+    this.selectConfCB = selectConfCB;
 
     let address = null;
     let conf = null;
@@ -2103,11 +2087,9 @@ class NodeTypeMenu {
     for (var i=0; i<nodeAddresses.length; i++) {
       address = nodeAddresses[i];
       conf = nodeTypeRead(address);
-      c = getConfClone(conf);
+      c = cloneConf(conf);
       this.createMenuItem(c);
     }
-
-    this._selectedConf = null;
   }
   // single-read getter
   get selectedConf() {
@@ -2131,7 +2113,7 @@ class NodeTypeMenu {
       .attr("width", 100)
       .attr("height", 100)
       .datum(conf)
-      .on("click", function(d) { this._selectedConf = d; }.bind(this) )
+      .on("click", function(d) { this.selectConfCB(d); }.bind(this) )
       .append("g")
       .datum(n.gNode)
       .attr("transform", "translate(50, 60)");
