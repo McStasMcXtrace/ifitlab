@@ -2102,9 +2102,9 @@ class UndoRedoCommandStack {
 
 // a single-column node creation menu ui
 class NodeTypeMenu {
-  constructor(selectConfCB) {
+  constructor(selectConfCB, rootelementid, branchname) {
     this.menus = [];
-    this.root = d3.select("#graph_menu");
+    this.root = d3.select("#"+rootelementid);
     this.selectConfCB = selectConfCB;
 
     let address = null;
@@ -2112,11 +2112,16 @@ class NodeTypeMenu {
     let c = null;
     for (var i=0; i<nodeAddresses.length; i++) {
       address = nodeAddresses[i];
-      conf = nodeTypeRead(address);
-      c = cloneConf(conf);
-      this.createMenuItem(c);
+      if (address.split('.')[0] == branchname) {
+        conf = nodeTypeRead(address);
+        c = cloneConf(conf);
+        this.createMenuItem(c);
+      }
     }
-  }
+    // this draws a line under the lat menu item, which would otherwise be clipped by the container
+    this.root
+      .append("div")
+      .classed("menuItem", true);  }
   // single-read getter
   get selectedConf() {
     let ans = this._selectedConf;

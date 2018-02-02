@@ -346,26 +346,26 @@ class NodeConfig:
         self.name = funcname
         self.label = funcname[0:5]
 
-    def make_object(self):
+    def make_object(self, branch):
         self.type = 'obj'
-        self.address = 'obj'
+        self.address = '.'.join([branch, 'obj'])
         self.basetype = 'object'
         self.static = 'false'
         self.executable = 'true'
         self.edit = 'false'
 
-    def make_litteral(self):
-        self.type = 'Pars'
-        self.address = 'Pars'
+    def make_litteral(self, branch):
+        self.type = 'Litteral'
+        self.address = '.'.join([branch, 'Litteral'])
         self.basetype = 'object_litteral'
         self.data = {}
         self.static = 'false'
         self.executable = 'false'
         self.edit = 'true'
 
-    def make_idata(self):
+    def make_idata(self, branch):
         self.type = 'idata'
-        self.address = 'idata'
+        self.address = '.'.join([branch, 'idata'])
         self.basetype = 'object_idata'
         # superfluous?
         self.itypes = ['IData']
@@ -375,9 +375,9 @@ class NodeConfig:
         self.executable = 'true'
         self.edit = 'false'
 
-    def make_ifunc(self):
+    def make_ifunc(self, branch):
         self.type = 'ifunc'
-        self.address = 'ifunc'
+        self.address = '.'.join([branch, 'ifunc'])
         self.basetype = 'object_ifunc'
         # superfluous?
         self.itypes = ['IFunc']
@@ -422,27 +422,27 @@ def ctypeconf_tree_ifit(classes, functions):
 
     # object
     obj = NodeConfig()
-    obj.make_object()
-    tree.put('', obj.get_repr(), get_key)
+    obj.make_object('handles')
+    tree.put('handles', obj.get_repr(), get_key)
     addrss.append(obj.address)
 
     # object_litteral
-    pars = NodeConfig()
-    pars.make_litteral()
-    tree.put('', pars.get_repr(), get_key)
-    addrss.append(pars.address)
+    litteral= NodeConfig()
+    litteral.make_litteral('handles')
+    tree.put('handles', litteral.get_repr(), get_key)
+    addrss.append(litteral.address)
 
     # object_idata
-    pars = NodeConfig()
-    pars.make_idata()
-    tree.put('', pars.get_repr(), get_key)
-    addrss.append(pars.address)
+    idata = NodeConfig()
+    idata.make_idata('handles')
+    tree.put('handles', idata.get_repr(), get_key)
+    addrss.append(idata.address)
 
     # object_ifunc
-    pars = NodeConfig()
-    pars.make_ifunc()
-    tree.put('', pars.get_repr(), get_key)
-    addrss.append(pars.address)
+    ifunc = NodeConfig()
+    ifunc.make_ifunc('handles')
+    tree.put('handles', ifunc.get_repr(), get_key)
+    addrss.append(ifunc.address)
 
     # create types from a the give classes and functions
     for entry in classes:
@@ -454,8 +454,7 @@ def ctypeconf_tree_ifit(classes, functions):
         # create constructor node types
         argspec = inspect.getfullargspec(cls.__init__)
         conf = NodeConfig()
-        conf.make_function_like(cls.__name__, cls.__name__, argspec.args[1:]) # omit the "self" arg, which is not used in the constructor...
-        conf.make_function_like_wtypehints(cls.__name__, cls.__name__, argspec.args[1:], argspec.annotations)
+        conf.make_function_like_wtypehints('classes.' + cls.__name__, cls.__name__, argspec.args[1:], argspec.annotations)
 
         # we know the output type for constructors...
         conf.otypes[0] = cls.__name__
@@ -464,8 +463,8 @@ def ctypeconf_tree_ifit(classes, functions):
             conf.otypes[0] = 'IFunc'
 
         conf.basetype = 'function_named'
-        tree.put('', conf.get_repr(), get_key)
-        addrss.append(cls.__name__)
+        tree.put('classes', conf.get_repr(), get_key)
+        addrss.append(conf.address)
 
         # create method node types
         methods = entry['methods']
@@ -475,19 +474,19 @@ def ctypeconf_tree_ifit(classes, functions):
 
             argspec = inspect.getfullargspec(m)
             conf = NodeConfig()
-            conf.make_function_like(address='%s.%s' % (cls.__name__, m.__name__), funcname=m.__name__, args=argspec.args)
+            conf.make_function_like(address='classes.%s.%s' % (cls.__name__, m.__name__), funcname=m.__name__, args=argspec.args)
             conf.basetype = "method_as_function"
-            tree.put(cls.__name__, conf.get_repr(), get_key)
-            addrss.append(cls.__name__ + '.' + m.__name__)
+            tree.put('classes.' + cls.__name__, conf.get_repr(), get_key)
+            addrss.append(conf.address)
 
     for f in functions:
         # create function node types
         argspec = inspect.getfullargspec(f)
         conf = NodeConfig()
-        conf.make_function_like_wtypehints(f.__name__, f.__name__, argspec.args, argspec.annotations)
+        conf.make_function_like_wtypehints('functions.'+f.__name__, f.__name__, argspec.args, argspec.annotations)
         conf.basetype = 'function_named'
-        tree.put('', conf.get_repr(), get_key)
-        addrss.append(f.__name__)
+        tree.put('functions', conf.get_repr(), get_key)
+        addrss.append(conf.address)
 
     return tree, addrss
 
@@ -520,7 +519,7 @@ def ctypeconf_tree_simple(classes, functions):
         conf.otypes[0] = cls.__name__
         conf.basetype = 'function_named'
         tree.put('', conf.get_repr(), get_key)
-        addrss.append(cls.__name__)
+        addrss.append(conf.address)
 
         # create method node types
         methods = entry['methods']
@@ -530,7 +529,7 @@ def ctypeconf_tree_simple(classes, functions):
             conf.make_function_like(address='%s.%s' % (cls.__name__, m.__name__), funcname=m.__name__, args=argspec.args)
             conf.basetype = "method_as_function"
             tree.put(cls.__name__, conf.get_repr(), get_key)
-            addrss.append(cls.__name__ + '.' + m.__name__)
+            addrss.append(conf.address)
 
     for f in functions:
         # create function node types
@@ -539,6 +538,6 @@ def ctypeconf_tree_simple(classes, functions):
         conf.make_function_like(f.__name__, f.__name__, argspec.args)
         conf.basetype = 'function_named'
         tree.put('', conf.get_repr(), get_key)
-        addrss.append(f.__name__)
+        addrss.append(conf.address)
 
     return tree, addrss
