@@ -83,8 +83,8 @@
 
 <body>
 
-<div id="wrapper" style="width: 900px; margin: auto;">
-  <div id="buttons" style="width: 900px; height: 30px; margin: auto;">
+
+<div id="buttons" style="position:absolute;margin:auto;">
   <button id="btnUndo">Undo</button>
   <button id="btnRedo">Redo</button>
   <button id="btnRun">Run</button>
@@ -92,10 +92,10 @@
   <button id="btnLoad">Load</button>
   <button id="btnReset">Clear</button>
 </div>
-<table><tr><td>
-  <div id="graph_menu" style="height: 700px; overflow-y: auto; width: 112px;"></div></td><td>
-  <div id="svg_container" style="margin: auto; float: right;"></div></td><td>
-  <div id="node_properties" style="height:700px; width: 330px;">
+
+  <div id="graph_menu" style="position:absolute; height: 700px; overflow-y: auto; width: 112px;"></div>
+  <!--
+  <div id="node_properties" style="position:absolute; height:300px; width: 330px;">
     <fieldset><table>
       <tr><td>id</td><td><label id="nodeId"></label></td></tr>
       <tr><td>name</td><td><label id="nodeName"></label></td></tr>
@@ -105,8 +105,8 @@
       <tr><td>type</td><td><label id="nodeType"></label></td></tr>
     </table></fieldset>
   </div>
-</td></tr></table>
-</div>
+-->
+
 </body>
 
 <script src="/static/fitlab/d3.v4.min.js"></script>
@@ -156,13 +156,15 @@ $(document).ready(() => {
 
   // construct and set up graph engine
   intface = new GraphInterface();
-  menu = new NodeTypeMenu(selectConfCB=intface.setCreateNodeConf.bind(intface));
   intface.addSelectNodeListener(function(node) {
     if (node) { setDBPanelProps(node.owner); }
     else clearDBPanel();
   });
   intface.addUiUpdateListener(setDBPanelProps);
   intface.updateUi();
+
+  intface.loadGraphDef()
+  menu = new NodeTypeMenu(selectConfCB=intface.setCreateNodeConf.bind(intface));
 });
 </script>
 

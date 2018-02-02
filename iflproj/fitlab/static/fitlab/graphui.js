@@ -659,11 +659,14 @@ class GraphDraw {
     this.executeNodeCB = executeNodeCB;
     this.createNodeCB = createNodeCB;
 
-    this.color = d3.scaleOrdinal().range(d3.schemeCategory20);
-    this.svg = d3.select('#svg_container')
+    this.svg = d3.select('body')
       .append('svg')
       .attr('width', width)
-      .attr('height', height);
+      .attr('height', height)
+      //.append("g")
+      //.call(d3.zoom().on("zoom", function () {
+      //  this.svg.attr("transform", d3.event.transform);
+      //}.bind(this)));
     this.svg
       .on("click", function() {
         self.graphData.selectedNode = null;
@@ -727,11 +730,30 @@ class GraphDraw {
       .attr("x", -23);
     this.linkHelper = this.svg.append("g");
 
+    // svg resize @ window resize
+    let wresize = function() {
+      this.svg.attr("width", window.innerWidth-20).attr("height", window.innerHeight-25);
+      this.recenter();
+    }.bind(this);
+    window.onresize = wresize;
+    wresize();
+
     // specific selections
     this.nodes = null;
     this.paths = null;
     this.anchors = null;
     this.arrowHeads = null;
+  }
+  recenter() {
+    // unwanted, test-only explicit reference to #buttons
+    let btnsmenu = d3.select("#buttons");
+    btnsmenu.style("left", window.innerWidth/2-btnsmenu.node().clientWidth/2 + "px");
+
+    self.centeringSim.stop();
+    self.centeringSim.force("centering").x(window.innerWidth/2);
+    self.centeringSim.force("centering").y(window.innerHeight/2);
+    self.centeringSim.nodes(self.graphData.nodes.concat(self.graphData.getAnchors()));
+    self.centeringSim.alpha(1).restart();
   }
   resetChargeSim() {
     // the charge force seems to have to reset like this for some reason
@@ -790,6 +812,7 @@ class GraphDraw {
     self.restartChargeSim();
     self.resetPathSim(); // we need to reset, because the path anchors may have changed during recalcPathAnchors
     self.restartPathSim();
+    self.recenter();
 
     self.drawAll();
   }
@@ -1000,6 +1023,8 @@ class GraphDraw {
       .attr("fill", "black");
     */
 
+    // recenter everything
+    self.recenter();
     // update data properties
     self.update();
   }
