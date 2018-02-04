@@ -1613,7 +1613,7 @@ class GraphInterface {
 
     this._nodeSelectionListn = [];
     this._nodeCreateListn = [];
-    this._nodeDeleteListn = [];
+    this._nodeDeletedListn = [];
     this._nodeRunReturnListn = [];
 
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
@@ -1628,8 +1628,8 @@ class GraphInterface {
   addNodeCreateListener(listener, rmfunc=null) {
     if (listener) this._nodeCreateListn.push([listener, rmfunc]);
   }
-  addNodeDeleteListener(listener, rmfunc=null) {
-    if (listener) this._nodeDeleteListn.push([listener, rmfunc]);
+  addNodeDeletedListener(listener, rmfunc=null) {
+    if (listener) this._nodeDeletedListn.push([listener, rmfunc]);
   }
   addNodeRunReturnListener(listener, rmfunc=null) {
     if (listener) this._nodeRunReturnListn.push([listener, rmfunc]);
@@ -1674,6 +1674,9 @@ class GraphInterface {
     // formalize the now clean node removal
     let id = n.owner.id;
     this.node_rm(id);
+
+    // call deletion listeners
+    this._fireEvents(this._nodeDeletedListn, [id]);
 
     // ui related actions
     this.draw.restartCollideSim();

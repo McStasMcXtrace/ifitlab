@@ -1,18 +1,12 @@
 //
 //  A plain jquery ui lib to accompany graphui
 //
-function testCreateDivs() {
-  let container = $('<div id="' + "hest" + '">')
-    .css({
-      "background-color":"#8888a0",
-      position:"absolute",
-      width:"330px",
-      height:"20px",
-    })
-    .appendTo('body');
+function removeSubWindow(id) {
+  let pos = $("#"+id+"_container").position();
+  $("#"+id+"_container").remove();
+  if (pos) return [pos.left, pos.top];
 }
-
-function createSubWindow(id, title="test_title", xpos=100, ypos=100) {
+function createSubWindow(id, title="test_title", xpos, ypos) {
   let headerwidth = 300;
   let headerheight = 25;
   let container_id = id + "_container";
@@ -71,5 +65,6 @@ function createSubWindow(id, title="test_title", xpos=100, ypos=100) {
     cancel: "#"+winbody_id,
     containment: "body",
   });
-  return winbody_id;
+
+  return [winbody_id, container_id];
 }

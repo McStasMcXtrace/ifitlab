@@ -178,13 +178,25 @@ $(document).ready(() => {
   }, null);
   intface.addNodeRunReturnListener( (node) => {
     if (node.objFull.plotdata) {
+      // remove previous elements with this id - in case this update is not the first
+      let x_y = removeSubWindow(node.id);
+
+      // create a subwindow now the coast is clear
       let xpos = node.gNode.x + 150;
       let ypos = node.gNode.y - 100;
+      if (x_y) { xpos=x_y[0]; ypos=x_y[1]; }
       let title = node.label + '(' + node.id + ')';
-      let subwin_id = createSubWindow(node.id, title, xpos, ypos);
-      let plotbranch = d3.select('#'+subwin_id).append("svg");
+      let subwinid_containerid = createSubWindow(node.id, title, xpos, ypos);
+
+      // plot into the subwindow
+      let plotbranch = d3.select('#'+subwinid_containerid[0]).append("svg");
       node.objFull.plotdata.title='';
       plot_1d(node.objFull.plotdata, plotbranch);
+
+      // add the @node_delete cleanup function
+      intface.addNodeDeletedListener( (id) => {
+        if (id == node.id) $("#"+subwinid_containerid[1]).remove();
+      });
     }
   }, null);
 
