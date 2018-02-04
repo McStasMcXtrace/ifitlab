@@ -32,6 +32,7 @@ function _plot_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
     .attr("transform", "translate(" + margin +"," + margin + ")");
 
   // multi-line titles
+  if (!title) title="";
   var titleLines = title.split(/\r?\n/)
   var titleGrp = lblGroup
     .append("text")

@@ -1825,8 +1825,17 @@ class GraphInterface {
         ConnectionTruthMcWeb.updateNodeState(n.gNode);
         selfref.updateUi();
 
+
         // TESTING
-        plot_1d(obj_full.plotdata, d3.select('#node_properties').append("svg"));
+        if (obj_full.plotdata) {
+          let xpos = n.gNode.x + 150;
+          let ypos = n.gNode.y - 100;
+          let title = n.label + '(' + n.id + ')';
+          let subwin_id = createSubWindow(n.id, title, xpos, ypos);
+          let plotbranch = d3.select('#'+subwin_id).append("svg");
+          obj_full.plotdata.title='';
+          plot_1d(obj_full.plotdata, plotbranch);
+        }
       },
       function() {
         console.log("run() ajax fail (id: " + id + ")");
