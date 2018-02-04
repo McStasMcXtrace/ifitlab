@@ -1,14 +1,21 @@
 //
 //  A plain jquery ui lib to accompany graphui
 //
+function createUserDataWindow() {
+  let xpos = $("body").width()-510;
+  let ypos = 10;
+  let winbody_container_ids = createSubWindow("user_data", "User Data", xpos, ypos, 500);
+  let wbody = $("#"+winbody_container_ids[0]);
+  let wcontainer = $("#"+winbody_container_ids[1]);
+  //wcontainer.css({ right:"0px", });
+}
 function removeSubWindow(id) {
   let pos = $("#"+id+"_container").position();
   $("#"+id+"_container").remove();
   if (pos) return [pos.left, pos.top];
 }
-function createSubWindow(id, title="test_title", xpos, ypos) {
-  let headerwidth = 300;
-  let headerheight = 25;
+function createSubWindow(id, title="test_title", xpos, ypos, width=330) {
+  let headerheight = 20;
   let container_id = id + "_container";
   let container = $('<div id="ID">'.replace("ID", container_id))
     .css({
@@ -21,8 +28,8 @@ function createSubWindow(id, title="test_title", xpos, ypos) {
   let header = $('<div id="ID">'.replace("ID", header_id))
     .css({
       position:"relative",
-      width:"330px",
-      height:"20px",
+      width:width+"px",
+      height:headerheight+"px",
       cursor:"grab",
       "background-color":"#8888a0",
       "border-style":"solid",
@@ -35,10 +42,10 @@ function createSubWindow(id, title="test_title", xpos, ypos) {
   let minsquare = $('<div id="ID">'.replace("ID", minmiz_id))
     .css({
       position:"relative",
-      left: "310px",
+      left: (width-20)+"px",
       top:"0px",
-      width:"20px",
-      height:"20px",
+      width:headerheight+"px",
+      height:headerheight+"px",
       "margin-top":"-22px",
       "margin-left":"-3px",
       cursor:"pointer",
@@ -50,8 +57,8 @@ function createSubWindow(id, title="test_title", xpos, ypos) {
   let winbody = $('<div id="ID">'.replace("ID", winbody_id))
     .css({
       position:"relative",
-      width:"330px",
-      height:"220px",
+      width:width+"px",
+      //height:"220px",
       "background-color":"white",
       "border-style":"dotted",
       "border-top":"none",

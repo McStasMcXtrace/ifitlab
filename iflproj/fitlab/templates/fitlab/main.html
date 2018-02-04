@@ -184,13 +184,17 @@ $(document).ready(() => {
       // create a subwindow now the coast is clear
       let xpos = node.gNode.x + 150;
       let ypos = node.gNode.y - 100;
+      let width = 330;
+      let height = 220;
       if (x_y) { xpos=x_y[0]; ypos=x_y[1]; }
       let title = node.label + '(' + node.id + ')';
-      let subwinid_containerid = createSubWindow(node.id, title, xpos, ypos);
+      let subwinid_containerid = createSubWindow(node.id, title, xpos, ypos, width);
 
       // plot into the subwindow
       let plotbranch = d3.select('#'+subwinid_containerid[0]).append("svg");
       node.objFull.plotdata.title='';
+      node.objFull.plotdata.w=width;
+      node.objFull.plotdata.h = height;
       plot_1d(node.objFull.plotdata, plotbranch);
 
       // add the @node_delete cleanup function
