@@ -135,6 +135,7 @@ clearDBPanel = function() {
   $("#nodeType").html("");
 }
 setDBPanelProps = function(node) {
+  if (!node) return;
   $("#nodeId").html(node.id);
   $("#nodeName").html(node.name);
   $("#nodeLabel").val(node.label);
@@ -157,6 +158,7 @@ $(document).ready(() => {
   $("#nodeData").focus( () => { if ($("#nodeData").val() == "null") $("#nodeData").val(""); });
   $("#nodeData").change( () => { if ($("#nodeData").val() == "") $("#nodeData").val("null");
     intface.pushSelectedNodeData($("#nodeData").val());
+    // should be replaced by an "update data" listener interface
     setDBPanelProps(intface.graphData.selectedNode.owner);
   });
   $("#nodeLabel").change( () => {
@@ -165,25 +167,37 @@ $(document).ready(() => {
     setDBPanelProps(intface.graphData.selectedNode.owner);
   });
 
-  // construct and set up graph engine
+  // construct graph engine and add listeners
   intface = new GraphInterface();
-  intface.addSelectNodeListener(function(node) {
+  intface.addNodeSelectionListener( (node) => {
     if (node) { setDBPanelProps(node.owner); }
     else clearDBPanel();
-  });
-  intface.addUiUpdateListener(setDBPanelProps);
+  }, null);
+  intface.addUiUpdateListener( () => {
+    setDBPanelProps();
+  }, null);
+  intface.addNodeRunReturnListener( (node) => {
+    if (node.objFull.plotdata) {
+      let xpos = node.gNode.x + 150;
+      let ypos = node.gNode.y - 100;
+      let title = node.label + '(' + node.id + ')';
+      let subwin_id = createSubWindow(node.id, title, xpos, ypos);
+      let plotbranch = d3.select('#'+subwin_id).append("svg");
+      node.objFull.plotdata.title='';
+      plot_1d(node.objFull.plotdata, plotbranch);
+    }
+  }, null);
+
+  // why is this needed to get rid of the "self.draggable is null" error message?
   intface.updateUi();
 
-  intface.loadGraphDef()
+  intface.loadGraphDef(); // this also updates the ui...
 
   // create node menu
   let menuCB = intface.setCreateNodeConf.bind(intface)
   menu = new NodeTypeMenu(menuCB, 'graph_menu_1', 'handles');
   menu = new NodeTypeMenu(menuCB, 'graph_menu_2', 'classes');
   menu = new NodeTypeMenu(menuCB, 'graph_menu_3', 'functions');
-
-
-  console.log("hest")
 });
 </script>
 

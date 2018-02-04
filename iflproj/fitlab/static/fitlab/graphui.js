@@ -1609,8 +1609,12 @@ class GraphInterface {
     this.undoredo = new UndoRedoCommandStack();
 
     // event listeners
-    this._selListn = [];
     this._updateUiListn = [];
+
+    this._nodeSelectionListn = [];
+    this._nodeCreateListn = [];
+    this._nodeDeleteListn = [];
+    this._nodeRunReturnListn = [];
 
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
     this.locked = false;
@@ -1618,30 +1622,45 @@ class GraphInterface {
     // node create conf pointer
     this._createConf = null;
   }
-  setCreateNodeConf(conf) {
-    this._createConf = cloneConf(conf);
+  //
+  // listener & event interface
+  //
+  addNodeCreateListener(listener, rmfunc=null) {
+    if (listener) this._nodeCreateListn.push([listener, rmfunc]);
+  }
+  addNodeDeleteListener(listener, rmfunc=null) {
+    if (listener) this._nodeDeleteListn.push([listener, rmfunc]);
+  }
+  addNodeRunReturnListener(listener, rmfunc=null) {
+    if (listener) this._nodeRunReturnListn.push([listener, rmfunc]);
+  }
+  addUiUpdateListener(listener, rmfunc=null) {
+    if (listener) this._updateUiListn.push([listener, rmfunc]);
+  }
+  addNodeSelectionListener(listener, rmfunc=null) {
+    if (listener) this._nodeSelectionListn.push([listener, rmfunc]);
+  }
+  _selNodeCB(node) {
+    this._fireEvents(this._nodeSelectionListn, [node]);
   }
   _createNodeCB(x, y) {
     let conf = this._createConf;
     if (conf == null) return;
 
-    let rv = this.node_add(x, y, "", "", conf.label, conf.address);
+    let id = this.node_add(x, y, "", "", conf.label, conf.address);
     this.draw.resetChargeSim();
     this.draw.restartCollideSim();
-    this.updateUi();
 
     this._createConf = null;
+
+    // update
+    this._fireEvents(this._nodeCreateListn, [id]);
+    this.updateUi();
   }
   _exeNodeCB(gNode) {
     this.run(gNode.owner.id);
   }
-  // NOTE that node can be null, indicating a total de-selection
-  _selNodeCB(node) {
-    for (var i=0; i<this._selListn.length; i++) {
-      let l = this._selListn[i];
-      l(node);
-    }
-  }
+  // only works for up to five args :P)
   _delNodeAndLinks(n) {
     if (n.gNode) n = n.gNode; // totally should be un-hacked
 
@@ -1657,19 +1676,31 @@ class GraphInterface {
     this.node_rm(id);
 
     // ui related actions
-    this.draw.drawAll();
     this.draw.restartCollideSim();
+    this.updateUi();
+  }
+  _fireEvents(lst, args=[]) {
+    for (var i=0; i<lst.length; i++) {
+      let l = lst[i];
+      if (args.length==0) l[0](args[0]);
+      if (args.length==1) l[0](args[0], args[1]);
+      if (args.length==2) l[0](args[0], args[1], args[2]);
+      if (args.length==3) l[0](args[0], args[1], args[2], args[3]);
+      if (args.length==4) l[0](args[0], args[1], args[2], args[3], args[4]);
+      // remove this element if rmfunc returns true (optional)
+      if (l[1]) if (l[1]()) remove(lst, l);
+    }
   }
   _tryCreateLink(s, d) {
     if (this.truth.canConnect(s, d)) {
       this.link_add(s.owner.owner.id, s.idx, d.owner.owner.id, d.idx, s.order);
 
-      this.draw.drawAll();
       this.draw.resetPathSim();
       this.draw.restartPathSim();
+      this.updateUi()
     }
   }
-  // used by high-level node constructors taking only a node conf
+  // used by high-level node constructors, those taking only a node conf
   _getId(prefix) {
     let id = null;
     if (prefix in this.idxs)
@@ -1687,11 +1718,8 @@ class GraphInterface {
 
   // UTILITY INTERFACE SECTION
   //
-  addUiUpdateListener(lsn) {
-    this._updateUiListn.push(lsn);
-  }
-  addSelectNodeListener(lsn) {
-    this._selListn.push(lsn);
+  setCreateNodeConf(conf) {
+    this._createConf = cloneConf(conf);
   }
   pushSelectedNodeLabel(text) {
     this.node_label(this.graphData.selectedNode.owner.id, text);
@@ -1718,13 +1746,7 @@ class GraphInterface {
   }
   updateUi() {
     this.draw.drawAll();
-
-    if (this.graphData.selectedNode) {
-      for (var i=0; i<this._updateUiListn.length; i++) {
-        let l = this._updateUiListn[i];
-        l(this.graphData.selectedNode.owner);
-      }
-    }
+    this._fireEvents(this._updateUiListn, [this.graphData.selectedNode]);
   }
   extractGraphDefinition() {
     let def = {};
@@ -1825,17 +1847,7 @@ class GraphInterface {
         ConnectionTruthMcWeb.updateNodeState(n.gNode);
         selfref.updateUi();
 
-
-        // TESTING
-        if (obj_full.plotdata) {
-          let xpos = n.gNode.x + 150;
-          let ypos = n.gNode.y - 100;
-          let title = n.label + '(' + n.id + ')';
-          let subwin_id = createSubWindow(n.id, title, xpos, ypos);
-          let plotbranch = d3.select('#'+subwin_id).append("svg");
-          obj_full.plotdata.title='';
-          plot_1d(obj_full.plotdata, plotbranch);
-        }
+        selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
       function() {
         console.log("run() ajax fail (id: " + id + ")");
@@ -1965,7 +1977,7 @@ class GraphInterface {
       n.label = label;
       // check that the change was commited before continuing - or return null
       if (n.label != label) return null
-      this.draw.drawAll();
+      this.updateUi();
       return [["node_label", id, label], ["node_label", id, prevlbl]];
     }
     else if (command=="node_data") {
@@ -1983,7 +1995,7 @@ class GraphInterface {
       if (n.static == false) {
         n.obj = JSON.parse(data_str);
         this.truth.updateNodeState(n.gNode);
-        this.draw.drawAll();
+        this.updateUi();
         return [["node_data", id, data_str], ["node_data", id, prevdata_str]];
       }
       return null;
@@ -2011,6 +2023,8 @@ class GraphInterface {
     if (this.lock == true) { console.log("node_add call during lock"); return -1; }
     let cmd_rev = this._command(["node_add", x, y, id, name, label, addr]);
     this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+    // return node id
+    return cmd_rev[0][3];
   }
   node_rm(id) {
     // str
