@@ -2,12 +2,12 @@
 //  A plain jquery ui lib to accompany graphui
 //
 function createUserDataWindow() {
-  let xpos = $("body").width()-510;
+  let width = 300
+  let xpos = $("body").width()-width-10;
   let ypos = 10;
-  let winbody_container_ids = createSubWindow("user_data", "User Data", xpos, ypos, 500);
+  let winbody_container_ids = createSubWindow("user_data", "User Data", xpos, ypos, width);
   let wbody = $("#"+winbody_container_ids[0]);
   let wcontainer = $("#"+winbody_container_ids[1]);
-  //wcontainer.css({ right:"0px", });
 }
 function removeSubWindow(id) {
   let pos = $("#"+id+"_container").position();
@@ -58,7 +58,6 @@ function createSubWindow(id, title="test_title", xpos, ypos, width=330) {
     .css({
       position:"relative",
       width:width+"px",
-      //height:"220px",
       "background-color":"white",
       "border-style":"dotted",
       "border-top":"none",

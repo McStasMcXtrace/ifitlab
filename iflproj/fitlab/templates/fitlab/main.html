@@ -93,28 +93,17 @@
   <button id="btnReset">Clear</button>
 </div>
 
-
-
 <div id="graph_menu_1" style="position:absolute;left:202px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_2" style="position:absolute;left:101px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_3" style="position:absolute;left:0px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 
-
-
-
-  <!--
-  <div id="graph_menu" style="position:absolute; height: 700px; overflow-y: auto; width: 112px;"></div>
-  <div id="node_properties" style="position:absolute; height:300px; width: 330px;">
-    <fieldset><table>
-      <tr><td>id</td><td><label id="nodeId"></label></td></tr>
-      <tr><td>name</td><td><label id="nodeName"></label></td></tr>
-      <tr><td>label</td><td><input type="text" id="nodeLabel"/></td></tr>
-      <tr><td>data</td><td><input type="text" id="nodeData"></td></tr>
-      <tr><td>---</td></tr>
-      <tr><td>type</td><td><label id="nodeType"></label></td></tr>
-    </table></fieldset>
-  </div>
--->
+<div id="divUserData" style="position:absolute;"><fieldset>
+  <table id="tblUserData">
+    <tr><td colspan=2><input type="text" id="tbxNodeLabel"/></td></tr>
+    <tr><td colspan=2><label id="lblNodeIdName"></label></td></tr>
+    <tr><td>---</td></tr>
+  </table>
+</fieldset></div>
 
 </body>
 
@@ -127,20 +116,37 @@
 <script src="/static/fitlab/plotfuncs.js"></script>
 
 <script>
-clearDBPanel = function() {
-  $("#nodeId").html("");
-  $("#nodeName").html("");
-  $("#nodeLabel").val("");
-  $("#nodeData").val("");
-  $("#nodeType").html("");
+clearUserDataPanel = function() {
+  $("#lblNodeIdName").html("");
+  $("#tbxNodeLabel").val("");
+  $("#lblNodeType").html("");
+  $(".dynamicProperty").remove();
 }
-setDBPanelProps = function(node) {
+setUserData = function(node) {
+  clearUserDataPanel();
+
   if (!node) return;
-  $("#nodeId").html(node.id);
-  $("#nodeName").html(node.name);
-  $("#nodeLabel").val(node.label);
-  $("#nodeData").val(JSON.stringify(node.obj));
-  $("#nodeType").html(node.type + "(" + node.basetype + ")");
+  $("#tbxNodeLabel").val(node.label);
+  $("#lblNodeIdName").html(node.id+" - "+node.type+"("+node.basetype+")");
+
+  // HERE BE HAX
+  // TODO: sort out what kind of data 'funcname' and 'litteral' is, and only use userdata for proper userdata
+
+  if (node.type != 'ifunc') return;
+  for (let key in node.obj)
+  {
+    let rowid = "row_" + node.id + key.replace(/ /g, '_'); // some key strings have whitespaces in them...
+    $("#tblUserData tbody")
+      .append('<tr id="'+rowid+'" class="dynamicProperty"><td><label/></td><td><input type="text"/></td></tr>');
+    $("#"+rowid +" input")
+      .val(node.obj[key])
+      .change( () => {
+        node.obj[key] = $("#"+rowid +" input").val();
+        intface.node_data(node.id, JSON.stringify(node.obj));
+      });
+    $("#"+rowid +" label")
+      .html(key+': ');
+  }
 }
 
 let intface = null;
@@ -155,27 +161,8 @@ $(document).ready(() => {
   $("#btnLoad").click( () => { intface.loadGraphDef() })
   $("#btnReset").click( () => { intface.reset() });
 
-  $("#nodeData").focus( () => { if ($("#nodeData").val() == "null") $("#nodeData").val(""); });
-  $("#nodeData").change( () => { if ($("#nodeData").val() == "") $("#nodeData").val("null");
-    intface.pushSelectedNodeData($("#nodeData").val());
-    // should be replaced by an "update data" listener interface
-    setDBPanelProps(intface.graphData.selectedNode.owner);
-  });
-  $("#nodeLabel").change( () => {
-    intface.pushSelectedNodeLabel($("#nodeLabel").val());
-    // TODO: update the code below, the call is a little too deep
-    setDBPanelProps(intface.graphData.selectedNode.owner);
-  });
-
   // construct graph engine and add listeners
   intface = new GraphInterface();
-  intface.addNodeSelectionListener( (node) => {
-    if (node) { setDBPanelProps(node.owner); }
-    else clearDBPanel();
-  }, null);
-  intface.addUiUpdateListener( () => {
-    setDBPanelProps();
-  }, null);
   intface.addNodeRunReturnListener( (node) => {
     if (node.objFull.plotdata) {
       // remove previous elements with this id - in case this update is not the first
@@ -204,16 +191,43 @@ $(document).ready(() => {
     }
   }, null);
 
-  // why is this needed to get rid of the "self.draggable is null" error message?
-  intface.updateUi();
-
-  intface.loadGraphDef(); // this also updates the ui...
+  // user data controls
+  let lft = window.innerWidth - $("#divUserData").width();
+  $("#divUserData").css({ left: lft, });
+  $("#divUserData").draggable();
+  intface.addNodeSelectionListener( (node) => {
+    if (node) { setUserData(node.owner); }
+    else clearUserDataPanel();
+  }, null);
+  intface.addUiUpdateListener( () => {
+    if (intface.graphData.selectedNode) {
+      setUserData(intface.graphData.selectedNode.owner);
+    }
+  }, null);
+  /*
+  $("#nodeData").focus( () => { if ($("#nodeData").val() == "null") $("#nodeData").val(""); });
+  $("#nodeData").change( () => { if ($("#nodeData").val() == "") $("#nodeData").val("null");
+    intface.pushSelectedNodeData($("#nodeData").val());
+    // should be replaced by an "update data" listener interface
+    setUserData(intface.graphData.selectedNode.owner);
+  });
+  */
+  $("#tbxNodeLabel").change( () => {
+    intface.pushSelectedNodeLabel($("#tbxNodeLabel").val());
+    // TODO: update the code below, the call is a little too deep
+    //setUserData(intface.graphData.selectedNode.owner);
+  });
 
   // create node menu
   let menuCB = intface.setCreateNodeConf.bind(intface)
   menu = new NodeTypeMenu(menuCB, 'graph_menu_1', 'handles');
   menu = new NodeTypeMenu(menuCB, 'graph_menu_2', 'classes');
   menu = new NodeTypeMenu(menuCB, 'graph_menu_3', 'functions');
+
+  // load graph and run
+  // why is this needed to get rid of the "self.draggable is null" error message?
+  intface.updateUi();
+  intface.loadGraphDef(); // this also updates the ui...
 });
 </script>
 
