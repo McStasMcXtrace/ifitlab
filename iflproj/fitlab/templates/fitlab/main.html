@@ -97,11 +97,9 @@
 <div id="graph_menu_2" style="position:absolute;left:101px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_3" style="position:absolute;left:0px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 
-<div id="divUserData" style="position:absolute;"><fieldset>
-  <table id="tblUserData">
-    <tr><td colspan=2><input type="text" id="tbxNodeLabel"/></td></tr>
-    <tr><td colspan=2><label id="lblNodeIdName"></label></td></tr>
-    <tr><td>---</td></tr>
+<div id="divUserData" style="position:absolute;"><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
+  <table id="tblUserData" style="width:460px;">
+    <tr><td colspan=2><input type="text" id="tbxNodeLabel" style="width:440px;"/></td></tr>
   </table>
 </fieldset></div>
 
@@ -117,9 +115,8 @@
 
 <script>
 clearUserDataPanel = function() {
-  $("#lblNodeIdName").html("");
   $("#tbxNodeLabel").val("");
-  $("#lblNodeType").html("");
+  $("#lgndNodeIdNameTypeEtc").html("userdata");
   $(".dynamicProperty").remove();
 }
 setUserData = function(node) {
@@ -127,24 +124,35 @@ setUserData = function(node) {
 
   if (!node) return;
   $("#tbxNodeLabel").val(node.label);
-  $("#lblNodeIdName").html(node.id+" - "+node.type+"("+node.basetype+")");
+  $("#lgndNodeIdNameTypeEtc").html("id: "+node.id+"; type: "+node.type+"("+node.basetype+")");
 
-  // HERE BE HAX
-  // TODO: sort out what kind of data 'funcname' and 'litteral' is, and only use userdata for proper userdata
-
-  for (let key in node.userdata)
-  {
-    let rowid = "row_" + node.id + key.replace(/ /g, '_'); // some key strings have whitespaces in them...
+  // Why does "litteral" node type get special treatment?
+  // Because, it is currently the only way we have of entering actual JSON data into the graph environment...
+  if (node.basetype == "object_litteral") {
+    let rowid = "row_42"; // some key strings have whitespaces in them...
     $("#tblUserData tbody")
-      .append('<tr id="'+rowid+'" class="dynamicProperty"><td><label/></td><td><input type="text"/></td></tr>');
-    $("#"+rowid +" input")
-      .val(node.userdata[key])
+      .append('<tr id="'+rowid+'" class="dynamicProperty"><td><textarea rows="20" cols="64"></textarea></td></tr>');
+    $("#"+rowid +" textarea")
+      .val(JSON.stringify(node.userdata, null, 2))
       .change( () => {
-        node.userdata[key] = $("#"+rowid +" input").val();
-        intface.node_data(node.id, JSON.stringify(node.userdata));
+        intface.node_data(node.id, $("#"+rowid +" textarea").val());
       });
-    $("#"+rowid +" label")
-      .html(key+': ');
+  }
+  else {
+    for (let key in node.userdata)
+    {
+      let rowid = "row_" + node.id + key.replace(/ /g, '_'); // some key strings have whitespaces in them...
+      $("#tblUserData tbody")
+        .append('<tr id="'+rowid+'" class="dynamicProperty"><td><label/></td><td><input type="text"/></td></tr>');
+      $("#"+rowid +" input")
+        .val(node.userdata[key])
+        .change( () => {
+          node.userdata[key] = $("#"+rowid +" input").val();
+          intface.node_data(node.id, JSON.stringify(node.userdata));
+        });
+      $("#"+rowid +" label")
+        .html(key+': ');
+    }
   }
 }
 
