@@ -98,14 +98,14 @@ class FlatGraph:
         n = None
         node_tpe = basetypes[conf['basetype']]
         if node_tpe == ObjNode:
-            n = ObjNode(id, conf['data'])
+            n = ObjNode(id, None)
         elif node_tpe == ObjLitteralNode:
-            n = ObjLitteralNode(id, conf['data'])
+            n = ObjLitteralNode(id, None)
         elif node_tpe == FuncNode:
-            func = getattr(self.pmodule, conf['data'])
+            func = getattr(self.pmodule, conf['type'])
             n = FuncNode(id, func)
         elif node_tpe == MethodAsFunctionNode:
-            n = MethodAsFunctionNode(id, conf['data'])
+            n = MethodAsFunctionNode(id, conf['type'])
         elif node_tpe == MethodNode:
             raise Exception("MethodNode not supported")
         return n
@@ -310,7 +310,6 @@ class NodeConfig:
         self.ipars = []
         self.itypes = []
         self.otypes = []
-        self.data = None
         self.static = 'false' # denotes whether node's data must stay fixed after its construction
         self.executable= 'false' # can the frontend run the node
         self.edit = 'false' # can the user edit the data (undo-able)
@@ -324,7 +323,6 @@ class NodeConfig:
         for a in args:
             self.itypes.append('')
         self.otypes = ['']
-        self.data = funcname
         self.static = 'true'
         self.executable = 'false'
         self.edit = 'false'
@@ -339,7 +337,6 @@ class NodeConfig:
         self.otypes = ['']
         if 'return' in annotations:
             self.otypes = [annotations['return'].__name__]
-        self.data = funcname
         self.static = 'true'
         self.executable = 'false'
         self.edit = 'false'
@@ -355,8 +352,8 @@ class NodeConfig:
         self.edit = 'false'
 
     def make_litteral(self, branch):
-        self.type = 'Litteral'
-        self.address = '.'.join([branch, 'Litteral'])
+        self.type = 'litteral'
+        self.address = '.'.join([branch, 'litteral'])
         self.basetype = 'object_litteral'
         self.data = {}
         self.static = 'false'
@@ -400,7 +397,6 @@ class NodeConfig:
             ("ipars", self.ipars),
             ("itypes", self.itypes),
             ("otypes", self.otypes),
-            ("data", self.data),
             ("static", self.static),
             ("executable", self.executable),
             ("edit", self.edit),

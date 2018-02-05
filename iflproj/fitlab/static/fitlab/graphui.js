@@ -1380,7 +1380,7 @@ class Node {
     return this.gNode.label;
   }
   set label(value) {
-    if (value) this.gNode.label = value;
+    if (value || value=="") this.gNode.label = value;
   }
   static isAllConnected() {
     return this.gNode.isAllConnected();
@@ -1459,6 +1459,10 @@ class NodeFunctionNamed extends Node {
     let conn = this.gNode.getConnections();
     let subconn = conn.slice(0, this.idxF); // the pre-functional connections
     return subconn.indexOf(false) == -1;
+  }
+  isActive() {
+    // assumed to be associated with an underlying function object
+    return true;
   }
 }
 
@@ -1979,7 +1983,6 @@ class GraphInterface {
       let prevlbl = n.label;
       n.label = label;
       // check that the change was commited before continuing - or return null
-      if (n.label != label) return null
       this.updateUi();
       return [["node_label", id, label], ["node_label", id, prevlbl]];
     }
