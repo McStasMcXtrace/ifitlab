@@ -171,10 +171,10 @@ $(document).ready(() => {
   // construct graph engine and add listeners
   intface = new GraphInterface();
   intface.addNodeRunReturnListener( (node) => {
-    if (node.obj.plotdata) {
-      // remove previous elements with this id - in case this update is not the first
-      let x_y = removeSubWindow(node.id);
+    // remove previous elements with this id no matter what
+    let x_y = removeSubWindow(node.id);
 
+    if (node.obj.plotdata) {
       // create a subwindow now the coast is clear
       let xpos = node.gNode.x + 150;
       let ypos = node.gNode.y - 100;
@@ -208,21 +208,12 @@ $(document).ready(() => {
   }, null);
   intface.addUiUpdateListener( () => {
     if (intface.graphData.selectedNode) {
+      // TODO: update the code below, the call is a little too deep
       setUserData(intface.graphData.selectedNode.owner);
     }
   }, null);
-  /*
-  $("#nodeData").focus( () => { if ($("#nodeData").val() == "null") $("#nodeData").val(""); });
-  $("#nodeData").change( () => { if ($("#nodeData").val() == "") $("#nodeData").val("null");
-    intface.pushSelectedNodeData($("#nodeData").val());
-    // should be replaced by an "update data" listener interface
-    setUserData(intface.graphData.selectedNode.owner);
-  });
-  */
   $("#tbxNodeLabel").change( () => {
     intface.pushSelectedNodeLabel($("#tbxNodeLabel").val());
-    // TODO: update the code below, the call is a little too deep
-    //setUserData(intface.graphData.selectedNode.owner);
   });
 
   // create node menu
@@ -237,7 +228,4 @@ $(document).ready(() => {
   intface.loadGraphDef(); // this also updates the ui...
 });
 </script>
-
-
-
 </html>

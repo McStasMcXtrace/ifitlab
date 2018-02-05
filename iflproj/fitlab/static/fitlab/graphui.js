@@ -1343,9 +1343,6 @@ class Node {
 
     this.gNode = n;
   }
-  get plot() {
-    return this._obj.plotdata;
-  }
   get obj() {
     return this._obj;
   }
@@ -1361,26 +1358,10 @@ class Node {
     if (this._obj) return this._obj.userdata;
     return null;
   }
-  /*
-  get obj() {
-    if (this._obj == null) {
-      return null;
-    } else if (this._obj.userdata == null) {
-      return null;
-    }
-    return this._obj.userdata;
+  get plotdata() {
+    if (this._obj) return this._obj.plotdata;
+    return null;
   }
-  set obj(value) {
-    if (value === undefined) console.log("data set undefined");
-    if (value == null) {
-      this.objFull = null;
-    } else {
-      if (this._obj == null) this._obj = {};
-      this._obj.userdata = value;
-    }
-    this.onObjChange(value);
-  }
-  */
   onObjChange(obj) {
     //console.log("obj change detected: ", obj)
   }
@@ -1567,6 +1548,10 @@ class NodeIData extends NodeObject {
   }
   _getGNType() {
     return GraphicsNodeFluffyPad;
+  }
+  isActive() {
+    // assumed to be associated with an underlying function object
+    return this.plotdata && true;
   }
 }
 
@@ -1863,7 +1848,6 @@ class GraphInterface {
         selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
         ConnectionTruthMcWeb.updateNodeState(n.gNode);
         selfref.updateUi();
-
         selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
       function() {
