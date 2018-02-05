@@ -132,17 +132,16 @@ setUserData = function(node) {
   // HERE BE HAX
   // TODO: sort out what kind of data 'funcname' and 'litteral' is, and only use userdata for proper userdata
 
-  if (node.type != 'ifunc') return;
-  for (let key in node.obj)
+  for (let key in node.userdata)
   {
     let rowid = "row_" + node.id + key.replace(/ /g, '_'); // some key strings have whitespaces in them...
     $("#tblUserData tbody")
       .append('<tr id="'+rowid+'" class="dynamicProperty"><td><label/></td><td><input type="text"/></td></tr>');
     $("#"+rowid +" input")
-      .val(node.obj[key])
+      .val(node.userdata[key])
       .change( () => {
-        node.obj[key] = $("#"+rowid +" input").val();
-        intface.node_data(node.id, JSON.stringify(node.obj));
+        node.userdata[key] = $("#"+rowid +" input").val();
+        intface.node_data(node.id, JSON.stringify(node.userdata));
       });
     $("#"+rowid +" label")
       .html(key+': ');
@@ -164,7 +163,7 @@ $(document).ready(() => {
   // construct graph engine and add listeners
   intface = new GraphInterface();
   intface.addNodeRunReturnListener( (node) => {
-    if (node.objFull.plotdata) {
+    if (node.obj.plotdata) {
       // remove previous elements with this id - in case this update is not the first
       let x_y = removeSubWindow(node.id);
 
@@ -179,10 +178,10 @@ $(document).ready(() => {
 
       // plot into the subwindow
       let plotbranch = d3.select('#'+subwinid_containerid[0]).append("svg");
-      node.objFull.plotdata.title='';
-      node.objFull.plotdata.w=width;
-      node.objFull.plotdata.h = height;
-      plot_1d(node.objFull.plotdata, plotbranch);
+      node.obj.plotdata.title='';
+      node.obj.plotdata.w=width;
+      node.obj.plotdata.h = height;
+      plot_1d(node.obj.plotdata, plotbranch);
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {

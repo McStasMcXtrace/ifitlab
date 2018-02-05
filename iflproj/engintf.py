@@ -178,7 +178,7 @@ class FlatGraph:
 
         # assign / set
         if obj == None:
-            # clear functionality enabled by setting even userdata = null
+            # clear-functionality enabled by setting even userdata = null
             n.assign(None)
         elif type(n) is ObjLitteralNode:
             n.assign(obj)

@@ -1346,15 +1346,22 @@ class Node {
   get plot() {
     return this._obj.plotdata;
   }
-  get objFull() {
-    //console.log("get_objFull: ", this._obj);
+  get obj() {
     return this._obj;
   }
-  set objFull(value) {
+  set obj(value) {
     this._obj = value;
-    //console.log("set_objFull: ", this._obj);
     this.onObjChange(value);
   }
+  set userdata(value) {
+    if (this._obj == null) this._obj = {};
+    this._obj.userdata = value;
+  }
+  get userdata() {
+    if (this._obj) return this._obj.userdata;
+    return null;
+  }
+  /*
   get obj() {
     if (this._obj == null) {
       return null;
@@ -1373,6 +1380,7 @@ class Node {
     }
     this.onObjChange(value);
   }
+  */
   onObjChange(obj) {
     //console.log("obj change detected: ", obj)
   }
@@ -1395,7 +1403,7 @@ class Node {
     throw "abstract method call";
   }
   isActive() {
-    let val = this.objFull != null;
+    let val = this.obj != null;
     return val;
   }
   // order means itypes/otypes/itypesF/otypesF == 0/1/2/3
@@ -1571,6 +1579,9 @@ class NodeIFunc extends NodeObject {
   }
   _getGNType() {
     return GraphicsNodeCircularPad;
+  }
+  isActive()  {
+    return this.userdata != null
   }
 }
 
@@ -1769,7 +1780,7 @@ class GraphInterface {
     for (let key in this.nodes) {
       n = this.nodes[key];
       nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
-      if (n.basetype == 'object_litteral') datas[n.id] = btoa(JSON.stringify(n.obj));
+      if (n.basetype == 'object_litteral') datas[n.id] = btoa(JSON.stringify(n.obj.userdata));
 
       let elks = n.gNode.exitLinks;
       if (elks.length == 0) continue;
@@ -1846,10 +1857,9 @@ class GraphInterface {
     simpleajax('/ajax_run_node', post_data,
       function(msg) {
         selfref.lock = false; // js is single threaded and finished everything before moving on
-        let obj_full = JSON.parse(msg);
-        n.objFull = obj_full;
-        let obj_setable = obj_full.userdata;
-        selfref.node_data(id, JSON.stringify(obj_setable));
+        let obj = JSON.parse(msg);
+        selfref.node_data(id, JSON.stringify(obj.userdata));
+        n.obj = obj; // (re)set all data
         selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
         ConnectionTruthMcWeb.updateNodeState(n.gNode);
         selfref.updateUi();
@@ -1883,7 +1893,6 @@ class GraphInterface {
         id = this._getId(ConnectionTruthMcWeb._getPrefix(conf.basetype));
       }
       let n = ConnectionTruthMcWeb.createNodeObjectFromConf(conf, id, x, y);
-      n.obj = conf.data;
       this.nodes[id] = n;
 
       this.graphData.addNode(n.gNode);
@@ -1988,22 +1997,22 @@ class GraphInterface {
     }
     else if (command=="node_data") {
       if (!isString(args[1])) {
-        console.log(args);
         throw "arg[1] must be a string";
       }
 
       let id = args[0];
       let data_str = args[1];
       let n = this.nodes[id];
-      let prevdata_str = JSON.stringify(n.obj);
+      let prevdata_str = JSON.stringify(n.userdata);
 
       // apply data only if node is not static
       if (n.static == false) {
-        n.obj = JSON.parse(data_str);
+        n.userdata = JSON.parse(data_str);
         this.truth.updateNodeState(n.gNode);
         this.updateUi();
         return [["node_data", id, data_str], ["node_data", id, prevdata_str]];
       }
+      else console.log("node_data operation on static node")
       return null;
     }
     else throw "unknown command value";
