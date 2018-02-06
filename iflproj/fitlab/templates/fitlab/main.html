@@ -135,7 +135,9 @@ setUserData = function(node) {
     $("#"+rowid +" textarea")
       .val(JSON.stringify(node.userdata, null, 2))
       .change( () => {
-        intface.node_data(node.id, $("#"+rowid +" textarea").val());
+        let tarea = $("#"+rowid +" textarea");
+        if (tarea.val()=="") tarea.val("null");
+        intface.node_data(node.id, tarea.val());
       });
   }
   else {

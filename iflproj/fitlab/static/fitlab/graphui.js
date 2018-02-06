@@ -1353,6 +1353,7 @@ class Node {
   set userdata(value) {
     if (this._obj == null) this._obj = {};
     this._obj.userdata = value;
+    this.onUserDataChange(value);
   }
   get userdata() {
     if (this._obj) return this._obj.userdata;
@@ -1362,6 +1363,7 @@ class Node {
     if (this._obj) return this._obj.plotdata;
     return null;
   }
+  onUserDataChange(userdata) { }
   onObjChange(obj) {
     //console.log("obj change detected: ", obj)
   }
@@ -1522,9 +1524,12 @@ class NodeObjectLitteral extends Node {
       return conn[0];
     }
   }
+  onUserDataChange(userdata) {
+    this.onObjChange(userdata);
+  }
   // auto-set label
   onObjChange(obj) {
-    if (obj) {
+    if (obj || obj=="") {
       this.gNode.label = JSON.stringify(obj).substring(0, 5)
     }
     else {
