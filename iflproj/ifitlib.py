@@ -14,7 +14,8 @@ logging.basicConfig(level=logging.DEBUG)
 '''
 matlab interface instance global
 '''
-mintface = Matlab('ifit')
+mintface = Matlab()
+mintface.eval("addpath(genpath('/Users/pkwi/Projects/iFit-git/iFit'))")
 
 
 class IFitObject(ObjReprJson):
@@ -99,18 +100,21 @@ class IFunc(IFitObject):
         vn = self.varname()
         symb = self._modelsymbol()
         mintface.eval("%s = %s();" % (vn, symb))
-        mintface.eval('%s([]);' % vn) # this hack makes the symbol '.p' available in ifit on the ifunc object
+        mintface.eval('tmp=%s([]);' % vn) # this hack makes the symbol '.p' available in ifit on the ifunc object
 
     def get_repr(self):
         vn = self.varname()
 
         pkeys = mintface.get('%s.Parameters' % vn).tolist()
-        pvals = mintface.get('%s.p' % vn).tolist()
 
         params = {}
         for key in pkeys:
             idx = pkeys.index(key)
-            params[key] = pvals[idx]
+            key0 = key.split(' ')[0]
+            mintface.eval('tmp=%s.%s' % (vn, key0))
+            tmp = mintface.get('tmp')
+            print(tmp)
+            params[key] = tmp.tolist()
 
         retdct = self._get_full_repr_dict()
         retdct['userdata'] = params
