@@ -188,10 +188,13 @@ $(document).ready(() => {
 
       // plot into the subwindow
       let plotbranch = d3.select('#'+subwinid_containerid[0]).append("svg");
-      node.obj.plotdata.title='';
-      node.obj.plotdata.w=width;
-      node.obj.plotdata.h = height;
-      plot_1d(node.obj.plotdata, plotbranch);
+      let pltdata = node.obj.plotdata;
+      pltdata.title='';
+      pltdata.w = width;
+      pltdata.h = height;
+      console.log(JSON.stringify(pltdata));
+      if (pltdata.ndims == 1) plot_1d(pltdata, plotbranch);
+      if (pltdata.ndims == 2) plot_2d(pltdata, plotbranch);
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {

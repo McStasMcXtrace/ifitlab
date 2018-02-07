@@ -6,10 +6,10 @@ function plot_1d(params, svg_branch=null) {
     function(w, h, anchor) { _plot_1d_data(w, h, p['x'], p['y'], p['yerr'], anchor) });
 }
 // public plot 2d data
-function plot_2d(params) {
+function plot_2d(params, svg_branch=null) {
   var p = params
   _plot_labels(
-    p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], null,
+    p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch,
     function(w, h, anchor) { _plot_2d_data(w, h, p['xmin'], p['xmax'], p['ymin'], p['ymax'], p['img2dData'], p['imgColorbar'], p['cbMin'], p['cbMax'], anchor) });
 }
 
