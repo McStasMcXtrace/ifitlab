@@ -1,5 +1,9 @@
 '''
 iFit-interfaced library used as a base for generating ifitlab node types.
+
+Note on node type generation (engintf:
+1) any class or function whose name is listed in 'negatives' will be omitted
+2) any function or method marked as "non-public" by underscore prefix (e.g. _get_plot_1D) will be omitted.
 '''
 __author__ = "Jakob Garde"
 
@@ -13,37 +17,37 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy as np
 
 _eng = None
-def get_interface():
+def _get_interface():
     global _eng
     if not _eng:
         _eng = matlab.engine.start_matlab('-nodesktop -nosplash', async=False)
         _eng.eval("addpath(genpath('/home/jaga/source/REPO_ifit'))")
     return _eng
 
-negatives = ['get_interface', 'IFitObject', 'import2Dplottinglibs']
-
 class IFitObject(engintf.ObjReprJson):
     ''' implements a way to pass on the varnames between instances '''
-    def varname(self):
+    def _varname(self):
         return 'obj_%d' % id(self)
 
 class IData(IFitObject):
     def __init__(self, url: str):
         logging.debug("IData.__init__('%s')" % url)
-        self.eng = get_interface()
+        self.eng = _get_interface()
         self.url = url
-        varname = self.varname()
+        varname = self._varname()
         if url==None:
             '''
             NOTE: This branch (url==None) is to be used only programatically, as a "prepper" intermediary
-            state to get a varname from python, before assigning an actual ifit object, for example while
+            state to get a _varname from python, before assigning an actual ifit object, for example while
             executing (the python-side bookkeeping of) functions like fits or eval.
             '''
             pass
         else:
             self.eng.eval("%s = iData('%s')" % (varname, url), nargout=0)
             #self.eng.assign("%s" % vn, "iData('%s')" % url)
-            #self.eng.eval("%s = %s" % (varname, expression), nargout=0)
+            #self.eng.eval("%s = %s" % (_varname, expression), nargout=0)
+
+    def HAI(self):pass
 
     def _get_plot_1D(self, axisvals, signal, yerr, xlabel, ylabel, title):
         ''' returns the dict required by the svg 1d plotting function '''
@@ -143,7 +147,7 @@ class IData(IFitObject):
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         try:
-            varname = self.varname()
+            varname = self._varname()
             ndims = self.eng.eval('ndims(%s)' % varname)
             ndims = int(ndims)
             
@@ -159,31 +163,31 @@ class IData(IFitObject):
     
             # get signal
             if ndims == 1:
-                #xvals = np.array(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0]).astype(np.float)
+                #xvals = np.array(self.eng.eval('%s.%s' % (_varname, axes_names[0]) )[0]).astype(np.float)
                 xvals = list(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0])
                 axesvals.append(xvals)
                 
-                signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float)
+                signal = np.array(self.eng.eval('%s.Signal' % _varname, nargout=1)).astype(np.float)
                 signal = np.reshape(signal, (1, len(signal)))[0].tolist()
-                error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float)
+                error = np.array(self.eng.eval('%s.Error' % _varname, nargout=1)).astype(np.float)
                 error = np.reshape(error, (1, len(error)))[0].tolist()
                 
                 # TODO: what about monitor?
-                #monitor = np.array(self.eng.eval('%s.Monitor' % varname, nargout=1))
+                #monitor = np.array(self.eng.eval('%s.Monitor' % _varname, nargout=1))
                 #monitor = np.reshape(monitor, (1, len(monitor)))[0]
                 #monitor = None
                 
-                pltdct = self._get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self.varname())
+                pltdct = self._get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self._varname())
             elif ndims == 2:
                 xvals = list(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0])
                 yvals = list(self.eng.eval('%s.%s' % (varname, axes_names[1]) )[0])
                 axesvals.append(xvals)
                 axesvals.append(yvals)
 
-                signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float).tolist()
-                error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float).tolist()
+                signal = np.array(self.eng.eval('%s.Signal' % _varname, nargout=1)).astype(np.float).tolist()
+                error = np.array(self.eng.eval('%s.Error' % _varname, nargout=1)).astype(np.float).tolist()
                 
-                pltdct = self._get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=self.varname())
+                pltdct = self._get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=self._varname())
             else:
                 for i in range(ndims):
                     ivals = list(self.eng.eval('%s.%s' % (varname, axes_names[i]) )[0])
@@ -205,7 +209,7 @@ class IData(IFitObject):
         return retdct
 
     def __exit__(self, exc_type, exc_value, traceback):
-        cmd = "clear %s;" % self.varname()
+        cmd = "clear %s;" % self._varname()
         #logging.debug("running ifit command: %s" % cmd)
         self.eng.eval(cmd)
 
@@ -216,14 +220,14 @@ class IFunc(IFitObject):
     def __init__(self):
         logging.debug("%s.__init__" % str(type(self)))
         
-        self.eng = get_interface()
-        vn = self.varname()
+        self.eng = _get_interface()
+        vn = self._varname()
         symb = self._modelsymbol()
         self.eng.eval("%s = %s();" % (vn, symb))
         self.eng.eval('tmp=%s([]);' % vn) # this hack makes the symbol '.p' available in ifit on the ifunc object
 
     def get_repr(self):
-        vn = self.varname()
+        vn = self._varname()
 
         pkeys = self.eng.get('%s.Parameters' % vn).tolist()
 
@@ -242,7 +246,7 @@ class IFunc(IFitObject):
 
     def set_user_data(self, json_obj):
         # this would be the 'userdata' branch ...
-        vn = self.varname()
+        vn = self._varname()
         params = self.eng.get('%s.Parameters' % vn).tolist()
 
         for key in params:
@@ -258,7 +262,7 @@ class IFunc(IFitObject):
         pass
 
     def __exit__(self, exc_type, exc_value, traceback):
-        cmd = "clear %s;" % self.varname()
+        cmd = "clear %s;" % self._varname()
         #logging.debug("running ifit command: %s" % cmd)
         self.eng.eval(cmd)
 
@@ -281,46 +285,46 @@ IFunc operators: Take two or more ifunc objects and combine them into a third. (
 # TODO: add typehints
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("add: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a.varname()
-    vn2 = ifunc_b.varname()
+    vn1 = ifunc_a._varname()
+    vn2 = ifunc_b._varname()
     obj = IFunc()
-    vn_new = obj.varname()
-    get_interface().eval('%s = %s + %s;' % (vn_new, vn1, vn2))
+    vn_new = obj._varname()
+    _get_interface().eval('%s = %s + %s;' % (vn_new, vn1, vn2))
     return obj
 
 def subtr(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("subtr: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a.varname()
-    vn2 = ifunc_b.varname()
+    vn1 = ifunc_a._varname()
+    vn2 = ifunc_b._varname()
     obj = IFunc()
-    vn_new = obj.varname()
-    get_interface().eval('%s = %s - %s;' % (vn_new, vn1, vn2))
+    vn_new = obj._varname()
+    _get_interface().eval('%s = %s - %s;' % (vn_new, vn1, vn2))
     return obj
 
 def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("mult: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a.varname()
-    vn2 = ifunc_b.varname()
+    vn1 = ifunc_a._varname()
+    vn2 = ifunc_b._varname()
     obj = IFunc()
-    vn_new = obj.varname()
-    get_interface().eval('%s = %s * %s;' % (vn_new, vn1, vn2))
+    vn_new = obj._varname()
+    _get_interface().eval('%s = %s * %s;' % (vn_new, vn1, vn2))
     return obj
 
 def div(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("div: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a.varname()
-    vn2 = ifunc_b.varname()
+    vn1 = ifunc_a._varname()
+    vn2 = ifunc_b._varname()
     obj = IFunc()
-    vn_new = obj.varname()
-    get_interface().eval('%s = %s / %s;' % (vn_new, vn1, vn2))
+    vn_new = obj._varname()
+    _get_interface().eval('%s = %s / %s;' % (vn_new, vn1, vn2))
     return obj
 
 def trapz(ifunc: IFunc) -> IFunc:
     logging.debug("trapz: %s" % ifunc)
-    vn_old = ifunc.varname()
+    vn_old = ifunc._varname()
     obj = IFunc()
-    vn_new = obj.varname()
-    get_interface().eval('%s = trapz(%s)' % (vn_new, vn_old))
+    vn_new = obj._varname()
+    _get_interface().eval('%s = trapz(%s)' % (vn_new, vn_old))
     return obj
 
 '''
@@ -330,23 +334,23 @@ ifit functions
 def eval(idata: IData, ifunc: IFunc) -> IData:
     ''' IData, IFunc -> IData  '''
     logging.debug("eval: %s, %s" % (idata, ifunc))
-    vn_olddata = idata.varname()
-    vn_func = ifunc.varname()
+    vn_olddata = idata._varname()
+    vn_func = ifunc._varname()
     retobj = IData(None)
-    vn_newdata = retobj.varname()
+    vn_newdata = retobj._varname()
     # TODO: find a way to clone idata objects
     #mintface.eval('%s = copyobj(%s)(%s);' % (vn_newdata, vn_olddata, vn_func))
-    get_interface().eval('%s = %s(%s);' % (vn_newdata, vn_olddata, vn_func))
+    _get_interface().eval('%s = %s(%s);' % (vn_newdata, vn_olddata, vn_func))
     return retobj
 
 def fit(idata: IData, ifunc: IFunc) -> IFunc:
     ''' IData, IFunc -> IFunc '''
     logging.debug("fit: %s, %s" % (idata, ifunc))
-    vn_oldfunc = ifunc.varname()
-    vn_data = idata.varname()
+    vn_oldfunc = ifunc._varname()
+    vn_data = idata._varname()
     retobj = IFunc()
-    vn_newfunc = retobj.varname()
-    eng = get_interface()
+    vn_newfunc = retobj._varname()
+    eng = _get_interface()
     eng.eval('[p, c, m, o_%s] = fits(%s, copyobj(%s));' % (vn_newfunc, vn_data, vn_oldfunc))
     eng.eval('%s = o_%s.model;' % (vn_newfunc, vn_newfunc))
     eng.eval('clear o_%s;' % vn_newfunc)

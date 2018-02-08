@@ -1,6 +1,7 @@
 '''
 Nodespeak extension using a single root node and one layer of sub-nodes.
 '''
+from numpy.f2py.auxfuncs import isprivate
 __author__ = "Jakob Garde"
 
 import inspect
@@ -84,7 +85,7 @@ class ObjReprJson:
 '''
 Id- and type based graph manipulation interface.
 
-WARNING: "id" here is what nodespeak means by "name"
+NOTE: "id" is called "name" in the nodespeak module
 '''
 class FlatGraph:
     def __init__(self, tpe_tree, pmodule):
@@ -247,33 +248,6 @@ basetypes = {
 Nodeconf generation section
 '''
 
-def get_module_classes_and_functions(podule):
-    ''' investigates a module (pmodule) and returns all classes, class functions and functions '''
-    classes = []
-    functions = []
-
-    inspect.getmembers(podule)
-    for modmem in inspect.getmembers(podule):
-        # get classes
-        if inspect.isclass(modmem[1]):
-            cls = {}
-            cls['class'] = modmem[1]
-            cls['methods'] = []
-            methods = cls['methods']
-            # get methods (which are typed as functions when on a class object, rather than an instantiated)
-            for m in inspect.getmembers(modmem[1], None):
-                obj = m[1]
-                if inspect.isfunction(obj):
-                    if not re.match('_', obj.__name__):
-                        methods.append(obj)
-            classes.append(cls)
-        # get functions
-        elif inspect.isfunction(modmem[1]):
-            fct = modmem[1]
-            functions.append(fct)
-
-    return classes, functions
-
 def save_nodetypes_js(mypath, tree, addrss):
     text_addrss = 'var nodeAddresses = ' + json.dumps(addrss, indent=2) + ';\n\n'
     text = 'var nodeTypes = ' + json.dumps(tree.root, indent=2) + ';\n\n'
@@ -316,11 +290,11 @@ class NodeConfig:
         self.name = ''
         self.label = ''
 
-    def make_function_like(self, address, funcname, args):
+    def make_function_like(self, address, funcname, ipars, itypes=None):
         self.type = funcname
         self.address = address
-        self.ipars = args
-        for a in args:
+        self.ipars = ipars
+        for a in ipars:
             self.itypes.append('')
         self.otypes = ['']
         self.static = 'true'
@@ -333,7 +307,7 @@ class NodeConfig:
         self.type = funcname
         self.address = address
         self.ipars = args
-        self.itypes = [annotations[a].__name__ for a in args]
+        self.itypes = [annotations[a].__name__ for a in args if annotations.get(a, None)]
         self.otypes = ['']
         if 'return' in annotations:
             self.otypes = [annotations['return'].__name__]
@@ -342,6 +316,20 @@ class NodeConfig:
         self.edit = 'false'
         self.name = funcname
         self.label = funcname[0:5]
+
+    def make_method_like_wtypehints(self, address, methodname, args, annotations, clsobj):
+        self.type = methodname
+        self.address = address
+        self.ipars = args
+        annotations['self'] = clsobj
+        self.itypes = [annotations[a].__name__ for a in args if annotations.get(a, None)]
+        if 'return' in annotations:
+            self.otypes = [annotations['return'].__name__]
+        self.static = 'true'
+        self.executable = 'false'
+        self.edit = 'false'
+        self.name = methodname
+        self.label = methodname[0:5]
 
     def make_object(self, branch):
         self.type = 'obj'
@@ -444,8 +432,6 @@ def ctypeconf_tree_ifit(classes, functions):
     for entry in classes:
         # get class object
         cls = entry['class']
-        if cls.__name__ in ['ObjReprJson', 'IFitObject', 'Matlab']:
-            continue
 
         # create constructor node types
         argspec = inspect.getfullargspec(cls.__init__)
@@ -454,6 +440,7 @@ def ctypeconf_tree_ifit(classes, functions):
 
         # we know the output type for constructors...
         conf.otypes[0] = cls.__name__
+
         # HERE BE HAX
         if cls.__name__ in ['Gauss', 'Lorentz', 'Const', 'Lin']:
             conf.otypes[0] = 'IFunc'
@@ -465,12 +452,14 @@ def ctypeconf_tree_ifit(classes, functions):
         # create method node types
         methods = entry['methods']
         for m in methods:
-            if m.__name__ in ['get_repr', 'set_user_data', 'varname', 'inject_ifit_data']:
-                continue
-
             argspec = inspect.getfullargspec(m)
             conf = NodeConfig()
-            conf.make_function_like(address='classes.%s.%s' % (cls.__name__, m.__name__), funcname=m.__name__, args=argspec.args)
+            conf.make_method_like_wtypehints(
+                address='classes.%s.%s' % (cls.__name__, m.__name__),
+                methodname=m.__name__,
+                args=argspec.args,
+                annotations=argspec.annotations,
+                clsobj=cls)
             conf.basetype = "method_as_function"
             tree.put('classes.' + cls.__name__, conf.get_repr(), get_key)
             addrss.append(conf.address)
@@ -486,54 +475,56 @@ def ctypeconf_tree_ifit(classes, functions):
 
     return tree, addrss
 
-def ctypeconf_tree_simple(classes, functions):
-    ''' creates complete "flatext" conf types json file from a python module and some defaults '''
-    tree = TreeJsonAddr()
-    addrss = [] # currently lacking an iterator, we save all adresses to allow iterative access to the tree
-    def get_key(conf):
-        return conf['type']
+def get_nodetype_candidates(pymodule):
+    '''
+    Investigate a module and return classes, class methods and functions under the following conditions:
+    
+    1) If a class or method, it is not pre-fixed by an underscore '_'
+    2) If a method, it is not inherited from a class in the local variable 'excepted_classes'
+    '''
+    classes = []
+    functions = []
+    
+    # this is the only place to add exceptions
+    excepted_classes = [ObjReprJson]
 
-    # create default conf types
-    obj = NodeConfig()
-    obj.make_object()
-    tree.put('', obj.get_repr(), get_key)
-    addrss.append(obj.address)
-    pars = NodeConfig()
-    pars.make_litteral()
-    tree.put('', pars.get_repr(), get_key)
-    addrss.append(pars.address)
+    inspect.getmembers(pymodule)
+    for member in inspect.getmembers(pymodule):
+        # get classes
+        if inspect.isclass(member[1]):
+            clsobj = member[1]
+            # rather few and stable exceptions
+            if clsobj.__name__ in (excepted_classes):
+                continue
+            
+            clsrecord = {}
+            clsrecord['class'] = clsobj
+            clsrecord['methods'] = []
+            
+            # get class methods
+            # sort out exceptions for method names
+            emn = []
+            for exccls in excepted_classes:
+                if issubclass(clsobj, exccls):
+                    emn = emn + [m[0] for m in inspect.getmembers(exccls)]
+            # iterate
+            for m in inspect.getmembers(clsobj, None):
+                obj = m[1]
+                if inspect.isfunction(obj):
+                    
+                    isprivatemethod = re.match('_', obj.__name__)
+                    isexceptedmethod = obj.__name__ in emn
+                    
+                    # record only public methods, where "non-public" are prefixed with an underscore
+                    if not isprivatemethod and not isexceptedmethod:
+                        clsrecord['methods'].append(obj)
+            classes.append(clsrecord)
 
-    # create types from a the give classes and functions
-    for entry in classes:
-        cls = entry['class']
+        # get functions
+        elif inspect.isfunction(member[1]):
+            fct = member[1]
+            isprivatefunction = re.match('_', fct.__name__)
+            if not isprivatefunction:
+                functions.append(fct)
 
-        # create constructor node types
-        argspec = inspect.getargspec(cls.__init__)
-        conf = NodeConfig()
-        conf.make_function_like(cls.__name__, cls.__name__, argspec.args[1:]) # omit the "self" arg, which is not used in the constructor...
-        # we know this output type
-        conf.otypes[0] = cls.__name__
-        conf.basetype = 'function_named'
-        tree.put('', conf.get_repr(), get_key)
-        addrss.append(conf.address)
-
-        # create method node types
-        methods = entry['methods']
-        for m in methods:
-            argspec = inspect.getargspec(m)
-            conf = NodeConfig()
-            conf.make_function_like(address='%s.%s' % (cls.__name__, m.__name__), funcname=m.__name__, args=argspec.args)
-            conf.basetype = "method_as_function"
-            tree.put(cls.__name__, conf.get_repr(), get_key)
-            addrss.append(conf.address)
-
-    for f in functions:
-        # create function node types
-        argspec = inspect.getargspec(f)
-        conf = NodeConfig()
-        conf.make_function_like(f.__name__, f.__name__, argspec.args)
-        conf.basetype = 'function_named'
-        tree.put('', conf.get_repr(), get_key)
-        addrss.append(conf.address)
-
-    return tree, addrss
+    return classes, functions

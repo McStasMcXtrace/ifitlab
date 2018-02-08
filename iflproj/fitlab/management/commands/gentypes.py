@@ -21,7 +21,7 @@ class Command(BaseCommand):
 
         mdl = importlib.import_module(options["python_module"][0], options["python_package"][0])
 
-        clss, fcts = engintf.get_module_classes_and_functions(mdl)
+        clss, fcts = engintf.get_nodetype_candidates(mdl)
         tree, addrss = engintf.ctypeconf_tree_ifit(clss, fcts)
 
         engintf.save_nodetypes_js('fitlab/static/fitlab', tree, addrss)
