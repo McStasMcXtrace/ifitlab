@@ -1770,7 +1770,7 @@ class GraphInterface {
     for (let key in this.nodes) {
       n = this.nodes[key];
       nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
-      if (n.basetype == 'object_litteral') datas[n.id] = btoa(JSON.stringify(n.obj.userdata));
+      if (n.basetype == 'object_litteral') datas[n.id] = btoa(JSON.stringify(n.userdata));
 
       let elks = n.gNode.exitLinks;
       if (elks.length == 0) continue;
