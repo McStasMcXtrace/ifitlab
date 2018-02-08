@@ -52,8 +52,6 @@ class IData(_IFitObject):
             pass
         else:
             self.eng.eval("%s = iData('%s')" % (varname, url), nargout=0)
-            #self.eng.assign("%s" % vn, "iData('%s')" % url)
-            #self.eng.eval("%s = %s" % (varname, expression), nargout=0)
 
     def _get_plot_1D(self, axisvals, signal, yerr, xlabel, ylabel, title):
         ''' returns the dict required by the svg 1d plotting function '''
@@ -229,22 +227,19 @@ class IFunc(_IFitObject):
         self.eng = _get_interface()
         vn = self._varname()
         symb = self._modelsymbol()
-        self.eng.eval("%s = %s();" % (vn, symb))
-        self.eng.eval('tmp=%s([]);' % vn) # this hack makes the symbol '.p' available in ifit on the ifunc object
+        self.eng.eval("%s = %s()" % (vn, symb), nargout=0)
+        self.eng.eval('[signal, %s, axes, name] = feval(%s)' % (vn, vn), nargout=0) # this hack makes the symbol '.p' available in ifit on the ifunc object
 
     def get_repr(self):
         vn = self._varname()
 
-        pkeys = self.eng.get('%s.Parameters' % vn).tolist()
+        pkeys = self.eng.eval('%s.Parameters' % vn, nargout=1)
 
         params = {}
         for key in pkeys:
             idx = pkeys.index(key)
             key0 = key.split(' ')[0]
-            self.eng.eval('tmp=%s.%s' % (vn, key0))
-            tmp = self.eng.get('tmp')
-            print(tmp)
-            params[key] = tmp.tolist()
+            params[key] = self.eng.eval('%s.%s' % (vn, key0), nargout=1)
 
         retdct = self._get_full_repr_dict()
         retdct['userdata'] = params
@@ -253,19 +248,19 @@ class IFunc(_IFitObject):
     def set_user_data(self, json_obj):
         # this would be the 'userdata' branch ...
         vn = self._varname()
-        params = self.eng.get('%s.Parameters' % vn).tolist()
+        params = self.eng.eval('%s.Parameters' % vn)
 
         for key in params:
             # some keys contain whitespaces, and can not be used as "struct properties" in matlab
             try:
                 val = json_obj[key]
-                self.eng.eval('p_%s.%s = %s;' % (vn, key, val))
+                key0 = key.split(' ')[0]
+                self.eng.eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
             except:
                 print('IFunc.set_user_data: set failed for param "%s" to val "%s"' % (key, val))
                 continue
-        self.eng.eval('%s(p_%s);' % (vn, vn))
-        self.eng.eval('clear p_%s;' % vn)
-        pass
+        self.eng.eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
+        self.eng.eval('clear p_%s' % vn, nargout=0)
 
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self._varname()
