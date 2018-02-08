@@ -167,20 +167,14 @@ class IData(_IFitObject):
     
             # get signal
             if ndims == 1:
-                #xvals = np.array(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0]).astype(np.float)
                 xvals = list(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0])
                 axesvals.append(xvals)
-                
+
                 signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float)
                 signal = np.reshape(signal, (1, len(signal)))[0].tolist()
                 error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float)
                 error = np.reshape(error, (1, len(error)))[0].tolist()
-                
-                # TODO: what about monitor?
-                #monitor = np.array(self.eng.eval('%s.Monitor' % _varname, nargout=1))
-                #monitor = np.reshape(monitor, (1, len(monitor)))[0]
-                #monitor = None
-                
+
                 pltdct = self._get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self._varname())
             elif ndims == 2:
                 xvals = list(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0])
@@ -214,7 +208,6 @@ class IData(_IFitObject):
 
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self._varname()
-        #logging.debug("running ifit command: %s" % cmd)
         self.eng.eval(cmd)
 
 class IFunc(_IFitObject):
@@ -228,7 +221,7 @@ class IFunc(_IFitObject):
         vn = self._varname()
         symb = self._modelsymbol()
         self.eng.eval("%s = %s()" % (vn, symb), nargout=0)
-        self.eng.eval('[signal, %s, axes, name] = feval(%s)' % (vn, vn), nargout=0) # this hack makes the symbol '.p' available in ifit on the ifunc object
+        self.eng.eval('[signal, %s, axes, name] = feval(%s)' % (vn, vn), nargout=0) # trigger internal pvals guess
 
     def get_repr(self):
         vn = self._varname()
@@ -246,12 +239,10 @@ class IFunc(_IFitObject):
         return retdct
 
     def set_user_data(self, json_obj):
-        # this would be the 'userdata' branch ...
         vn = self._varname()
         params = self.eng.eval('%s.Parameters' % vn)
 
         for key in params:
-            # some keys contain whitespaces, and can not be used as "struct properties" in matlab
             try:
                 val = json_obj[key]
                 key0 = key.split(' ')[0]
@@ -264,7 +255,6 @@ class IFunc(_IFitObject):
 
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self._varname()
-        #logging.debug("running ifit command: %s" % cmd)
         self.eng.eval(cmd)
 
 class Gauss(IFunc):
