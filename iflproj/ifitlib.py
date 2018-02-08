@@ -46,14 +46,14 @@ class IData(_IFitObject):
         if url==None:
             '''
             NOTE: This branch (url==None) is to be used only programatically, as a "prepper" intermediary
-            state to get a _varname from python, before assigning an actual ifit object, for example while
+            state to get a varname from python, before assigning an actual ifit object, for example while
             executing (the python-side bookkeeping of) functions like fits or eval.
             '''
             pass
         else:
             self.eng.eval("%s = iData('%s')" % (varname, url), nargout=0)
             #self.eng.assign("%s" % vn, "iData('%s')" % url)
-            #self.eng.eval("%s = %s" % (_varname, expression), nargout=0)
+            #self.eng.eval("%s = %s" % (varname, expression), nargout=0)
 
     def _get_plot_1D(self, axisvals, signal, yerr, xlabel, ylabel, title):
         ''' returns the dict required by the svg 1d plotting function '''
@@ -169,13 +169,13 @@ class IData(_IFitObject):
     
             # get signal
             if ndims == 1:
-                #xvals = np.array(self.eng.eval('%s.%s' % (_varname, axes_names[0]) )[0]).astype(np.float)
+                #xvals = np.array(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0]).astype(np.float)
                 xvals = list(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0])
                 axesvals.append(xvals)
                 
-                signal = np.array(self.eng.eval('%s.Signal' % _varname, nargout=1)).astype(np.float)
+                signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float)
                 signal = np.reshape(signal, (1, len(signal)))[0].tolist()
-                error = np.array(self.eng.eval('%s.Error' % _varname, nargout=1)).astype(np.float)
+                error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float)
                 error = np.reshape(error, (1, len(error)))[0].tolist()
                 
                 # TODO: what about monitor?
@@ -190,8 +190,8 @@ class IData(_IFitObject):
                 axesvals.append(xvals)
                 axesvals.append(yvals)
 
-                signal = np.array(self.eng.eval('%s.Signal' % _varname, nargout=1)).astype(np.float).tolist()
-                error = np.array(self.eng.eval('%s.Error' % _varname, nargout=1)).astype(np.float).tolist()
+                signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float).tolist()
+                error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float).tolist()
                 
                 pltdct = self._get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=self._varname())
             else:
