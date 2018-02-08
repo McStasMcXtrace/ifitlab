@@ -504,7 +504,7 @@ def execute_node(node):
             result = None
             if root: root.assign(result)
         elif len(tree) == 1:
-            result = tree[0]
+            result = tree[0].get_object()
             if root: root.assign(result)
         else:
             func = tree[0]
