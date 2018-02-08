@@ -79,16 +79,13 @@ class IData(_IFitObject):
             # the below should be better, but there are still some strange artefacts in the generated image
             #return np.add(cm[f], (xp-f)*(np.subtract(cm[c], cm[f])) ).astype(np.ubyte)
             return cm[np.int(np.round(xp))]
-
-        def get_cm():
-            return np.array([[  0,   0, 143, 255], [  0,   0, 159, 255], [  0,   0, 175, 255], [  0,   0, 191, 255], [  0,   0, 207, 255], [  0,   0, 223, 255], [  0,   0, 239, 255], [  0,   0, 255, 255], [  0,  16, 255, 255], [  0,  32, 255, 255], [  0,  48, 255, 255], [  0,  64, 255, 255], [  0,  80, 255, 255], [  0,  96, 255, 255], [  0, 112, 255, 255], [  0, 128, 255, 255], [  0, 143, 255, 255], [  0, 159, 255, 255], [  0, 175, 255, 255], [  0, 191, 255, 255], [  0, 207, 255, 255], [  0, 223, 255, 255], [  0, 239, 255, 255], [  0, 255, 255, 255], [ 16, 255, 239, 255], [ 32, 255, 223, 255], [ 48, 255, 207, 255], [ 64, 255, 191, 255], [ 80, 255, 175, 255], [ 96, 255, 159, 255], [112, 255, 143, 255], [128, 255, 128, 255], [143, 255, 112, 255], [159, 255,  96, 255], [175, 255,  80, 255], [191, 255,  64, 255], [207, 255,  48, 255], [223, 255,  32, 255], [239, 255,  16, 255], [255, 255,   0, 255], [255, 239,   0, 255], [255, 223,   0, 255], [255, 207,   0, 255], [255, 191,   0, 255], [255, 175,   0, 255], [255, 159,   0, 255], [255, 143,   0, 255], [255, 128,   0, 255], [255, 112,   0, 255], [255,  96,   0, 255], [255,  80,   0, 255], [255,  64,   0, 255], [255,  48,   0, 255], [255,  32,   0, 255], [255,  16,   0, 255], [255,   0,   0, 255], [239,   0,   0, 255], [223,   0,   0, 255], [207,   0,   0, 255], [191,   0,   0, 255], [175,   0,   0, 255], [159,   0,   0, 255], [143,   0,   0, 255], [128,   0,   0, 255]], dtype=np.ubyte)
         
         dims = np.shape(signal)
         
         # create the 2d data as a png given our colormap
         img = np.zeros((dims[0], dims[1], 4))
         maxval = np.max(signal)
-        cm = get_cm()
+        cm = np.array([[0,0,143,255], [0,0,159,255], [0,0,175,255], [0,0,191,255], [0,0,207,255], [0,0,223,255], [0,0,239,255], [0,0,255,255], [0,16,255,255], [0,32,255,255], [0,48,255,255], [0,64,255,255], [0,80,255,255], [0,96,255,255], [0,112,255,255], [0,128,255,255], [0,143,255,255], [0,159,255,255], [0,175,255,255], [0,191,255,255], [0,207,255,255], [0,223,255,255], [0,239,255,255], [0,255,255,255], [16,255,239,255], [32,255,223,255], [48,55,207,255], [64,255,191,255], [80,255,175,255], [96,255,159,255], [112,255,143,255], [128,255,128,255], [143,255,112,255], [159,255,96,255], [175,255,80,255], [191,255,64,255], [207,255,48,255], [223,255,32,255], [239,255,16,255], [255,255,0,255], [255,239,0,255], [255,223,0,255], [255,207,0,255], [255,191,0,255], [255,175,0,255], [255,159,0,255], [255,143,0,255], [255,128,0,255], [255, 112,0, 255], [255,96,0, 255], [255,80,0, 255], [255,64,0, 255], [255,48,0, 255], [255,32,0, 255], [255,16,0, 255], [255,0,0, 255], [239,0,0, 255], [223,0,0, 255], [207,0,0, 255], [191,0,0, 255], [175,0,0, 255], [159,0,0, 255], [143,0,0, 255], [128,0,0, 255]], dtype=np.ubyte)
         for i in range(dims[0]):
             for j in range(dims[1]):
                 color = lookup(cm, signal[i][j]/maxval)
@@ -167,13 +164,22 @@ class IData(_IFitObject):
     
             # get signal
             if ndims == 1:
-                xvals = list(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0])
+                xvals = self.eng.eval('%s.%s' % (varname, axes_names[0]))
+                if len(xvals)==1:
+                    try:
+                        xvals = xvals[0]
+                    except:
+                        pass
+                xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
                 axesvals.append(xvals)
 
                 signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float)
                 signal = np.reshape(signal, (1, len(signal)))[0].tolist()
-                error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float)
-                error = np.reshape(error, (1, len(error)))[0].tolist()
+                try:
+                    error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float)
+                    error = np.reshape(error, (1, len(error)))[0].tolist()
+                except:
+                    error = np.sqrt(signal).tolist()
 
                 pltdct = self._get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self._varname())
             elif ndims == 2:
@@ -216,7 +222,6 @@ class IFunc(_IFitObject):
 
     def __init__(self):
         logging.debug("%s.__init__" % str(type(self)))
-        
         self.eng = _get_interface()
         vn = self._varname()
         symb = self._modelsymbol()
@@ -225,9 +230,7 @@ class IFunc(_IFitObject):
 
     def get_repr(self):
         vn = self._varname()
-
         pkeys = self.eng.eval('%s.Parameters' % vn, nargout=1)
-
         params = {}
         for key in pkeys:
             idx = pkeys.index(key)
@@ -241,7 +244,6 @@ class IFunc(_IFitObject):
     def set_user_data(self, json_obj):
         vn = self._varname()
         params = self.eng.eval('%s.Parameters' % vn)
-
         for key in params:
             try:
                 val = json_obj[key]
@@ -280,9 +282,8 @@ class Lin(IFunc):
 
 
 '''
-IFunc operators: Take two or more ifunc objects and combine them into a third. (These are actually functions.)
+ifunc combination functions / operators
 '''
-# TODO: add typehints
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("add: %s, %s" % (ifunc_a, ifunc_b))
     vn1 = ifunc_a._varname()
@@ -330,29 +331,25 @@ def trapz(ifunc: IFunc) -> IFunc:
 '''
 ifit functions
 '''
-# TODO: add typehints
-def eval(idata: IData, ifunc: IFunc) -> IData:
-    ''' IData, IFunc -> IData  '''
+def eval(idata: IData, ifunc: IFunc):
     logging.debug("eval: %s, %s" % (idata, ifunc))
-    vn_olddata = idata._varname()
-    vn_func = ifunc._varname()
     retobj = IData(None)
-    vn_newdata = retobj._varname()
-    # TODO: find a way to clone idata objects
-    #mintface.eval('%s = copyobj(%s)(%s);' % (vn_newdata, vn_olddata, vn_func))
-    _get_interface().eval('%s = %s(%s);' % (vn_newdata, vn_olddata, vn_func))
+    # TODO: can we properly clone idata objects? For example, error disappears by doing it like this
+    
+    eng = _get_interface()
+    eng.eval('%s = %s(%s);' % (retobj._varname(), idata._varname(), ifunc._varname()), nargout=0)
+    
     return retobj
 
 def fit(idata: IData, ifunc: IFunc) -> IFunc:
-    ''' IData, IFunc -> IFunc '''
     logging.debug("fit: %s, %s" % (idata, ifunc))
     vn_oldfunc = ifunc._varname()
     vn_data = idata._varname()
     retobj = IFunc()
     vn_newfunc = retobj._varname()
     eng = _get_interface()
-    eng.eval('[p, c, m, o_%s] = fits(%s, copyobj(%s));' % (vn_newfunc, vn_data, vn_oldfunc))
-    eng.eval('%s = o_%s.model;' % (vn_newfunc, vn_newfunc))
-    eng.eval('clear o_%s;' % vn_newfunc)
+    eng.eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    eng.eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
+    eng.eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
 
