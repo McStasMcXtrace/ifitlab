@@ -1,5 +1,11 @@
 '''
 Nodespeak extension using a single root node and one layer of sub-nodes.
+
+Notes on node type generation:
+1) any class, function or method can be is flagged as "non-public" by an underscore prefix in 
+its name - e.g. _get_plot_1D - will be omitted.
+2) any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
+whereby its constructor node will output that type name
 '''
 from numpy.f2py.auxfuncs import isprivate
 __author__ = "Jakob Garde"
@@ -66,6 +72,9 @@ class ObjReprJson:
     '''
     to serialize objects to the fron-end, requires a js readable like json
     '''
+    @staticmethod
+    def non_polymorphic_typename():
+        return 'ObjReprJson'
     def _get_full_repr_dict(self):
         ''' people can overload get_repr without having to call super, but just get the standard dict format from this method '''
         ans = OrderedDict()
@@ -438,12 +447,12 @@ def ctypeconf_tree_ifit(classes, functions):
         conf = NodeConfig()
         conf.make_function_like_wtypehints('classes.' + cls.__name__, cls.__name__, argspec.args[1:], argspec.annotations)
 
-        # we know the output type for constructors...
+        # we know the output type for constructors, and this can even be overloaded ...
         conf.otypes[0] = cls.__name__
-
-        # HERE BE HAX
-        if cls.__name__ in ['Gauss', 'Lorentz', 'Const', 'Lin']:
-            conf.otypes[0] = 'IFunc'
+        if issubclass(cls, ObjReprJson):
+            name = cls.non_polymorphic_typename()
+            if not name == ObjReprJson.non_polymorphic_typename():
+                conf.otypes[0] = name
 
         conf.basetype = 'function_named'
         tree.put('classes', conf.get_repr(), get_key)
@@ -495,6 +504,9 @@ def get_nodetype_candidates(pymodule):
             clsobj = member[1]
             # rather few and stable exceptions
             if clsobj.__name__ in (excepted_classes):
+                continue
+            isprivateclass = re.match('_', clsobj.__name__)
+            if isprivateclass:
                 continue
             
             clsrecord = {}

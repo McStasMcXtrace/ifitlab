@@ -1,9 +1,17 @@
 '''
 iFit-interfaced library used as a base for generating ifitlab node types.
 
-Note on node type generation (engintf:
-1) any class or function whose name is listed in 'negatives' will be omitted
-2) any function or method marked as "non-public" by underscore prefix (e.g. _get_plot_1D) will be omitted.
+Notes on node type generation:
+1) any class, function or method can be is flagged as "non-public" by an underscore prefix in 
+its name - e.g. _get_plot_1D - will be omitted.
+2) any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
+whereby its constructor node will output that type name
+
+Notes on class features:
+1) inherit all classes from ObjReprJson
+2) implement get_repr and set_user_data to interact with low-level data. Extend or use _get_full_repr_dict only.
+3) implement non_polymorphic_typename (annotated with @staticmethod) if you want to overload 
+the node type of the resulting constructor node
 '''
 __author__ = "Jakob Garde"
 
@@ -24,12 +32,12 @@ def _get_interface():
         _eng.eval("addpath(genpath('/home/jaga/source/REPO_ifit'))")
     return _eng
 
-class IFitObject(engintf.ObjReprJson):
+class _IFitObject(engintf.ObjReprJson):
     ''' implements a way to pass on the varnames between instances '''
     def _varname(self):
         return 'obj_%d' % id(self)
 
-class IData(IFitObject):
+class IData(_IFitObject):
     def __init__(self, url: str):
         logging.debug("IData.__init__('%s')" % url)
         self.eng = _get_interface()
@@ -46,8 +54,6 @@ class IData(IFitObject):
             self.eng.eval("%s = iData('%s')" % (varname, url), nargout=0)
             #self.eng.assign("%s" % vn, "iData('%s')" % url)
             #self.eng.eval("%s = %s" % (_varname, expression), nargout=0)
-
-    def HAI(self):pass
 
     def _get_plot_1D(self, axisvals, signal, yerr, xlabel, ylabel, title):
         ''' returns the dict required by the svg 1d plotting function '''
@@ -213,7 +219,7 @@ class IData(IFitObject):
         #logging.debug("running ifit command: %s" % cmd)
         self.eng.eval(cmd)
 
-class IFunc(IFitObject):
+class IFunc(_IFitObject):
     def _modelsymbol(self):
         return 'iFunc'
 
@@ -267,14 +273,23 @@ class IFunc(IFitObject):
         self.eng.eval(cmd)
 
 class Gauss(IFunc):
+    @staticmethod
+    def non_polymorphic_typename():
+        return 'IFunc'
     def _modelsymbol(self):
         return 'gauss'
 
 class Lorentz(IFunc):
+    @staticmethod
+    def non_polymorphic_typename():
+        return 'IFunc'
     def _modelsymbol(self):
         return 'lorz'
 
 class Lin(IFunc):
+    @staticmethod
+    def non_polymorphic_typename():
+        return 'IFunc'
     def _modelsymbol(self):
         return 'strline'
 
