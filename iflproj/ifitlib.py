@@ -25,12 +25,12 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy as np
 
 _eng = None
-def _get_interface():
+def _eval(cmd, nargout=1):
     global _eng
     if not _eng:
         _eng = matlab.engine.start_matlab('-nodesktop -nosplash', async=False)
         _eng.eval("addpath(genpath('/home/jaga/source/REPO_ifit'))")
-    return _eng
+    return _eng.eval(cmd, nargout=nargout)
 
 class _IFitObject(engintf.ObjReprJson):
     ''' implements a way to pass on the varnames between instances '''
@@ -40,7 +40,6 @@ class _IFitObject(engintf.ObjReprJson):
 class IData(_IFitObject):
     def __init__(self, url: str):
         logging.debug("IData.__init__('%s')" % url)
-        self.eng = _get_interface()
         self.url = url
         varname = self._varname()
         if url==None:
@@ -51,7 +50,7 @@ class IData(_IFitObject):
             '''
             pass
         else:
-            self.eng.eval("%s = iData('%s')" % (varname, url), nargout=0)
+            _eval("%s = iData('%s')" % (varname, url), nargout=0)
 
     def _get_plot_1D(self, axisvals, signal, yerr, xlabel, ylabel, title):
         ''' returns the dict required by the svg 1d plotting function '''
@@ -149,12 +148,12 @@ class IData(_IFitObject):
         retdct = self._get_full_repr_dict()
         try:
             varname = self._varname()
-            ndims = self.eng.eval('ndims(%s)' % varname)
+            ndims = _eval('ndims(%s)' % varname)
             ndims = int(ndims)
             
             signal = None
             error = None
-            axes_names = self.eng.eval('%s.Axes' % varname, nargout=1) # NOTE: len(axes_names) == ndims
+            axes_names = _eval('%s.Axes' % varname, nargout=1) # NOTE: len(axes_names) == ndims
             axesvals = []
             pltdct = {}
             
@@ -164,7 +163,7 @@ class IData(_IFitObject):
     
             # get signal
             if ndims == 1:
-                xvals = self.eng.eval('%s.%s' % (varname, axes_names[0]))
+                xvals = _eval('%s.%s' % (varname, axes_names[0]))
                 if len(xvals)==1:
                     try:
                         xvals = xvals[0]
@@ -173,34 +172,34 @@ class IData(_IFitObject):
                 xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
                 axesvals.append(xvals)
 
-                signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float)
+                signal = np.array(_eval('%s.Signal' % varname, nargout=1)).astype(np.float)
                 signal = np.reshape(signal, (1, len(signal)))[0].tolist()
                 try:
-                    error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float)
+                    error = np.array(_eval('%s.Error' % varname, nargout=1)).astype(np.float)
                     error = np.reshape(error, (1, len(error)))[0].tolist()
                 except:
                     error = np.sqrt(signal).tolist()
 
                 pltdct = self._get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self._varname())
             elif ndims == 2:
-                xvals = list(self.eng.eval('%s.%s' % (varname, axes_names[0]) )[0])
-                yvals = list(self.eng.eval('%s.%s' % (varname, axes_names[1]) )[0])
+                xvals = list(_eval('%s.%s' % (varname, axes_names[0]) )[0])
+                yvals = list(_eval('%s.%s' % (varname, axes_names[1]) )[0])
                 axesvals.append(xvals)
                 axesvals.append(yvals)
 
-                signal = np.array(self.eng.eval('%s.Signal' % varname, nargout=1)).astype(np.float).tolist()
-                error = np.array(self.eng.eval('%s.Error' % varname, nargout=1)).astype(np.float).tolist()
+                signal = np.array(_eval('%s.Signal' % varname, nargout=1)).astype(np.float).tolist()
+                error = np.array(_eval('%s.Error' % varname, nargout=1)).astype(np.float).tolist()
                 
                 pltdct = self._get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=self._varname())
             else:
                 for i in range(ndims):
-                    ivals = list(self.eng.eval('%s.%s' % (varname, axes_names[i]) )[0])
+                    ivals = list(_eval('%s.%s' % (varname, axes_names[i]) )[0])
                     axesvals.append(ivals)
-                signal = list(self.eng.eval('%s.Signal' % varname)[0])
-                error = list(self.eng.eval('%s.Error' % varname)[0])
+                signal = list(_eval('%s.Signal' % varname)[0])
+                error = list(_eval('%s.Error' % varname)[0])
 
             infdct = {}
-            infdct['ndims'] = self.eng.eval('ndims(%s)' % varname)
+            infdct['ndims'] = _eval('ndims(%s)' % varname)
 
             retdct['plotdata'] = pltdct
             retdct['info'] = infdct
@@ -214,7 +213,7 @@ class IData(_IFitObject):
 
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self._varname()
-        self.eng.eval(cmd)
+        _eval(cmd)
 
 class IFunc(_IFitObject):
     def _modelsymbol(self):
@@ -222,20 +221,19 @@ class IFunc(_IFitObject):
 
     def __init__(self):
         logging.debug("%s.__init__" % str(type(self)))
-        self.eng = _get_interface()
         vn = self._varname()
         symb = self._modelsymbol()
-        self.eng.eval("%s = %s()" % (vn, symb), nargout=0)
-        self.eng.eval('[signal, %s, axes, name] = feval(%s)' % (vn, vn), nargout=0) # trigger internal pvals guess
+        _eval("%s = %s()" % (vn, symb), nargout=0)
+        _eval('[signal, %s, axes, name] = feval(%s)' % (vn, vn), nargout=0) # trigger internal pvals guess
 
     def get_repr(self):
         vn = self._varname()
-        pkeys = self.eng.eval('%s.Parameters' % vn, nargout=1)
+        pkeys = _eval('%s.Parameters' % vn, nargout=1)
         params = {}
         for key in pkeys:
             idx = pkeys.index(key)
             key0 = key.split(' ')[0]
-            params[key] = self.eng.eval('%s.%s' % (vn, key0), nargout=1)
+            params[key] = _eval('%s.%s' % (vn, key0), nargout=1)
 
         retdct = self._get_full_repr_dict()
         retdct['userdata'] = params
@@ -243,21 +241,21 @@ class IFunc(_IFitObject):
 
     def set_user_data(self, json_obj):
         vn = self._varname()
-        params = self.eng.eval('%s.Parameters' % vn)
+        params = _eval('%s.Parameters' % vn)
         for key in params:
             try:
                 val = json_obj[key]
                 key0 = key.split(' ')[0]
-                self.eng.eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
+                _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
             except:
                 print('IFunc.set_user_data: set failed for param "%s" to val "%s"' % (key, val))
                 continue
-        self.eng.eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
-        self.eng.eval('clear p_%s' % vn, nargout=0)
+        _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
+        _eval('clear p_%s' % vn, nargout=0)
 
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self._varname()
-        self.eng.eval(cmd)
+        _eval(cmd)
 
 class Gauss(IFunc):
     @staticmethod
@@ -290,7 +288,7 @@ def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     vn2 = ifunc_b._varname()
     obj = IFunc()
     vn_new = obj._varname()
-    _get_interface().eval('%s = %s + %s;' % (vn_new, vn1, vn2))
+    _eval('%s = %s + %s;' % (vn_new, vn1, vn2))
     return obj
 
 def subtr(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
@@ -299,7 +297,7 @@ def subtr(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     vn2 = ifunc_b._varname()
     obj = IFunc()
     vn_new = obj._varname()
-    _get_interface().eval('%s = %s - %s;' % (vn_new, vn1, vn2))
+    _eval('%s = %s - %s;' % (vn_new, vn1, vn2))
     return obj
 
 def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
@@ -308,7 +306,7 @@ def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     vn2 = ifunc_b._varname()
     obj = IFunc()
     vn_new = obj._varname()
-    _get_interface().eval('%s = %s * %s;' % (vn_new, vn1, vn2))
+    _eval('%s = %s * %s;' % (vn_new, vn1, vn2))
     return obj
 
 def div(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
@@ -317,7 +315,7 @@ def div(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     vn2 = ifunc_b._varname()
     obj = IFunc()
     vn_new = obj._varname()
-    _get_interface().eval('%s = %s / %s;' % (vn_new, vn1, vn2))
+    _eval('%s = %s / %s;' % (vn_new, vn1, vn2))
     return obj
 
 def trapz(ifunc: IFunc) -> IFunc:
@@ -325,7 +323,7 @@ def trapz(ifunc: IFunc) -> IFunc:
     vn_old = ifunc._varname()
     obj = IFunc()
     vn_new = obj._varname()
-    _get_interface().eval('%s = trapz(%s)' % (vn_new, vn_old))
+    _eval('%s = trapz(%s)' % (vn_new, vn_old))
     return obj
 
 '''
@@ -336,8 +334,7 @@ def eval(idata: IData, ifunc: IFunc):
     retobj = IData(None)
     # TODO: can we properly clone idata objects? For example, error disappears by doing it like this
     
-    eng = _get_interface()
-    eng.eval('%s = %s(%s);' % (retobj._varname(), idata._varname(), ifunc._varname()), nargout=0)
+    _eval('%s = %s(%s);' % (retobj._varname(), idata._varname(), ifunc._varname()), nargout=0)
     
     return retobj
 
@@ -347,9 +344,8 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     vn_data = idata._varname()
     retobj = IFunc()
     vn_newfunc = retobj._varname()
-    eng = _get_interface()
-    eng.eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
-    eng.eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
-    eng.eval('clear o_%s' % vn_newfunc, nargout=0)
+    _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    _eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
+    _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
 
