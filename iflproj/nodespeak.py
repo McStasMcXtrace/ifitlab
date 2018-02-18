@@ -269,14 +269,24 @@ class FuncNode(Node):
     def __init__(self, name, func):
         self.func = func
         super().__init__(name, exe_model=FuncNode.ExeModel())
-
+        # default value parameters - not in the graph
+        self.defaults = {}
+        import inspect
+        sign = inspect.signature(func)
+        for k in sign.parameters.keys():
+            par = sign.parameters[k]
+            if par.default != inspect._empty:
+                self.defaults[k] = par.default
     def assign(self, obj):
-        if callable(obj):
-            self.func = obj;
+        if type(obj) not in (dict, ):
+            raise Exception("only do call FuncNode.assign with a dict")
+        for k in obj.keys():
+            if k in self.defaults:
+                self.defaults[k] = obj[k]
     def call(self, *args):
-        return self.func(*args)
+        return self.func(*args, **self.defaults)
     def get_object(self):
-        return self.func
+        return self.defaults
 
     def _check_subnode(self, node):
         return False

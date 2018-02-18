@@ -298,21 +298,9 @@ class NodeConfig:
         self.edit = 'false' # can the user edit the data (undo-able)
         self.name = ''
         self.label = ''
+        self.data = None
 
-    def make_function_like(self, address, funcname, ipars, itypes=None):
-        self.type = funcname
-        self.address = address
-        self.ipars = ipars
-        for a in ipars:
-            self.itypes.append('')
-        self.otypes = ['']
-        self.static = 'true'
-        self.executable = 'false'
-        self.edit = 'false'
-        self.name = funcname
-        self.label = funcname[0]
-
-    def make_function_like_wtypehints(self, address, funcname, args, annotations):
+    def make_function_like_wtypehints(self, address, funcname, args, annotations, data=None):
         self.type = funcname
         self.address = address
         self.ipars = args
@@ -325,8 +313,9 @@ class NodeConfig:
         self.edit = 'false'
         self.name = funcname
         self.label = funcname[0:5]
+        self.data = data
 
-    def make_method_like_wtypehints(self, address, methodname, args, annotations, clsobj):
+    def make_method_like_wtypehints(self, address, methodname, args, annotations, clsobj, data=None):
         self.type = methodname
         self.address = address
         self.ipars = args
@@ -339,6 +328,7 @@ class NodeConfig:
         self.edit = 'false'
         self.name = methodname
         self.label = methodname[0:5]
+        self.data = data
 
     def make_object(self, branch):
         self.type = 'obj'
@@ -398,7 +388,8 @@ class NodeConfig:
             ("executable", self.executable),
             ("edit", self.edit),
             ("name", self.name),
-            ("label", self.label)
+            ("label", self.label),
+            ("data", self.data),
         ])
         return dct
 
@@ -410,8 +401,6 @@ def ctypeconf_tree_ifit(classes, functions):
     addrss = [] # currently lacking an iterator, we save all adresses to allow iterative access to the tree
     def get_key(conf):
         return conf['type']
-
-    # create default conf types
 
     # object
     obj = NodeConfig()
@@ -437,48 +426,85 @@ def ctypeconf_tree_ifit(classes, functions):
     tree.put('handles', ifunc.get_repr(), get_key)
     addrss.append(ifunc.address)
 
-    # create types from a the give classes and functions
-    for entry in classes:
-        # get class object
-        cls = entry['class']
+    def get_args_and_data(func):
+        argspec = inspect.getfullargspec(func)
+        sign = inspect.signature(func)
+        data = {}
+        args = []
+        for k in sign.parameters.keys():
+            par = sign.parameters[k]
+            if par.default != inspect._empty:
+                data[k] = par.default
+            else:
+                args.append(k)
+        return args, data
 
-        # create constructor node types
+    def configure_constructor_node(cls):
         argspec = inspect.getfullargspec(cls.__init__)
         conf = NodeConfig()
-        conf.make_function_like_wtypehints('classes.' + cls.__name__, cls.__name__, argspec.args[1:], argspec.annotations)
-
-        # we know the output type for constructors, and this can even be overloaded ...
+        args, data = get_args_and_data(cls.__init__)
+        conf.make_function_like_wtypehints(
+            'classes.' + cls.__name__,
+            cls.__name__,
+            args[1:],
+            argspec.annotations,
+            data)
         conf.otypes[0] = cls.__name__
+        # set an output type that is compatible with the non-polymorphic nature of graph connectivity rules
         if issubclass(cls, ObjReprJson):
             name = cls.non_polymorphic_typename()
             if not name == ObjReprJson.non_polymorphic_typename():
                 conf.otypes[0] = name
-
         conf.basetype = 'function_named'
+        return conf
+
+    def configure_method_node(cls, method):
+        argspec = inspect.getfullargspec(method)
+        conf = NodeConfig()
+        args, data = get_args_and_data(method)
+        conf.make_method_like_wtypehints(
+            address='classes.%s.%s' % (cls.__name__, method.__name__),
+            methodname=method.__name__,
+            args=args,
+            annotations=argspec.annotations,
+            clsobj=cls,
+            data=data)
+        conf.basetype = "method_as_function"
+        return conf
+
+    def configure_function_node(func):
+        argspec = inspect.getfullargspec(func)
+        conf = NodeConfig()
+        args, data = get_args_and_data(func)
+        conf.make_function_like_wtypehints(
+            'functions.'+func.__name__,
+            func.__name__,
+            args,
+            argspec.annotations,
+            data=data)
+        conf.basetype = 'function_named'
+        return conf
+
+    # create types from a the give classes and functions
+    for entry in classes:
+        cls = entry['class']
+        conf = configure_constructor_node(cls)
+
         tree.put('classes', conf.get_repr(), get_key)
         addrss.append(conf.address)
 
         # create method node types
         methods = entry['methods']
         for m in methods:
-            argspec = inspect.getfullargspec(m)
-            conf = NodeConfig()
-            conf.make_method_like_wtypehints(
-                address='classes.%s.%s' % (cls.__name__, m.__name__),
-                methodname=m.__name__,
-                args=argspec.args,
-                annotations=argspec.annotations,
-                clsobj=cls)
-            conf.basetype = "method_as_function"
+            conf = configure_method_node()
+
             tree.put('classes.' + cls.__name__, conf.get_repr(), get_key)
             addrss.append(conf.address)
 
     for f in functions:
         # create function node types
-        argspec = inspect.getfullargspec(f)
-        conf = NodeConfig()
-        conf.make_function_like_wtypehints('functions.'+f.__name__, f.__name__, argspec.args, argspec.annotations)
-        conf.basetype = 'function_named'
+        conf = configure_function_node(f)
+
         tree.put('functions', conf.get_repr(), get_key)
         addrss.append(conf.address)
 
