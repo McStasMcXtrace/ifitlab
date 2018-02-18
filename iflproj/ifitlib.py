@@ -12,6 +12,9 @@ Notes on class features:
 2) implement get_repr and set_user_data to interact with low-level data. Extend or use _get_full_repr_dict only.
 3) implement non_polymorphic_typename (annotated with @staticmethod) if you want to overload 
 the node type of the resulting constructor node
+4) any parameter with a default value will not give rise to a node anchor, but rathe a configurable value on the
+actual node in the gui. Use this for function configuration options that are better suited for this minor or 
+secondary presence
 '''
 __author__ = "Jakob Garde"
 
@@ -363,7 +366,7 @@ def eval(idata: IData, ifunc: IFunc):
     
     return retobj
 
-def fit(idata: IData, ifunc: IFunc, extrapar: int=42) -> IFunc:
+def fit(idata: IData, ifunc: IFunc) -> IFunc:
     logging.debug("fit: %s, %s" % (idata, ifunc))
     vn_oldfunc = ifunc.varname
     vn_data = idata.varname
