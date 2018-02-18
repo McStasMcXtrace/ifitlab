@@ -1,11 +1,16 @@
 '''
-General directed graph execution engine with variable node and connection types, custom
-node execution models, dynamic graph consistence checking, egalitarian and
-hierarchical structure.
+General directed graph execution engine with variable node types, custom
+node execution models, dynamic graph consistency checking and egalitarian and
+hierarchical graph structure.
 '''
 __author__ = "Jakob Garde"
 
-''' list based parents/children datastructure allowing for unique parents, but multiple children, of the same order and idx '''
+'''
+List-based parents/children data structure enabling unique parents, but multiple children, of the same order and idx.
+
+NOTE: "Order" refers to a "vertical" execution order, not the order of arguments in a function call. 
+It can be ignored for most purposes.
+'''
 def child_put(lst, item, idx, order):
     lst.append((item, idx, order))
 def children_get(lst, order):
@@ -36,7 +41,7 @@ def child_or_parent_rm_allref(lst, item):
 
 
 '''
-Abstract node types.
+Base node types.
 '''
 
 class GraphInconsistenceException(Exception): pass
@@ -117,7 +122,7 @@ class Node:
         else:
             raise Node.NoNodeOfNameExistsException()
 
-    ''' Graph consistence. Implement to define conditions on graph consistence, throw a GraphInconsistenceException. '''
+    ''' Graph consistence. Implement to define conditions on graph consistency, throw a GraphInconsistenceException. '''
     def _check_subnode(self, node):
         pass
     def _check_owner(self, node):
@@ -162,7 +167,7 @@ Generic node types.
 '''
 
 class RootNode(Node):
-    ''' Used as a passive "owning" node at various levels. Can accept any child or parent as a subnode. '''
+    ''' Used as a passive "owning" node. Can accept any child or parent as a sub-node. '''
     class ExeModel(ExecutionModel):
         ''' A model that does nothing. '''
         def order(self):
@@ -188,16 +193,16 @@ class RootNode(Node):
         return False
 
 '''
-Programming style node types.
+Programming style node types. For example:
 
-ObjNode - handles for objects returned by FuncNodes or otherwise
-FuncNode - intended to be used as pure functions
-MethodNode - intended to bring object interaction to the node graph
-ReturnFuncNode - intended for boolean evaluation in conjunction with flow controls
+ObjNode, a handle for objects returned by FuncNodes or otherwise
+FuncNode is intended to be used as pure functions as given by the functional paradigm
+MethodNode, intended to bring object interaction to the node graph through direcly calling methods.
+ReturnFuncNode, returns the value of a boolean evaluation, to be used in conjunction with flow controls
 '''
 
 class ObjNode(Node):
-    ''' Holds an OOP object or data object. '''
+    ''' Simply an object handle. '''
     class CallException(Exception): pass
     class ExeModel(ExecutionModel):
         def order(self):
@@ -234,7 +239,7 @@ class ObjNode(Node):
         return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and len( parents_get(self.parents, self.exe_model.order()) ) < 1
 
 class ObjLitteralNode(ObjNode):
-    ''' Holds a json object edited by the user '''
+    ''' Holds a litteral (often json) object intended to be editable through a ui '''
     class ExeModel(ExecutionModel):
         def order(self):
             return 0
@@ -251,7 +256,7 @@ class ObjLitteralNode(ObjNode):
         return False
 
 class FuncNode(Node):
-    ''' Holds a fixed function, no execution available. '''
+    ''' Holds a fixed function, with no direct execution allowed. '''
     class ExeModel(ExecutionModel):
         # this model is inactive
         def order(self):
@@ -263,13 +268,12 @@ class FuncNode(Node):
         def objects(self):
             return []
         def subjects(self):
-            # TODO: add first-order subjects here! Till then, we can only assign directly from another FuncNode
             return []
 
     def __init__(self, name, func):
         self.func = func
         super().__init__(name, exe_model=FuncNode.ExeModel())
-        # default value parameters - not in the graph
+        # default value parameters are not represented in the graph, but as a configuration option
         self.defaults = {}
         import inspect
         sign = inspect.signature(func)
@@ -297,12 +301,8 @@ class FuncNode(Node):
     def _check_parent(self, node):
         return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and True
 
-class FuncObj(Node):
-    ''' base node type stub, will become the "functional object" type '''
-    pass
-
 class MethodNode(Node):
-    ''' Holds an OOP object method reference, requires ObjNode owner(s). '''
+    ''' Represents a method reference on some object, requires an ObjNode owner. '''
     class OwnerNotAssignedException(Exception): pass
     class NoMethodOfThatNameException(Exception): pass
     class AssignException(Exception): pass
@@ -319,13 +319,12 @@ class MethodNode(Node):
             return [FuncNode, MethodNode, MethodAsFunctionNode]
 
     def __init__(self, name, methodname):
-        ''' NOTE: This node type must be born with an owner, and has a restricted name, given by its owners name and method name. '''
         self.methodname = methodname
         super().__init__(name, exe_model=MethodNode.ExeModel())
     def assign(self, obj):
         raise MethodNode.AssignException()
     def call(self, *args):
-        ''' note that calls with cold obj owners does not raise any errors, but returns None (which many method calls may do anyway) '''
+        ''' returns None if the owner node's object is None '''
         last = None
         for o in self.owners:
             if type(o) is ObjNode:
@@ -338,7 +337,6 @@ class MethodNode(Node):
     def _check_subnode(self, node):
         return False
     def _check_owner(self, node):
-        ''' note that we allow assignment to "cold" obj nodes '''
         return type(node) in (ObjNode, RootNode)
     def _check_child(self, node):
         return type(node) in (FuncNode, ObjNode, MethodNode, ReturnFuncNode, MethodAsFunctionNode) and True
@@ -346,7 +344,7 @@ class MethodNode(Node):
         return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and True
 
 class MethodAsFunctionNode(Node):
-    ''' Alike to FuncNode, but with first argument 'self'. Applies functarget as a method on that object. '''
+    ''' Akin to FuncNode, but with first argument 'self'. Calls its "func target" string as a method on 'self'. '''
     def __init__(self, name, methodname):
         self.methodname = methodname
         super().__init__(name, exe_model=MethodNode.ExeModel())
@@ -371,7 +369,7 @@ class MethodAsFunctionNode(Node):
         return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and True
 
 class ReturnFuncNode(Node):
-    ''' Callable node which holds a function returning a bool or N_0 int. Cannot have any children. '''
+    ''' Callable node, which holds a function returning a bool or N_0 int. Can not have child nodes. '''
     class AssignException(Exception): pass
     class ExeModel(ExecutionModel):
         def order(self):
@@ -410,7 +408,6 @@ class ReturnFuncNode(Node):
 '''
 Node graph operations.
 '''
-
 def add_subnode(root, node):
     root.own(node)
     node.subnode_to(root)
@@ -428,7 +425,7 @@ def remove_connection(node1, idx1, node2, idx2, order=0):
     node2.remove_parent(node1, idx2, order)
 
 def del_node(node):
-    ''' completely disconnect a node and all its subnodes '''
+    ''' disconnect a node and recursively disconnect all its subnodes '''
     for c in node.children:
         remove_connection(node, c)
     for p in node.parents:
@@ -444,16 +441,13 @@ Node graph engine execution.
 class NodeNotExecutableException(Exception): pass
 def execute_node(node):
     '''
-    Executes a node by means of directed graph subtree build and evaluation, depending on the node's connectivity
-    "as an object" in the graph, as given by its execution model.
-    Always returns the result of the subtree evaluation, even if it is None or trivial.
+    Executes a node by means of directed graph subtree building and evaluation, depending on the 
+    node's connectivity and its execution model.
+    Returns the result of the subtree evaluation, which can be None.
     '''
     def build_subtree(root):
         '''
         Recursively builds a subtree from the graph consisting of a root (tree[0], possibly None), and 0-2 elements.
-        0: Trivial subtree.
-        1: object assignment.
-        2: function assignment.
         '''
         def build_subtree_recurse(node, tree, model):
             subjs = model.subjects()
@@ -482,14 +476,15 @@ def execute_node(node):
         '''
         Recursively calls nodes in a subtree, built by the build_subtree function.
 
-        If the root (tree[0]) is not None, assignment is carried out after call recursion. The result value
-        of the call recursion is always returned.
+        If the root (tree[0]) is not None, assignment to this node is carried out after call recursion.
+        The result value of the call recursion is always returned.
 
-        Disregarding the tree root, a pair of elements consisting of a subject node and a list, signals a call
-        recursion. Elements in such a list can be either singular object nodes, or pairs of a subject node and a list.
-        - Object nodes in such a "argument list" are replaced with their values.
-        - Subject node-list pairs are recursively reduced to output values of the subject as a function, which can
-        be evaluated at lists consisting solely of values. This recursive evalueation starts at the end branches.
+        Disregarding the tree root, a pair of elements, consisting of a subject node and a list (an arg-list),
+        signals a call recursion. Elements in that list can be singular object nodes or pairs of a subject 
+        node and an arg-list.
+        - During call recursion, Object nodes in argument lists are replaced with their values.
+        - During recursion, (Subject node, arg-list) pairs are recursively reduced to values. This recursive 
+        evaluation begins at the end branches.
         '''
         def call_recurse(f, argtree):
             i = 0
@@ -526,9 +521,3 @@ def execute_node(node):
     subtree = build_subtree(node)
     return call_subtree(subtree)
 
-def inspect_node(node):
-    '''
-    Used for inspecting nodes as handles to an object, given that the node can be considered an object.
-    This is given by its execution model and implementation.
-    '''
-    return node.get_object()
