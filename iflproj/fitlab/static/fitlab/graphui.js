@@ -1296,6 +1296,9 @@ class ConnectionTruthMcWeb {
       typeconf.otypes, //
       typeconf.ipars,
     );
+    if (typeconf.data) {
+      n.userdata = typeconf.data;
+    }
     return n
   }
 }
@@ -1322,7 +1325,7 @@ class Node {
     this._obj = null; // the data object of this handle
     this.static = typeconf.static != "false";
     this.executable = typeconf.executable != "false"
-    this.editable = typeconf.edit != "false"
+    this.edit = typeconf.edit != "false"
 
     // practical construction used by subclasses
     let iangles = ConnectionTruthMcWeb.getInputAngles(itypes.length);
@@ -1995,13 +1998,13 @@ class GraphInterface {
       let prevdata_str = JSON.stringify(n.userdata);
 
       // apply data only if node is not static
-      if (n.static == false) {
+      if (n.edit == true) {
         n.userdata = JSON.parse(data_str);
         this.truth.updateNodeState(n.gNode);
         this.updateUi();
         return [["node_data", id, data_str], ["node_data", id, prevdata_str]];
       }
-      else console.log("node_data operation on static node")
+      else console.log("node_data operation on non-edit node: ", n.id)
       return null;
     }
     else throw "unknown command value";
@@ -2045,6 +2048,7 @@ class GraphInterface {
     }
   }
   node_data(id, data) {
+    console.log("setting data: ", id, data);
     // str, str
     if (this.lock == true) { console.log("node_data call during lock"); return -1; }
     let cmd_rev = this._command(["node_data", id, data]);

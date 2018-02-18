@@ -169,7 +169,7 @@ class FlatGraph:
         - any json (incl. empty string) results in a tried inject_json call on the object, if any
         '''
         n = self.root.subnodes[id]
-        if not type(n) in [ObjNode, ObjLitteralNode]:
+        if not type(n) in [ObjNode, ObjLitteralNode, FuncNode]:
             print('node_data ignored for node of type "%s"' % type(n))
             return
 
@@ -190,12 +190,15 @@ class FlatGraph:
         if obj == None:
             # clear-functionality enabled by setting even userdata = null
             n.assign(None)
-        elif type(n) is ObjLitteralNode:
+        elif type(n) in (ObjLitteralNode,):
             n.assign(obj)
             print('node_data assigning deserialised input to litteral object node "%s"' % n.name)
+        elif type(n) in (FuncNode,):
+            n.assign(obj)
+            print("node_data assigning to FuncNode %s" % n.name)
         else:
             try:
-                n.obj.set_user_data(obj)
+                n.get_object().set_user_data(obj)
                 print('node_data injected into node "%s"' % n.name)
             except Exception as e:
                 # set_user_data does not have to be implemented
@@ -310,7 +313,7 @@ class NodeConfig:
             self.otypes = [annotations['return'].__name__]
         self.static = 'true'
         self.executable = 'false'
-        self.edit = 'false'
+        self.edit = 'true'
         self.name = funcname
         self.label = funcname[0:5]
         self.data = data
@@ -325,7 +328,7 @@ class NodeConfig:
             self.otypes = [annotations['return'].__name__]
         self.static = 'true'
         self.executable = 'false'
-        self.edit = 'false'
+        self.edit = 'true'
         self.name = methodname
         self.label = methodname[0:5]
         self.data = data

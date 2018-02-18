@@ -149,7 +149,7 @@ setUserData = function(node) {
       $("#"+rowid +" input")
         .val(node.userdata[key])
         .change( () => {
-          node.userdata[key] = $("#"+rowid +" input").val();
+          node.userdata[key] = JSON.parse($("#"+rowid +" input").val());
           intface.node_data(node.id, JSON.stringify(node.userdata));
         });
       $("#"+rowid +" label")
