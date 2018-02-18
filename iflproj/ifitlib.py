@@ -25,12 +25,35 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy as np
 
 _eng = None
+_cmdlog = None
 def _eval(cmd, nargout=1):
     global _eng
+    global _cmdlog
+    if not _cmdlog:
+        _cmdlog = logging.getLogger('cmds')
+        hdlr = logging.FileHandler('cmds.log')
+        formatter = logging.Formatter('%(message)s')
+        hdlr.setFormatter(formatter)
+        _cmdlog.addHandler(hdlr) 
+        _cmdlog.info("")
+        _cmdlog.info("")
+        _cmdlog.info("%%  starting session  %%")
     if not _eng:
         _eng = matlab.engine.start_matlab('-nodesktop -nosplash', async=False)
         _eng.eval("addpath(genpath('/home/jaga/source/REPO_ifit'))")
+    _cmdlog.info(cmd)
     return _eng.eval(cmd, nargout=nargout)
+
+_ifuncidx = -1
+_idataidx = -1;
+def _get_ifunc_prefix():
+    global _ifuncidx
+    _ifuncidx += 1
+    return 'ifunc%d' % (_ifuncidx)
+def _get_idata_prefix():
+    global _idataidx
+    _idataidx += 1
+    return 'idata%d' % (_idataidx)
 
 class _IFitObject(engintf.ObjReprJson):
     ''' implements a way to pass on the varnames between instances '''
@@ -41,7 +64,7 @@ class IData(_IFitObject):
     def __init__(self, url: str):
         logging.debug("IData.__init__('%s')" % url)
         self.url = url
-        varname = self._varname()
+        self.varname = '%s_%d' % (_get_idata_prefix(), id(self))
         if url==None:
             '''
             NOTE: This branch (url==None) is to be used only programatically, as a "prepper" intermediary
@@ -50,7 +73,7 @@ class IData(_IFitObject):
             '''
             pass
         else:
-            _eval("%s = iData('%s')" % (varname, url), nargout=0)
+            _eval("%s = iData('%s')" % (self.varname, url), nargout=0)
 
     def _get_plot_1D(self, axisvals, signal, yerr, xlabel, ylabel, title):
         ''' returns the dict required by the svg 1d plotting function '''
@@ -147,7 +170,7 @@ class IData(_IFitObject):
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         try:
-            varname = self._varname()
+            varname = self.varname
             ndims = _eval('ndims(%s)' % varname)
             ndims = int(ndims)
             
@@ -221,13 +244,15 @@ class IFunc(_IFitObject):
 
     def __init__(self):
         logging.debug("%s.__init__" % str(type(self)))
-        vn = self._varname()
+        self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
+        vn = self.varname
+
         symb = self._modelsymbol()
         _eval("%s = %s()" % (vn, symb), nargout=0)
         _eval('[signal, %s, axes, name] = feval(%s)' % (vn, vn), nargout=0) # trigger internal pvals guess
 
     def get_repr(self):
-        vn = self._varname()
+        vn = self.varname
         pkeys = _eval('%s.Parameters' % vn, nargout=1)
         params = {}
         for key in pkeys:
@@ -240,7 +265,7 @@ class IFunc(_IFitObject):
         return retdct
 
     def set_user_data(self, json_obj):
-        vn = self._varname()
+        vn = self.varname
         params = _eval('%s.Parameters' % vn)
         for key in params:
             try:
@@ -254,7 +279,7 @@ class IFunc(_IFitObject):
         _eval('clear p_%s' % vn, nargout=0)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        cmd = "clear %s;" % self._varname()
+        cmd = "clear %s;" % self.varname
         _eval(cmd)
 
 class Gauss(IFunc):
@@ -284,45 +309,45 @@ ifunc combination functions / operators
 '''
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("add: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a._varname()
-    vn2 = ifunc_b._varname()
+    vn1 = ifunc_a.varname
+    vn2 = ifunc_b.varname
     obj = IFunc()
-    vn_new = obj._varname()
+    vn_new = obj.varname
     _eval('%s = %s + %s;' % (vn_new, vn1, vn2))
     return obj
 
 def subtr(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("subtr: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a._varname()
-    vn2 = ifunc_b._varname()
+    vn1 = ifunc_a.varname
+    vn2 = ifunc_b.varname
     obj = IFunc()
-    vn_new = obj._varname()
+    vn_new = obj.varname
     _eval('%s = %s - %s;' % (vn_new, vn1, vn2))
     return obj
 
 def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("mult: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a._varname()
-    vn2 = ifunc_b._varname()
+    vn1 = ifunc_a.varname
+    vn2 = ifunc_b.varname
     obj = IFunc()
-    vn_new = obj._varname()
+    vn_new = obj.varname
     _eval('%s = %s * %s;' % (vn_new, vn1, vn2))
     return obj
 
 def div(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("div: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a._varname()
-    vn2 = ifunc_b._varname()
+    vn1 = ifunc_a.varname
+    vn2 = ifunc_b.varname
     obj = IFunc()
-    vn_new = obj._varname()
+    vn_new = obj.varname
     _eval('%s = %s / %s;' % (vn_new, vn1, vn2))
     return obj
 
 def trapz(ifunc: IFunc) -> IFunc:
     logging.debug("trapz: %s" % ifunc)
-    vn_old = ifunc._varname()
+    vn_old = ifunc.varname
     obj = IFunc()
-    vn_new = obj._varname()
+    vn_new = obj.varname
     _eval('%s = trapz(%s)' % (vn_new, vn_old))
     return obj
 
@@ -334,17 +359,18 @@ def eval(idata: IData, ifunc: IFunc):
     retobj = IData(None)
     # TODO: can we properly clone idata objects? For example, error disappears by doing it like this
     
-    _eval('%s = %s(%s);' % (retobj._varname(), idata._varname(), ifunc._varname()), nargout=0)
+    _eval('%s = %s(%s);' % (retobj.varname, idata.varname, ifunc.varname), nargout=0)
     
     return retobj
 
-def fit(idata: IData, ifunc: IFunc) -> IFunc:
+def fit(idata: IData, ifunc: IFunc, extrapar: int=42) -> IFunc:
     logging.debug("fit: %s, %s" % (idata, ifunc))
-    vn_oldfunc = ifunc._varname()
-    vn_data = idata._varname()
+    vn_oldfunc = ifunc.varname
+    vn_data = idata.varname
     retobj = IFunc()
-    vn_newfunc = retobj._varname()
-    _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    vn_newfunc = retobj.varname
+    #_eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    _eval('[p, c, m, o_%s] = fits(%s, %s)' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
     _eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
