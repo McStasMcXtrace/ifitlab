@@ -1151,50 +1151,10 @@ class ConnectionTruthMcWeb {
   static isOutputAngle(angle) {
     return 225 < angle && angle < 315;
   }
-  static getFunctionalInputAngles(num) {
-    if (num == 0) {
-      return [];
-    } else if (num == 1) {
-      return [180];
-    } else if (num == 2) {
-      return [170, 190].reverse();
-    } else if (num == 3) {
-      return [160, 180, 200].reverse();
-    } else if (num == 4) {
-      return [150, 170, 190, 210].reverse();
-    } else if (num == 5) {
-      return [140, 160, 180, 200, 220].reverse();
-    } else throw "give a number from 0 to 5";
-  }
-  static getFunctionalOutputAngles(num) {
-    if (num == 0) {
-      return [];
-    } else if (num == 1) {
-      return [0];
-    } else if (num == 2) {
-      return [10, 350];
-    } else if (num == 3) {
-      return [20, 0, 340];
-    } else if (num == 4) {
-      return [30, 10, 350, 330];
-    } else if (num == 5) {
-      return [40, 20, 0, 340, 320];
-    } else throw "give a number from 0 to 5";
-  }
-  static isFunctionalInputAngle(angle) {
-    return 135 < angle && angle < 225;
-  }
-  static isFunctionalOutputAngle(angle) {
-    let t1 = 0 <= angle && angle < 45;
-    let t2 = 315 < angle && angle <= 360;
-    return t1 || t2;
-  }
   static canConnect(a1, a2) {
     // a1 must be an output and a2 an input
     let t1 = this.isInputAngle(a2.angle);
     let t2 = this.isOutputAngle(a1.angle);
-    let t3 = this.isFunctionalInputAngle(a2.angle);
-    let t4 = this.isFunctionalOutputAngle(a1.angle);
 
     // inputs can only have one connection
     let t5 = a2.connections == 0;
@@ -1203,15 +1163,13 @@ class ConnectionTruthMcWeb {
     let t7 = a1.type == '' || a2.type == ''; // the latter of these two is questionable
     let t8 = a1.type == 'obj' || a2.type == 'obj'; // the latter of these two is questionable
 
-    let ans = ( t1 && t2 || t3 && t4 ) && t5 && (t6 || t7 || t8);
+    let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
     return ans;
   }
   static assignIdxAndOrder(anchors) {
     // this function assigns anchor positional properties, used for back-tracking graph structure
     let i0 = anchors.filter(a => this.isInputAngle(a.angle));
     let o0 = anchors.filter(a => this.isOutputAngle(a.angle));
-    let i1 = anchors.filter(a => this.isFunctionalInputAngle(a.angle));
-    let o1 = anchors.filter(a => this.isFunctionalOutputAngle(a.angle));
     let a = null;
     for (var j=0;j<i0.length;j++) {
       a = i0[j];
@@ -1224,18 +1182,6 @@ class ConnectionTruthMcWeb {
       a.i_o = 1;
       a.idx = j;
       a.order = 0;
-    }
-    for (var j=0;j<i1.length;j++) {
-      a = i1[j];
-      a.i_o = 0;
-      a.idx = j;
-      a.order = 1;
-    }
-    for (var j=0;j<o1.length;j++) {
-      a = o1[j];
-      a.i_o = 1;
-      a.idx = j;
-      a.order = 1;
     }
   }
   static getLinkClass(a) {
@@ -1305,8 +1251,7 @@ class ConnectionTruthMcWeb {
 class Node {
   static get basetype() { throw "Node: basetype property must be overridden"; }
   static get prefix() { throw "Node: prefix property must be overridden"; }
-  // F stands for functional, e.g. type lists for the "other" classification
-  constructor (x, y, id, name, label, typeconf, itypes, otypes, ipars, itypesF, otypesF, iparsF) {
+  constructor (x, y, id, name, label, typeconf, itypes, otypes, ipars) {
     this.id = id;
     this.name = name;
     this.type = typeconf.type;
@@ -1315,9 +1260,6 @@ class Node {
     this.itypes = itypes;
     this.otypes = otypes;
     this.ipars = ipars
-    this.itypesF = itypesF;
-    this.otypesF = otypesF;
-    this.iparsF = iparsF;
 
     this.gNode = null; // the graphics representing this object
     this._obj = null; // the data object of this handle
@@ -1328,16 +1270,12 @@ class Node {
     // practical construction used by subclasses
     let iangles = ConnectionTruthMcWeb.getInputAngles(itypes.length);
     let oangles = ConnectionTruthMcWeb.getOutputAngles(otypes.length)
-    let ianglesF = ConnectionTruthMcWeb.getFunctionalInputAngles(itypesF.length);
-    let oanglesF = ConnectionTruthMcWeb.getFunctionalOutputAngles(otypesF.length)
     let anchors = [];
     let nt = this._getGNType();
     let at = this._getAnchorType();
     let n = new nt(this, label, x, y);
     for (var i=0;i<iangles.length;i++) { anchors.push( new at(n, iangles[i], itypes[i], ipars[i]) ); }
     for (var i=0;i<oangles.length;i++) { anchors.push( new at(n, oangles[i], otypes[i], null) ); }
-    for (var i=0;i<ianglesF.length;i++) { anchors.push( new at(n, ianglesF[i], itypesF[i], iparsF[i]) ); }
-    for (var i=0;i<oanglesF.length;i++) { anchors.push( new at(n, oanglesF[i], otypesF[i], null) ); }
     n.setAnchors(anchors);
     n.onConnect = this.onConnect.bind(this);
     n.onDisconnect = this.onDisconnect.bind(this);
@@ -1393,19 +1331,13 @@ class Node {
   // order means itypes/otypes/itypesF/otypesF == 0/1/2/3
   getAnchor(idx, order) {
     let l1 = this.itypes.length;
-    let l2 = this.otypes.length;
-    let l3 = this.itypesF.length;
 
     let a = null;
     if (order == 0) {
       a = this.gNode.anchors[idx];
     } else if (order == 1) {
       a = this.gNode.anchors[idx+l1];
-    } else if (order == 2) {
-      a = this.gNode.anchors[idx+l1+l2];
-    } else if (order == 3) {
-      a = this.gNode.anchors[idx+l1+l2+l3];
-    } else throw "nonsenseException"
+    }
     return a;
   }
   onConnect(link, isInput) { }
@@ -1417,8 +1349,7 @@ class NodeFunction extends Node {
   get basetype() { return NodeFunction.basetype; } // js is not class-based
   static get prefix() { return "f"; }
   constructor(x, y, id, name, label, type, itypes, otypes, ipars) {
-    super(x, y, id, name, label, type, itypes, otypes, ipars, [], ['func'], []);
-    this.idxF = itypes.length + otypes.length -1;
+    super(x, y, id, name, label, type, itypes, otypes, ipars);
   }
   _getGNType() {
     return GraphicsNodeCircular;
@@ -1428,8 +1359,7 @@ class NodeFunction extends Node {
   }
   isConnected() {
     let conn = this.gNode.getConnections();
-    let subconn = conn.slice(0, this.idxF); // the pre-functional connections
-    return subconn.indexOf(false) == -1;
+    return conn.indexOf(false) == -1;
   }
 }
 
@@ -1438,8 +1368,7 @@ class NodeFunctionNamed extends Node {
   get basetype() { return NodeFunctionNamed.basetype; } // js is not class-based
   static get prefix() { return "f"; }
   constructor(x, y, id, name, label, type, itypes, otypes, ipars) {
-    super(x, y, id, name, label, type, itypes, otypes, ipars, [], [], []);
-    this.idxF = itypes.length + otypes.length -1;
+    super(x, y, id, name, label, type, itypes, otypes, ipars);
   }
   _getGNType() {
     return GraphicsNodeCircular;
@@ -1449,8 +1378,7 @@ class NodeFunctionNamed extends Node {
   }
   isConnected() {
     let conn = this.gNode.getConnections();
-    let subconn = conn.slice(0, this.idxF); // the pre-functional connections
-    return subconn.indexOf(false) == -1;
+    return conn.indexOf(false) == -1;
   }
   isActive() {
     // assumed to be associated with an underlying function object
