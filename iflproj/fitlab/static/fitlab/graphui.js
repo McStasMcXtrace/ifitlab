@@ -752,7 +752,8 @@ class GraphDraw {
     self.centeringSim.stop();
     self.centeringSim.force("centering").x(window.innerWidth/2);
     self.centeringSim.force("centering").y(window.innerHeight/2);
-    self.centeringSim.nodes(self.graphData.nodes.concat(self.graphData.getAnchors()));
+    self.graphData.updateAnchors();
+    self.centeringSim.nodes(self.graphData.nodes.concat(self.graphData.anchors));
     self.centeringSim.alpha(1).restart();
   }
   resetChargeSim() {
@@ -772,7 +773,8 @@ class GraphDraw {
   }
   resetPathSim() {
     self.pathSim.stop();
-    self.pathSim.nodes(self.graphData.getAnchors());
+    self.graphData.updateAnchors();
+    self.pathSim.nodes(self.graphData.anchors);
     self.pathSim.force("link").links(self.graphData.getForceLinks());
   }
   restartPathSim() {
@@ -1069,10 +1071,6 @@ class GraphData {
         }
       }
     }
-  }
-  getAnchors() {
-    this.updateAnchors();
-    return this.anchors;
   }
   getForceLinks() {
     this.updateAnchors();
