@@ -223,13 +223,14 @@ class FlatGraph:
 
     def graph_update(self, redo_lsts):
         ''' takes an undo-redo list and sequentially modifies the server-side graph '''
+        _log('graph update: %d commands' % len(redo_lsts))
         for redo in redo_lsts:
             cmd = redo[0]
             args = redo[1:]
             try:
                 getattr(self, cmd)(*args)
             except:
-                _log('failed graph update call "%s"' % cmd)
+                _log('graph update failed: "%s"' % cmd)
 
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''
