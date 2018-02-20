@@ -153,20 +153,6 @@ class GraphicsNode {
     }
     return connectivity;
   }
-  get neighbours() {
-    let nbs = [];
-    let l;
-    for (var j=0; j<this.links.length; j++) {
-      l = this.links[j];
-      if (l.d1.owner != this) {
-        nbs.push(l.d1.owner);
-      }
-      if (l.d2.owner != this) {
-        nbs.push(l.d2.owner);
-      }
-    }
-    return nbs;
-  }
   get exitLinks() {
     let exLinks = [];
     let idxs = [];
@@ -374,7 +360,6 @@ class Anchor {
     this.arrowHead = null;
     this.i_o = i_o;
     this.idx = idx;
-    this.order = null;
   }
   get tt() {
     let parname = this.parname;
@@ -1087,7 +1072,7 @@ class GraphData {
     let l = null;
     for (var i=0; i<nl; i++) {
       l = n.links[0];
-      report.push(["link_add", l.d1.owner.id, l.d1.idx, l.d2.owner.id, l.d2.idx, l.d1.order]);
+      report.push(["link_add", l.d1.owner.id, l.d1.idx, l.d2.owner.id, l.d2.idx]);
       this.rmLink(l);
     }
     remove(this.nodes, n);
@@ -1284,15 +1269,15 @@ class Node {
     let val = this.obj != null;
     return val;
   }
-  // order means itypes/otypes/itypesF/otypesF == 0/1/2/3
-  getAnchor(idx, order) {
+  // level means itypes/otypes == 0/1
+  getAnchor(idx, level) {
     let a = null;
     for (var i=0;i<this.gNode.anchors.length;i++) {
       a = this.gNode.anchors[i];
-      if (a.idx==idx && (!a.i_o | 0) == order)
+      if (a.idx==idx && (!a.i_o | 0) == level)
         return a;
     }
-    throw "could not get anchor: ", idx, order;
+    throw "could not get anchor: ", idx, level;
   }
   onConnect(link, isInput) { }
   onDisconnect(link, isInput) { }
@@ -1555,7 +1540,7 @@ class GraphInterface {
     let numlinks = n.links.length;
     for (var i=0; i<numlinks; i++) {
       l = n.links[0];
-      this.link_rm(l.d1.owner.owner.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx, l.d1.order);
+      this.link_rm(l.d1.owner.owner.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx);
     }
     // formalize the now clean node removal
     let id = n.owner.id;
@@ -1582,7 +1567,7 @@ class GraphInterface {
   }
   _tryCreateLink(s, d) {
     if (this.truth.canConnect(s, d)) {
-      this.link_add(s.owner.owner.id, s.idx, d.owner.owner.id, d.idx, s.order);
+      this.link_add(s.owner.owner.id, s.idx, d.owner.owner.id, d.idx);
 
       this.draw.resetPathSim();
       this.draw.restartPathSim();
@@ -1660,7 +1645,7 @@ class GraphInterface {
       let l = null;
       for (var j=0;j<elks.length;j++) {
         l = elks[j];
-        links[n.id].push([n.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx, l.d1.order]);
+        links[n.id].push([n.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx]);
       }
     }
     let def_text = JSON.stringify(def);
@@ -1790,7 +1775,6 @@ class GraphInterface {
       let idx1 = args[1];
       let id2 = args[2];
       let idx2 = args[3];
-      let ordr = args[4];
 
       let n1 = this.nodes[id1];
       let n2 = this.nodes[id2];
@@ -1798,10 +1782,8 @@ class GraphInterface {
       // extract the proper link given input data
       let a1 = null;
       let a2 = null;
-      if (ordr==0) {
-        a1 = n1.getAnchor(idx1, 1);
-        a2 = n2.getAnchor(idx2, 0);
-      } else throw "order must be zero"
+      a1 = n1.getAnchor(idx1, 1);
+      a2 = n2.getAnchor(idx2, 0);
 
       // connect
       if (this.truth.canConnect(a1, a2)) {
@@ -1817,19 +1799,14 @@ class GraphInterface {
       let idx1 = args[1];
       let id2 = args[2];
       let idx2 = args[3];
-      let ordr = args[4];
 
-      // 1) get the anchors of the link
-      if (!(ordr in [0, 1])) throw "invalid order";
       let n1 = this.nodes[id1];
       let n2 = this.nodes[id2];
 
       let a1 = null;
       let a2 = null;
-      if (ordr==0) {
-        a1 = n1.getAnchor(idx1, 1);
-        a2 = n2.getAnchor(idx2, 0);
-      } else throw "order must be zero"
+      a1 = n1.getAnchor(idx1, 1);
+      a2 = n2.getAnchor(idx2, 0);
 
       // 2) get the link given the anchors
       let l = null;
@@ -1925,16 +1902,16 @@ class GraphInterface {
       this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
     }
   }
-  link_add(id1, idx1, id2, idx2, ordr=0) {
+  link_add(id1, idx1, id2, idx2) {
     // str, int, str, int, int
     if (this.lock == true) { console.log("link_add call during lock"); return -1; }
-    let cmd_rev = this._command(["link_add", id1, idx1, id2, idx2, ordr]);
+    let cmd_rev = this._command(["link_add", id1, idx1, id2, idx2]);
     this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
   }
-  link_rm(id1, idx1, id2, idx2, ordr=0) {
+  link_rm(id1, idx1, id2, idx2) {
     // str, int, str, int, int
     if (this.lock == true) { console.log("link_rm call during lock"); return -1; }
-    let cmd_rev = this._command(["link_rm", id1, idx1, id2, idx2, ordr]);
+    let cmd_rev = this._command(["link_rm", id1, idx1, id2, idx2]);
     this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
   }
 }
