@@ -40,7 +40,7 @@ def _eval(cmd, nargout=1):
         _cmdlog.addHandler(hdlr) 
         _cmdlog.info("")
         _cmdlog.info("")
-        _cmdlog.info("%%  starting session  %%")
+        _cmdlog.info("%%  starting ifit cmd log session  %%")
     if not _eng:
         _eng = matlab.engine.start_matlab('-nodesktop -nosplash', async=False)
         _eng.eval("addpath(genpath('/home/jaga/source/REPO_ifit'))")

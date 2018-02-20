@@ -10,6 +10,7 @@ whereby its constructor node will output that type name
 from numpy.f2py.auxfuncs import isprivate
 __author__ = "Jakob Garde"
 
+import logging
 import inspect
 import json
 import re
@@ -18,6 +19,20 @@ from collections import OrderedDict
 
 from nodespeak import RootNode, FuncNode, ObjNode, MethodNode, MethodAsFunctionNode, add_subnode, remove_subnode
 from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, ObjLitteralNode
+
+_englog = None
+def _log(msg):
+    global _englog
+    if not _englog:
+        _englog = logging.getLogger('engine')
+        hdlr = logging.FileHandler('engine.log')
+        formatter = logging.Formatter('%(message)s')
+        hdlr.setFormatter(formatter)
+        _englog.addHandler(hdlr) 
+        _englog.info("")
+        _englog.info("")
+        _englog.info("%%  starting engine log session  %%")
+    _englog.info(msg)
 
 class TreeJsonAddr:
     '''
@@ -78,8 +93,6 @@ class ObjReprJson:
     def _get_full_repr_dict(self):
         ''' people can overload get_repr without having to call super, but just get the standard dict format from this method '''
         ans = OrderedDict()
-        # TODO: consider adding more meta stuff here
-        #ans['__class__'] = str(self.__class__)
         ans['info'] = '__class__: %s' % str(self.__class__)
         ans['userdata'] = ''
         ans['plotdata'] = ''
@@ -122,7 +135,7 @@ class FlatGraph:
 
     def node_add(self, x, y, id, name, label, tpe):
         n = self._create_node(id, tpe)
-        print('created node of type: "%s", content: "%s"' % (str(type(n)), str(n.get_object())))
+        _log('created node of type: "%s", content: "%s"' % (str(type(n)), str(n.get_object())))
         add_subnode(self.root, n)
         # caching
         self.node_cmds_cache[id] = (x, y, id, name, label, tpe)
@@ -136,6 +149,7 @@ class FlatGraph:
         remove_subnode(self.root, n)
         # caching
         del self.node_cmds_cache[id]
+        _log("deleted node: %s" % id)
 
     def link_add(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
@@ -145,6 +159,7 @@ class FlatGraph:
         if not self.dslinks_cache.get(id1, None):
             self.dslinks_cache[id1] = []
         self.dslinks_cache[id1].append((id1, idx1, id2, idx2, order))
+        _log("added link from (%s, %d) to (%s, %d)" % (id1, idx1, id2, idx2))
 
     def link_rm(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
@@ -154,9 +169,10 @@ class FlatGraph:
         lst = self.dslinks_cache[id1]
         idx = lst.index((id1, idx1, id2, idx2, order))
         del lst[idx]
+        _log("removed link from (%s, %d) to (%s, %d)" % (id1, idx1, id2, idx2))
 
     def node_label(self, id, label):
-        print("node (%s) label clange (%s) always ignored." % (id, label))
+        _log("node label update always ignored, (%s, %s)." % (id, label))
         # caching
         e = self.node_cmds_cache[id]
         self.node_cmds_cache[id] = (e[0], e[1], e[2], e[3], label, e[5])
@@ -170,12 +186,12 @@ class FlatGraph:
         '''
         n = self.root.subnodes[id]
         if not type(n) in [ObjNode, ObjLitteralNode, FuncNode]:
-            print('node_data ignored for node of type "%s"' % type(n))
+            _log('node_data ignored for node of type "%s"' % type(n))
             return
 
         if data_str == None:
             n.assign(None)
-            print('node_data assigning None to object of node "%s"' % n.name)
+            _log('node_data assigning None to object of node "%s"' % n.name)
             return
 
         # deserialise
@@ -183,26 +199,27 @@ class FlatGraph:
         try:
             obj = json.loads(data_str)
         except:
-            print("node_data input could not be deserialised")
+            _log("node_data input could not be deserialised")
             return
 
         # assign / set
         if obj == None:
             # clear-functionality enabled by setting even userdata = null
             n.assign(None)
+            _log("node_data clearing node: %s" % id)
         elif type(n) in (ObjLitteralNode,):
             n.assign(obj)
-            print('node_data assigning deserialised input to litteral object node "%s"' % n.name)
+            _log('node_data assigning deserialised input to litteral object node "%s"' % n.name)
         elif type(n) in (FuncNode,):
             n.assign(obj)
-            print("node_data assigning to FuncNode %s" % n.name)
+            _log("node_data assigning to FuncNode %s" % n.name)
         else:
             try:
                 n.get_object().set_user_data(obj)
-                print('node_data injected into node "%s"' % n.name)
+                _log('node_data injected into node "%s"' % n.name)
             except Exception as e:
                 # set_user_data does not have to be implemented
-                print('node_data failed to set data "%s" on node "%s" (%s)' % (data_str, n.name, str(e)))
+                _log('node_data failed to set data "%s" on node "%s" (%s)' % (data_str, n.name, str(e)))
 
     def graph_update(self, redo_lsts):
         ''' takes an undo-redo list and sequentially modifies the server-side graph '''
@@ -212,23 +229,25 @@ class FlatGraph:
             try:
                 getattr(self, cmd)(*args)
             except:
-                print('failed graph update call "%s"' % cmd)
+                _log('failed graph update call "%s"' % cmd)
 
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''
+        _log("execute_node: %s" % id)
         n = self.root.subnodes[id]
         try:
             obj = execute_node(n)
-            print("exe %s yields: %s" % (id, str(obj)))
-            print("returning json representation...")
+            _log("exe yields: %s" % str(obj))
+            _log("returning json representation...")
             represent = obj.get_repr()
             return represent
         except NodeNotExecutableException:
-            print("exe %s yields: Node is not executable")
+            _log("exe %s yields: Node is not executable")
             return None
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition '''
+        _log("extracting graph def...")
         gdef = {}
         gdef["nodes"] = {}
         #gdef["datas"] = {}
