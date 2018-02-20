@@ -356,6 +356,7 @@ class Anchor {
 
     this.ext = null;
 
+    this.isTarget = false;
     this.isLinked = false;
     this.arrowHead = null;
     this.i_o = i_o;
@@ -381,7 +382,7 @@ class Anchor {
     return answer;
   }
   drawArrowhead(branch, i) {
-    if (!this.i_o) return branch;
+    if (!this.isTarget) return branch;
 
     let angle1 = Math.PI/180*(this.angle - arrowHeadAngle);
     let angle2 = Math.PI/180*(this.angle + arrowHeadAngle);
