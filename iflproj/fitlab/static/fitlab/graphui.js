@@ -109,13 +109,15 @@ function getNodeStateClass(state) {
 
 // type supplying graphical data
 class GraphicsNode {
+  // graphical base type - this will not draw itself on the screen
   constructor(owner, label, x, y) {
     this.owner = owner;
+    this.label = label;
     this.x = x;
     this.y = y;
-    this.r = nodeRadius;
-    this.label = label;
+
     this.anchors = null;
+    this.r = nodeRadius;
     this.links = [];
     this.centerAnchor = new CenterAnchor(this);
 
@@ -124,8 +126,7 @@ class GraphicsNode {
     this.active = false;
   }
   setAnchors(anchors) {
-    if (this.anchors != null) throw "please set anchors only once, cleaning up makes a mess"
-    ConnectionTruthMcWeb.assignIdxAndOrder(anchors);
+    if (this.anchors) throw "anchors only intended to be set once";
     this.anchors = anchors;
   }
   isAllConnected() {
@@ -194,13 +195,13 @@ class GraphicsNode {
   // hooks for higher level nodes
   onConnect(link, isInput) {}
   onDisconnect(link, isInput) {}
-  setAnchorTypes(at) {
+  setOutputAncorTypes(ats) {
     let anchors = this.anchors;
     let a = null;
-    if (at.length == anchors.length) {
-      for (var j=0;j<anchors.length;j++) {
-        a = anchors[j];
-        a.type = at[j];
+    for (var j=0;j<anchors.filter(a => !a.i_o).length;j++) {
+      a = anchors[j];
+      if (a.i_o==false) {
+        a.type = ats[j];
       }
     }
   }
@@ -355,7 +356,7 @@ class GraphicsNodeFluffyPad extends GraphicsNode {
 
 // connection anchor point fixed on a node at a circular periphery
 class Anchor {
-  constructor(owner, angle, type, parname) {
+  constructor(owner, angle, type, parname, i_o, idx) {
     this.owner = owner;
     this.angle = angle;
     this.type = type;
@@ -369,14 +370,10 @@ class Anchor {
 
     this.ext = null;
 
-    this.isTarget = false;
     this.isLinked = false;
-
     this.arrowHead = null;
-
-    // these integers, reflecting anchor position on a node, are set externally
-    this.i_o = null;
-    this.idx = null;
+    this.i_o = i_o;
+    this.idx = idx;
     this.order = null;
   }
   get tt() {
@@ -399,7 +396,7 @@ class Anchor {
     return answer;
   }
   drawArrowhead(branch, i) {
-    if (!this.isTarget) return branch;
+    if (!this.i_o) return branch;
 
     let angle1 = Math.PI/180*(this.angle - arrowHeadAngle);
     let angle2 = Math.PI/180*(this.angle + arrowHeadAngle);
@@ -423,8 +420,8 @@ class Anchor {
 }
 
 class AnchorCircular extends Anchor {
-  constructor(owner, angle, type, parname) {
-    super(owner, angle, type, parname);
+  constructor(owner, angle, type, parname, i_o, idx) {
+    super(owner, angle, type, parname, i_o, idx);
     this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
     this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
 
@@ -435,8 +432,8 @@ class AnchorCircular extends Anchor {
 }
 
 class AnchorSquare extends Anchor {
-  constructor(owner, angle, type, parname) {
-    super(owner, angle, type, parname);
+  constructor(owner, angle, type, parname, i_o, idx) {
+    super(owner, angle, type, parname, i_o, idx);
     this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
     this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
 
@@ -928,7 +925,7 @@ class GraphDraw {
             .classed("hidden", false)
             .classed("visible", true);
           self.showTooltip(d.x, d.y, d.tt);
-        } )
+          } )
         .on("mouseout", function(d) {
           d3.select(this)
             .classed("selected", false)
@@ -1110,7 +1107,7 @@ class GraphData {
   }
 }
 
-class ConnectionTruthMcWeb {
+class ConnRulesBasic {
   // returns the specified number of angles which will all be interpreted as inputs
   // NOTE: input angle are reversed, due to the let-to-right counting for inputs as function arguments
   static getInputAngles(num) {
@@ -1145,17 +1142,10 @@ class ConnectionTruthMcWeb {
       return [230, 250, 270, 290, 310];
     } else throw "give a number from 0 to 5";
   }
-  static isInputAngle(angle) {
-    return 45 < angle && angle < 135;
-  }
-  static isOutputAngle(angle) {
-    return 225 < angle && angle < 315;
-  }
   static canConnect(a1, a2) {
     // a1 must be an output and a2 an input
-    let t1 = this.isInputAngle(a2.angle);
-    let t2 = this.isOutputAngle(a1.angle);
-
+    let t1 = a2.i_o;
+    let t2 = !a1.i_o;
     // inputs can only have one connection
     let t5 = a2.connections == 0;
     // both anchors must be of the same type
@@ -1165,32 +1155,6 @@ class ConnectionTruthMcWeb {
 
     let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
     return ans;
-  }
-  static assignIdxAndOrder(anchors) {
-    // this function assigns anchor positional properties, used for back-tracking graph structure
-    let i0 = anchors.filter(a => this.isInputAngle(a.angle));
-    let o0 = anchors.filter(a => this.isOutputAngle(a.angle));
-    let a = null;
-    for (var j=0;j<i0.length;j++) {
-      a = i0[j];
-      a.i_o = 0;
-      a.idx = j;
-      a.order = 0;
-    }
-    for (var j=0;j<o0.length;j++) {
-      a = o0[j];
-      a.i_o = 1;
-      a.idx = j;
-      a.order = 0;
-    }
-  }
-  static getLinkClass(a) {
-    if (this.isInputAngle(a.angle) || this.isOutputAngle(a.angle)) return LinkSingle; else return LinkDouble;
-  }
-  static updateStates(nodes) {
-    for (var i=0; i<nodes.length; i++) {
-      this.updateNodeState(nodes[i]);
-    }
   }
   static updateNodeState(node) {
     let o = node.owner;
@@ -1230,15 +1194,12 @@ class ConnectionTruthMcWeb {
       NodeFunctional
     ];
   }
-  static createNodeObjectFromConf(typeconf, id, x=0, y=0) {
-    let cn =  ConnectionTruthMcWeb._getBaseNodeClassName(typeconf.basetype);
+  static createNode(typeconf, id, x=0, y=0) {
+    let cn =  ConnRulesBasic._getBaseNodeClassName(typeconf.basetype);
     let n = new cn(x, y, id,
       typeconf.name,
       typeconf.label,
       typeconf,
-      typeconf.itypes, // js doesn't seem to mind these sometimes-extra arguments
-      typeconf.otypes, //
-      typeconf.ipars,
     );
     if (typeconf.data) {
       n.userdata = typeconf.data;
@@ -1247,40 +1208,37 @@ class ConnectionTruthMcWeb {
   }
 }
 
+
 // high-level node types
+//
 class Node {
   static get basetype() { throw "Node: basetype property must be overridden"; }
   static get prefix() { throw "Node: prefix property must be overridden"; }
-  constructor (x, y, id, name, label, typeconf, itypes, otypes, ipars) {
+  constructor (x, y, id, name, label, typeconf) {
     this.id = id;
     this.name = name;
     this.type = typeconf.type;
     this.address = typeconf.address;
-    this.ipars = ipars
-    this.itypes = itypes;
-    this.otypes = otypes;
-    this.ipars = ipars
-
-    this.gNode = null; // the graphics representing this object
     this._obj = null; // the data object of this handle
     this.static = typeconf.static != "false";
     this.executable = typeconf.executable != "false"
     this.edit = typeconf.edit != "false"
 
-    // practical construction used by subclasses
-    let iangles = ConnectionTruthMcWeb.getInputAngles(itypes.length);
-    let oangles = ConnectionTruthMcWeb.getOutputAngles(otypes.length)
-    let anchors = [];
+    // craete the GraphicsNode
     let nt = this._getGNType();
-    let at = this._getAnchorType();
-    let n = new nt(this, label, x, y);
-    for (var i=0;i<iangles.length;i++) { anchors.push( new at(n, iangles[i], itypes[i], ipars[i]) ); }
-    for (var i=0;i<oangles.length;i++) { anchors.push( new at(n, oangles[i], otypes[i], null) ); }
-    n.setAnchors(anchors);
-    n.onConnect = this.onConnect.bind(this);
-    n.onDisconnect = this.onDisconnect.bind(this);
+    this.gNode = new nt(this, label, x, y);
 
-    this.gNode = n;
+    let iangles = ConnRulesBasic.getInputAngles(typeconf.itypes.length);
+    let oangles = ConnRulesBasic.getOutputAngles(typeconf.otypes.length)
+
+    let anchors = [];
+    let at = this._getAnchorType();
+    for (var i=0;i<iangles.length;i++) { anchors.push( new at(this.gNode, iangles[i], typeconf.itypes[i], typeconf.ipars[i], true, i) ); }
+    for (var i=0;i<oangles.length;i++) { anchors.push( new at(this.gNode, oangles[i], typeconf.otypes[i], null, false, i) ); }
+
+    this.gNode.setAnchors(anchors);
+    this.gNode.onConnect = this.onConnect.bind(this);
+    this.gNode.onDisconnect = this.onDisconnect.bind(this);
   }
   get obj() {
     return this._obj;
@@ -1302,10 +1260,8 @@ class Node {
     if (this._obj) return this._obj.plotdata;
     return null;
   }
-  onUserDataChange(userdata) { }
-  onObjChange(obj) {
-    //console.log("obj change detected: ", obj)
-  }
+  onUserDataChange(userdata) {}
+  onObjChange(obj) {}
   get label() {
     return this.gNode.label;
   }
@@ -1330,15 +1286,13 @@ class Node {
   }
   // order means itypes/otypes/itypesF/otypesF == 0/1/2/3
   getAnchor(idx, order) {
-    let l1 = this.itypes.length;
-
     let a = null;
-    if (order == 0) {
-      a = this.gNode.anchors[idx];
-    } else if (order == 1) {
-      a = this.gNode.anchors[idx+l1];
+    for (var i=0;i<this.gNode.anchors.length;i++) {
+      a = this.gNode.anchors[i];
+      if (a.idx==idx && (!a.i_o | 0) == order)
+        return a;
     }
-    return a;
+    throw "could not get anchor: ", idx, order;
   }
   onConnect(link, isInput) { }
   onDisconnect(link, isInput) { }
@@ -1348,8 +1302,8 @@ class NodeFunction extends Node {
   static get basetype() { return "function"; }
   get basetype() { return NodeFunction.basetype; } // js is not class-based
   static get prefix() { return "f"; }
-  constructor(x, y, id, name, label, type, itypes, otypes, ipars) {
-    super(x, y, id, name, label, type, itypes, otypes, ipars);
+  constructor(x, y, id, name, label, typeconf) {
+    super(x, y, id, name, label, typecond);
   }
   _getGNType() {
     return GraphicsNodeCircular;
@@ -1367,8 +1321,8 @@ class NodeFunctionNamed extends Node {
   static get basetype() { return "function_named"; }
   get basetype() { return NodeFunctionNamed.basetype; } // js is not class-based
   static get prefix() { return "f"; }
-  constructor(x, y, id, name, label, type, itypes, otypes, ipars) {
-    super(x, y, id, name, label, type, itypes, otypes, ipars);
+  constructor(x, y, id, name, label, typeconf) {
+    super(x, y, id, name, label, typeconf);
   }
   _getGNType() {
     return GraphicsNodeCircular;
@@ -1398,11 +1352,11 @@ class NodeObject extends Node {
   static get basetype() { return "object"; }
   get basetype() { return NodeObject.basetype; } // js is not class-based
   static get prefix() { return "o"; }
-  constructor(x, y, id, name, label, type, iotype='obj') {
-    let itypes = [iotype];
-    let otypes = [iotype];
-    let ipars = [''];
-    super(x, y, id, name, label, type, itypes, otypes, ipars, [], [], []);
+  constructor(x, y, id, name, label, typeconf, iotype='obj') {
+    typeconf.itypes = [iotype];
+    typeconf.otypes = [iotype];
+    typeconf.ipars = [''];
+    super(x, y, id, name, label, typeconf);
     this.iotype = iotype;
   }
   _getGNType() {
@@ -1419,14 +1373,12 @@ class NodeObject extends Node {
   }
   onConnect(link, isInput) {
     if (isInput) {
-      this.otypes = [link.d1.type];
-      this.gNode.setAnchorTypes(this.itypes.concat(this.otypes));
+      this.gNode.setOutputAncorTypes([link.d1.type]);
     }
   }
   onDisconnect(link, isInput) {
     if (isInput) {
-      this.otypes = [this.iotype];
-      this.gNode.setAnchorTypes(this.itypes.concat(this.otypes));
+      this.gNode.setOutputAncorTypes([this.iotype]);
     }
   }
 }
@@ -1435,11 +1387,11 @@ class NodeObjectLitteral extends Node {
   static get basetype() { return "object_litteral"; }
   get basetype() { return NodeObjectLitteral.basetype; } // js is not class-based
   static get prefix() { return "o"; }
-  constructor(x, y, id, name, label, type) {
-    let itypes = [];
-    let otypes = ['obj'];
-    let ipars = [''];
-    super(x, y, id, name, label, type, itypes, otypes, ipars, [], [], []);
+  constructor(x, y, id, name, label, typeconf) {
+    typeconf.itypes = [];
+    typeconf.otypes = ['obj'];
+    typeconf.ipars = [''];
+    super(x, y, id, name, label, typeconf);
   }
   _getGNType() {
     return GraphicsNodeFluffy;
@@ -1477,8 +1429,8 @@ class NodeIData extends NodeObject {
   static get basetype() { return "object_idata"; }
   get basetype() { return NodeIData.basetype; } // js is not class-based
   static get prefix() { return "id"; }
-  constructor(x, y, id, name, label, type) {
-    super(x, y, id, name, label, type, 'IData');
+  constructor(x, y, id, name, label, typeconf) {
+    super(x, y, id, name, label, typeconf, 'IData');
   }
   _getGNType() {
     return GraphicsNodeFluffyPad;
@@ -1493,8 +1445,8 @@ class NodeIFunc extends NodeObject {
   static get basetype() { return "object_ifunc"; }
   get basetype() { return NodeIFunc.basetype; } // js is not class-based
   static get prefix() { return "id"; }
-  constructor(x, y, id, name, label, type) {
-    super(x, y, id, name, label, type, 'IFunc');
+  constructor(x, y, id, name, label, typeconf) {
+    super(x, y, id, name, label, typeconf, 'IFunc');
   }
   _getGNType() {
     return GraphicsNodeCircularPad;
@@ -1508,8 +1460,8 @@ class NodeFunctional extends Node {
   static get basetype() { return "functional"; }
   get basetype() { return NodeFunctional.basetype; } // js is not class-based
   static get prefix() { return "op"; }
-  constructor(x, y, id, name, label, type, itypesF, otypesF, iparsF) {
-    super(x, y, id, name, label, type, [], [], [], itypesF, otypesF, iparsF);
+  constructor(x, y, id, name, label, typeconf) {
+    super(x, y, id, name, label, typeconf);
   }
   _getGNType() {
     return GraphicsNodeSquare;
@@ -1532,7 +1484,7 @@ class GraphInterface {
     let exeNodeCB = this._exeNodeCB.bind(this);
     let createNodeCB = this._createNodeCB.bind(this);
     this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, createNodeCB);
-    this.truth = ConnectionTruthMcWeb;
+    this.truth = ConnRulesBasic;
 
     // id, node dict,for high-level nodes
     this.nodes = {};
@@ -1780,14 +1732,14 @@ class GraphInterface {
         selfref.node_data(id, JSON.stringify(obj.userdata));
         n.obj = obj; // (re)set all data
         selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-        ConnectionTruthMcWeb.updateNodeState(n.gNode);
+        ConnRulesBasic.updateNodeState(n.gNode);
         selfref.updateUi();
         selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
       function() {
         console.log("run() ajax fail (id: " + id + ")");
         selfref.lock = false;
-        ConnectionTruthMcWeb.updateNodeState(n.gNode);
+        ConnRulesBasic.updateNodeState(n.gNode);
         selfref.updateUi();
       }
     );
@@ -1808,9 +1760,9 @@ class GraphInterface {
       conf.name = name;
       conf.label = label;
       if ((id == '') || (!id) || (id in this.nodes)) {
-        id = this._getId(ConnectionTruthMcWeb._getPrefix(conf.basetype));
+        id = this._getId(ConnRulesBasic._getPrefix(conf.basetype));
       }
-      let n = ConnectionTruthMcWeb.createNodeObjectFromConf(conf, id, x, y);
+      let n = ConnRulesBasic.createNode(conf, id, x, y);
       this.nodes[id] = n;
 
       this.graphData.addNode(n.gNode);
@@ -1840,8 +1792,6 @@ class GraphInterface {
       let idx2 = args[3];
       let ordr = args[4];
 
-      // WARNING: non-general handling of order
-      if (!(ordr in [0, 1])) throw "invalid order";
       let n1 = this.nodes[id1];
       let n2 = this.nodes[id2];
 
@@ -1851,15 +1801,11 @@ class GraphInterface {
       if (ordr==0) {
         a1 = n1.getAnchor(idx1, 1);
         a2 = n2.getAnchor(idx2, 0);
-      } else if (ordr==1) {
-        a1 = n1.getAnchor(idx1, 3);
-        a2 = n2.getAnchor(idx2, 2);
-      } else throw "extra-binary order connections not implemented"
+      } else throw "order must be zero"
 
       // connect
       if (this.truth.canConnect(a1, a2)) {
-        let linkClass = this.truth.getLinkClass(a1);
-        let l = new linkClass(a1, a2)
+        let l = new LinkSingle(a1, a2)
         this.graphData.addLink(l);
         this.truth.updateNodeState(a1.owner);
         this.truth.updateNodeState(a2.owner);
@@ -1883,10 +1829,7 @@ class GraphInterface {
       if (ordr==0) {
         a1 = n1.getAnchor(idx1, 1);
         a2 = n2.getAnchor(idx2, 0);
-      } else if (ordr==1) {
-        a1 = n1.getAnchor(idx1, 3);
-        a2 = n2.getAnchor(idx2, 2);
-      } else throw "extra-binary order connections not implemented"
+      } else throw "order must be zero"
 
       // 2) get the link given the anchors
       let l = null;
@@ -2089,7 +2032,7 @@ class NodeTypeMenu {
     // the lbl set-reset hack here is to get the right labels everywhere in a convoluted way...
     let lbl = conf.label;
     conf.label = conf.type;
-    let n = ConnectionTruthMcWeb.createNodeObjectFromConf(conf, "", 50, 50);
+    let n = ConnRulesBasic.createNode(conf, "", 50, 50);
     conf.label = lbl;
 
     let branch = this.root
