@@ -1460,6 +1460,7 @@ class NodeFunctional extends Node {
 }
 
 // high/user-level interface to graph data and drawing
+//
 class GraphInterface {
   constructor() {
     this.graphData = new GraphData();

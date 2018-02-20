@@ -137,7 +137,7 @@ class FlatGraph:
         # caching
         del self.node_cmds_cache[id]
 
-    def link_add(self, id1, idx1, id2, idx2, order):
+    def link_add(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
         n2 = self.root.subnodes[id2]
         add_connection(n1, idx1, n2, idx2, order)
@@ -146,7 +146,7 @@ class FlatGraph:
             self.dslinks_cache[id1] = []
         self.dslinks_cache[id1].append((id1, idx1, id2, idx2, order))
 
-    def link_rm(self, id1, idx1, id2, idx2, order):
+    def link_rm(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
         n2 = self.root.subnodes[id2]
         remove_connection(n1, idx1, n2, idx2, order)
