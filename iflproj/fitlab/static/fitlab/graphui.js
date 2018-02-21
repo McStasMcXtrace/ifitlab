@@ -1007,7 +1007,6 @@ class GraphData {
     this.links = [];
     this.anchors = [];
     this.forceLinks = [];
-
     this.nodeIds = [];
 
     this._selectedNode = null;
@@ -1016,7 +1015,6 @@ class GraphData {
     let m = this._selectedNode;
     if (m) m.active = false;
     this._selectedNode = n;
-    // n could be null - de-selection
     if (n) n.active = true;
   }
   get selectedNode() {
@@ -1052,17 +1050,17 @@ class GraphData {
     }
     else throw "node of that id already exists"
   }
-  rmNodeAndLinks(n) {
-    let nl = n.links.length;
-    let report = [];
+  getNeighbours(n) {
+    let nbs = [];
     let l = null;
-    for (var i=0; i<nl; i++) {
-      l = n.links[0];
-      report.push(["link_add", l.d1.owner.id, l.d1.idx, l.d2.owner.id, l.d2.idx]);
-      this.rmLink(l);
+    let numlinks = n.links.length;
+    for (var i=0; i<numlinks; i++) {
+      l = n.links[i];
+      nbs.push(l.d1.owner);
+      nbs.push(l.d2.owner);
     }
-    remove(this.nodes, n);
-    return report;
+    nbs = nbs.filter(m=>n!=m);
+    return nbs;
   }
   rmNodeSecure(n) {
     if (n.links.length > 0) throw "some links persist on node, won't delete " + n.owner.id;
@@ -1075,6 +1073,22 @@ class GraphData {
   rmLink(l) {
     l.detatch();
     remove(this.links, l);
+  }
+  _connectivity(n) {
+    return n.getConnections();
+  }
+  updateNodeState(n) {
+    let o = n.owner;
+    let conn = this._connectivity(n);
+    if (o.isActive()) {
+      n.state = NodeState.ACTIVE;
+    }
+    else if (!o.isConnected(conn)){
+      n.state = NodeState.DISCONNECTED;
+    }
+    else {
+      n.state = NodeState.PASSIVE;
+    }
   }
 }
 
@@ -1124,18 +1138,6 @@ class ConnRulesBasic {
     let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
     return ans;
   }
-  static updateNodeState(node) {
-    let o = node.owner;
-    if (o.isActive()) {
-      node.state = NodeState.ACTIVE;
-    }
-    else if (!o.isConnected()){
-      node.state = NodeState.DISCONNECTED;
-    }
-    else {
-      node.state = NodeState.PASSIVE;
-    }
-  }
   static _nodeBaseClasses() {
     return [
       NodeObject,
@@ -1172,11 +1174,11 @@ class ConnRulesBasic {
     if (typeconf.data) {
       n.userdata = typeconf.data;
     }
-    return n
+    return n;
   }
 }
 
-// high-level node types
+// high-level datagraph node types
 //
 class Node {
   static get basetype() { throw "Node: basetype property must be overridden"; }
@@ -1241,7 +1243,7 @@ class Node {
   _getAnchorType() {
     throw "abstract method call"
   }
-  isConnected(iIsConn, oIsConn) {
+  isConnected(connectivity) {
     throw "abstract method call";
   }
   isActive() {
@@ -1264,7 +1266,7 @@ class Node {
 
 class NodeFunction extends Node {
   static get basetype() { return "function"; }
-  get basetype() { return NodeFunction.basetype; } // js is not class-based
+  get basetype() { return NodeFunction.basetype; }
   static get prefix() { return "f"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typecond);
@@ -1275,15 +1277,14 @@ class NodeFunction extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    return conn.indexOf(false) == -1;
+  isConnected(connectivity) {
+    return connectivity.indexOf(false) == -1;
   }
 }
 
 class NodeFunctionNamed extends Node {
   static get basetype() { return "function_named"; }
-  get basetype() { return NodeFunctionNamed.basetype; } // js is not class-based
+  get basetype() { return NodeFunctionNamed.basetype; }
   static get prefix() { return "f"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf);
@@ -1294,9 +1295,8 @@ class NodeFunctionNamed extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    return conn.indexOf(false) == -1;
+  isConnected(connectivity) {
+    return connectivity.indexOf(false) == -1;
   }
   isActive() {
     // assumed to be associated with an underlying function object
@@ -1306,7 +1306,7 @@ class NodeFunctionNamed extends Node {
 
 class NodeMethodAsFunction extends NodeFunctionNamed {
   static get basetype() { return "method_as_function"; }
-  get basetype() { return NodeFunctionNamed.basetype; } // js is not class-based
+  get basetype() { return NodeFunctionNamed.basetype; }
   _getGNType() {
     return GraphicsNodeHexagonal;
   }
@@ -1314,7 +1314,7 @@ class NodeMethodAsFunction extends NodeFunctionNamed {
 
 class NodeObject extends Node {
   static get basetype() { return "object"; }
-  get basetype() { return NodeObject.basetype; } // js is not class-based
+  get basetype() { return NodeObject.basetype; }
   static get prefix() { return "o"; }
   constructor(x, y, id, name, label, typeconf, iotype='obj') {
     typeconf.itypes = [iotype];
@@ -1329,10 +1329,9 @@ class NodeObject extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    if (conn.length > 0) {
-      return conn[0];
+  isConnected(connectivity) {
+    if (connectivity.length > 0) {
+      return connectivity[0];
     }
   }
   onConnect(link, isInput) {
@@ -1349,7 +1348,7 @@ class NodeObject extends Node {
 
 class NodeObjectLitteral extends Node {
   static get basetype() { return "object_litteral"; }
-  get basetype() { return NodeObjectLitteral.basetype; } // js is not class-based
+  get basetype() { return NodeObjectLitteral.basetype; }
   static get prefix() { return "o"; }
   constructor(x, y, id, name, label, typeconf) {
     typeconf.itypes = [];
@@ -1363,9 +1362,8 @@ class NodeObjectLitteral extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    if (conn.length > 0) {
+  isConnected(connectivity) {
+    if (connectivity.length > 0) {
       return conn[0];
     }
   }
@@ -1391,7 +1389,7 @@ class NodeObjectLitteral extends Node {
 
 class NodeIData extends NodeObject {
   static get basetype() { return "object_idata"; }
-  get basetype() { return NodeIData.basetype; } // js is not class-based
+  get basetype() { return NodeIData.basetype; }
   static get prefix() { return "id"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf, 'IData');
@@ -1407,7 +1405,7 @@ class NodeIData extends NodeObject {
 
 class NodeIFunc extends NodeObject {
   static get basetype() { return "object_ifunc"; }
-  get basetype() { return NodeIFunc.basetype; } // js is not class-based
+  get basetype() { return NodeIFunc.basetype; }
   static get prefix() { return "id"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf, 'IFunc');
@@ -1422,7 +1420,7 @@ class NodeIFunc extends NodeObject {
 
 class NodeFunctional extends Node {
   static get basetype() { return "functional"; }
-  get basetype() { return NodeFunctional.basetype; } // js is not class-based
+  get basetype() { return NodeFunctional.basetype; }
   static get prefix() { return "op"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf);
@@ -1433,8 +1431,8 @@ class NodeFunctional extends Node {
   _getAnchorType() {
     return AnchorSquare;
   }
-  isConnected() {
-    return this.gNode.getConnections().indexOf(false) == -1;
+  isConnected(connectivity) {
+    return connectivity.indexOf(false) == -1;
   }
 }
 
@@ -1517,11 +1515,15 @@ class GraphInterface {
   _delNodeAndLinks(n) {
     // formalize link removal (node cleanup before removal)
     let l = null;
+    let nbs = this.graphData.getNeighbours(n);
     let numlinks = n.links.length;
     for (var i=0; i<numlinks; i++) {
       l = n.links[0];
       this.link_rm(l.d1.owner.owner.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx);
     }
+    // request node state update on neighbours
+    for (var i=0; i<nbs.length; i++) this.graphData.updateNodeState(nbs[i]);
+
     // formalize the now clean node removal
     let id = n.owner.id;
     this.node_rm(id);
@@ -1575,7 +1577,7 @@ class GraphInterface {
   setCreateNodeConf(conf) {
     this._createConf = cloneConf(conf);
   }
-  getSelecedNode() {
+  getSelectedNode() {
     return this.graphData.selectedNode.owner;
   }
   pushSelectedNodeLabel(text) {
@@ -1700,14 +1702,14 @@ class GraphInterface {
         selfref.node_data(id, JSON.stringify(obj.userdata));
         n.obj = obj; // (re)set all data
         selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-        ConnRulesBasic.updateNodeState(n.gNode);
+        selfref.graphData.updateNodeState(n.gNode);
         selfref.updateUi();
         selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
       function() {
         console.log("run() ajax fail (id: " + id + ")");
         selfref.lock = false;
-        ConnRulesBasic.updateNodeState(n.gNode);
+        selfref.graphData.updateNodeState(n.gNode);
         selfref.updateUi();
       }
     );
@@ -1734,7 +1736,7 @@ class GraphInterface {
       this.nodes[id] = n;
 
       this.graphData.addNode(n.gNode);
-      this.truth.updateNodeState(n.gNode);
+      this.graphData.updateNodeState(n.gNode);
       this.draw.resetChargeSim();
 
       return [["node_add", n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address], ["node_rm", n.id]];
@@ -1772,8 +1774,8 @@ class GraphInterface {
       if (this.truth.canConnect(a1, a2)) {
         let l = new LinkSingle(a1, a2)
         this.graphData.addLink(l);
-        this.truth.updateNodeState(a1.owner);
-        this.truth.updateNodeState(a2.owner);
+        this.graphData.updateNodeState(a1.owner);
+        this.graphData.updateNodeState(a2.owner);
       }
       return [["link_add"].concat(args), ["link_rm"].concat(args)];
     }
@@ -1829,7 +1831,7 @@ class GraphInterface {
       // apply data only if node is not static
       if (n.edit == true) {
         n.userdata = JSON.parse(data_str);
-        this.truth.updateNodeState(n.gNode);
+        this.graphData.updateNodeState(n.gNode);
         this.updateUi();
         return [["node_data", id, data_str], ["node_data", id, prevdata_str]];
       }
