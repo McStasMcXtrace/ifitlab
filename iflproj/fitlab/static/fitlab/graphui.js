@@ -1080,8 +1080,7 @@ class GraphData {
 }
 
 class ConnRulesBasic {
-  // returns the specified number of angles which will all be interpreted as inputs
-  // NOTE: input angle are reversed, due to the let-to-right counting for inputs as function arguments
+  // .reverse()'d into left-to-right ordering in the return list
   static getInputAngles(num) {
     if (num == 0) {
       return [];
@@ -1097,8 +1096,6 @@ class ConnRulesBasic {
       return [50, 70, 90, 110, 130].reverse();
     } else throw "give a number from 0 to 5";
   }
-  // returns the specified number of angles which will all be interpreted as outputs
-  // NOTE: output angles are NOT reversed, see comment on getInputAngles
   static getOutputAngles(num) {
     if (num == 0) {
       return [];
@@ -1115,15 +1112,15 @@ class ConnRulesBasic {
     } else throw "give a number from 0 to 5";
   }
   static canConnect(a1, a2) {
-    // a1 must be an output and a2 an input
+    //  a2 input anchor, a1 output
     let t1 = a2.i_o;
     let t2 = !a1.i_o;
     // inputs can only have one connection
     let t5 = a2.connections == 0;
     // both anchors must be of the same type
     let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == ''; // the latter of these two is questionable
-    let t8 = a1.type == 'obj' || a2.type == 'obj'; // the latter of these two is questionable
+    let t7 = a1.type == '' || a2.type == '';
+    let t8 = a1.type == 'obj' || a2.type == 'obj';
 
     let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
     return ans;
@@ -1140,20 +1137,6 @@ class ConnRulesBasic {
       node.state = NodeState.PASSIVE;
     }
   }
-  static _getBaseNodeClassName(basetype) {
-    let ncs = this._nodeBaseClasses();
-    let nt = ncs.map(cn => cn.basetype);
-    let i = nt.indexOf(basetype);
-    if (i >= 0) return ncs[i]; else throw "_getBaseNodeClassName: unknown basetype: " + basetype;
-  }
-  static _getPrefix(basetype) {
-    let ncs = this._nodeBaseClasses();
-    let prefixes = ncs.map(cn => cn.prefix);
-    let basetypes = ncs.map(cn => cn.basetype);
-    let i = basetypes.indexOf(basetype);
-    if (i >= 0) return prefixes[i]; else throw "_getPrefix: unknown basetype";
-  }
-  // register all node types here
   static _nodeBaseClasses() {
     return [
       NodeObject,
@@ -1166,9 +1149,23 @@ class ConnRulesBasic {
       NodeFunctional
     ];
   }
+  static getNodeIdPrefix(basetype) {
+    let ncs = this._nodeBaseClasses();
+    let prefixes = ncs.map(cn => cn.prefix);
+    let basetypes = ncs.map(cn => cn.basetype);
+    let i = basetypes.indexOf(basetype);
+    if (i >= 0) return prefixes[i]; else throw "getNodeIdPrefix: unknown basetype";
+  }
   static createNode(typeconf, id, x=0, y=0) {
-    let cn =  ConnRulesBasic._getBaseNodeClassName(typeconf.basetype);
-    let n = new cn(x, y, id,
+    // find the node basetype class
+    let tpe = null
+    let ncs = this._nodeBaseClasses();
+    let nt = ncs.map(cn => cn.basetype);
+    let i = nt.indexOf(typeconf.basetype);
+    if (i >= 0) tpe = ncs[i]; else throw "unknown typeconf.basetype: " + typeconf.basetype;
+
+    // create the node
+    let n = new tpe(x, y, id,
       typeconf.name,
       typeconf.label,
       typeconf,
@@ -1179,7 +1176,6 @@ class ConnRulesBasic {
     return n
   }
 }
-
 
 // high-level node types
 //
@@ -1730,7 +1726,7 @@ class GraphInterface {
       conf.name = name;
       conf.label = label;
       if ((id == '') || (!id) || (id in this.nodes)) {
-        id = this._getId(ConnRulesBasic._getPrefix(conf.basetype));
+        id = this._getId(ConnRulesBasic.getNodeIdPrefix(conf.basetype));
       }
       let n = ConnRulesBasic.createNode(conf, id, x, y);
       this.nodes[id] = n;
