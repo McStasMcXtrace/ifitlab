@@ -618,11 +618,10 @@ class LinkDouble extends Link {
 // responsible for drawing, and acts as an interface
 class GraphDraw {
   constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB) {
-    // pythonicism
     self = this;
 
-    this.graphData = graphData; // this is needed for accessing anchors and nodes for simulations
-    this.mouseAddLinkCB =  mouseAddLinkCB; // this is the cb callled when anchors are dragged on top of one another
+    this.graphData = graphData; // this is needed for accessing anchors and nodes for drawing and simulations
+    this.mouseAddLinkCB =  mouseAddLinkCB; // this is callled when anchors are dragged to other anchors
     this.delNodeCB = delNodeCB;
     this.selectNodeCB = selectNodeCB;
     this.executeNodeCB = executeNodeCB;
@@ -949,7 +948,7 @@ class GraphDraw {
         let node = d3.select(this).datum();
         d3.event.stopPropagation();
         if (d3.event.ctrlKey) {
-          self.delNodeCB( node.owner );
+          self.delNodeCB( node );
         }
         else {
           self.graphData.selectedNode = node;
@@ -1493,7 +1492,9 @@ class GraphInterface {
     if (listener) this._nodeSelectionListn.push([listener, rmfunc]);
   }
   _selNodeCB(node) {
-    this._fireEvents(this._nodeSelectionListn, [node]);
+    let n = null;
+    if (node) n = node.owner;
+    this._fireEvents(this._nodeSelectionListn, [n]);
   }
   _createNodeCB(x, y) {
     let conf = this._createConf;
@@ -1514,9 +1515,7 @@ class GraphInterface {
   }
   // only works for up to five args :P)
   _delNodeAndLinks(n) {
-    if (n.gNode) n = n.gNode; // totally should be un-hacked
-
-    // formalize "node cleanup" which is link removal
+    // formalize link removal (node cleanup before removal)
     let l = null;
     let numlinks = n.links.length;
     for (var i=0; i<numlinks; i++) {
@@ -1575,6 +1574,9 @@ class GraphInterface {
   //
   setCreateNodeConf(conf) {
     this._createConf = cloneConf(conf);
+  }
+  getSelecedNode() {
+    return this.graphData.selectedNode.owner;
   }
   pushSelectedNodeLabel(text) {
     this.node_label(this.graphData.selectedNode.owner.id, text);

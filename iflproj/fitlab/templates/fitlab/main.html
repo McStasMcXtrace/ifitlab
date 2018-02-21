@@ -208,13 +208,12 @@ $(document).ready(() => {
   $("#divUserData").css({ left: lft, });
   $("#divUserData").draggable();
   intface.addNodeSelectionListener( (node) => {
-    if (node) { setUserData(node.owner); }
+    if (node) { setUserData(node); }
     else clearUserDataPanel();
   }, null);
   intface.addUiUpdateListener( () => {
     if (intface.graphData.selectedNode) {
-      // TODO: update the code below, the call is a little too deep
-      setUserData(intface.graphData.selectedNode.owner);
+      setUserData(intface.getSelectedNode());
     }
   }, null);
   $("#tbxNodeLabel").change( () => {
