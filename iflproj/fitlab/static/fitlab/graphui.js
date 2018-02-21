@@ -89,21 +89,11 @@ NodeState = {
   FAIL : 4,
 }
 function getNodeStateClass(state) {
-  if (state==NodeState.DISCONNECTED) {
-    return "disconnected";
-  }
-  else if (state==NodeState.PASSIVE) {
-    return "passive";
-  }
-  else if (state==NodeState.ACTIVE) {
-    return "active";
-  }
-  else if (state==NodeState.RUNNING) {
-    return "running";
-  }
-  else if (state==NodeState.FAIL) {
-    return "fail";
-  }
+  if (state==NodeState.DISCONNECTED) return "disconnected";
+  else if (state==NodeState.PASSIVE) return "passive";
+  else if (state==NodeState.ACTIVE) return "active";
+  else if (state==NodeState.RUNNING) return "running";
+  else if (state==NodeState.FAIL) return "fail";
   else throw "invalid value"
 }
 
@@ -128,10 +118,6 @@ class GraphicsNode {
   setAnchors(anchors) {
     if (this.anchors) throw "anchors only intended to be set once";
     this.anchors = anchors;
-  }
-  isAllConnected() {
-    let c = this.getConnections();
-    return c.indexOf(false) == -1;
   }
   getConnections() {
     // collect local link anchors
@@ -1253,9 +1239,6 @@ class Node {
   }
   set label(value) {
     if (value || value=="") this.gNode.label = value;
-  }
-  static isAllConnected() {
-    return this.gNode.isAllConnected();
   }
   _getGNType() {
     throw "abstract method call"
