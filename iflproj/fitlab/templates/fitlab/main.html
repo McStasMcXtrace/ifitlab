@@ -176,7 +176,7 @@ $(document).ready(() => {
     // remove previous elements with this id no matter what
     let x_y = removeSubWindow(node.id);
 
-    if (node.obj.plotdata) {
+    if (node.plotdata) {
       // create a subwindow now the coast is clear
       let xpos = node.gNode.x + 150;
       let ypos = node.gNode.y - 100;
@@ -188,7 +188,7 @@ $(document).ready(() => {
 
       // plot into the subwindow
       let plotbranch = d3.select('#'+subwinid_containerid[0]).append("svg");
-      let pltdata = node.obj.plotdata;
+      let pltdata = node.plotdata;
       pltdata.title='';
       pltdata.w = width;
       pltdata.h = height;
