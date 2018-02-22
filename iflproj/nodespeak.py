@@ -193,8 +193,9 @@ class RootNode(Node):
         return False
 
 '''
-Programming style node types. For example:
+Programming style node types.
 
+For example:
 ObjNode, a handle for objects returned by FuncNodes or otherwise
 FuncNode is intended to be used as pure functions as given by the functional paradigm
 MethodNode, intended to bring object interaction to the node graph through direcly calling methods.
@@ -202,7 +203,7 @@ ReturnFuncNode, returns the value of a boolean evaluation, to be used in conjunc
 '''
 
 class ObjNode(Node):
-    ''' Simply an object handle. '''
+    ''' An object handle. '''
     class CallException(Exception): pass
     class ExeModel(ExecutionModel):
         def order(self):
@@ -212,9 +213,9 @@ class ObjNode(Node):
         def can_call(self):
             return False
         def objects(self):
-            return [ObjNode, ObjLitteralNode]
+            return standard_objects
         def subjects(self):
-            return [FuncNode, MethodNode, MethodAsFunctionNode]
+            return standard_subjects
 
     def __init__(self, name, obj=None):
         self.obj = obj
@@ -234,12 +235,12 @@ class ObjNode(Node):
     def _check_owner(self, node):
         return type(node) is RootNode
     def _check_child(self, node):
-        return type(node) in (FuncNode, ObjNode, MethodNode, ReturnFuncNode, MethodAsFunctionNode)
+        return type(node) in standard_children
     def _check_parent(self, node):
-        return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and len( parents_get(self.parents, self.exe_model.order()) ) < 1
+        return type(node) in standard_parents and len( parents_get(self.parents, self.exe_model.order()) ) < 1
 
-class ObjLitteralNode(ObjNode):
-    ''' Holds a litteral (often json) object intended to be editable through a ui '''
+class ObjLiteralNode(ObjNode):
+    ''' Holds a literal (often json) object intended to be editable through a ui '''
     class ExeModel(ExecutionModel):
         def order(self):
             return 0
@@ -249,11 +250,70 @@ class ObjLitteralNode(ObjNode):
         def can_call(self):
             return False
         def objects(self):
-            return [ObjLitteralNode]
+            return [ObjLiteralNode]
         def subjects(self):
             return []
     def _check_parent(self, node):
         return False
+
+class RootNodeForwardingObj(Node):
+    '''
+    A root node which forwards its execution and connectivity to a certain subnode. Can be used as a
+    crude way to model inter-level connections, that works for subnode assemblies with precisely
+    one obj subnode.
+    '''
+    class CallException(Exception): pass
+    class MoreThanOneObjSubnodeException(Exception): pass
+    class ExeModel(ExecutionModel):
+        def order(self):
+            return 0
+        def can_assign(self):
+            return True
+        def can_call(self):
+            return False
+        def objects(self):
+            return standard_objects
+        def subjects(self):
+            return standard_subjects
+    
+    def __init__(self, name):
+        super().__init__(name, exe_model=RootNodeForwardingObj.ExeModel())
+    
+    def assign(self, obj):
+        lst = []
+        for name in self.subnodes.keys():
+            subn = self.subnodes[name]
+            if type(subn) in (ObjNode, RootNodeForwardingObj):
+                lst.append(subn)
+        if len(lst) == 1:
+            lst[0].assign(obj)
+        elif len(lst) == 0:
+            raise RootNodeForwardingObj.NoObjSubnodesException()
+        else:
+            raise RootNodeForwardingObj.MoreThanOneObjSubnodeException()
+    def call(self, *args):
+        raise RootNodeForwardingObj.CallException()
+    def get_object(self):
+        lst = []
+        for name in self.subnodes.keys():
+            subn = self.subnodes[name]
+            if type(subn) in (ObjNode, RootNodeForwardingObj):
+                lst.append(subn)
+        if len(lst) == 1:
+            return lst[0].get_object()
+        elif len(lst) == 0:
+            raise RootNodeForwardingObj.NoObjSubnodesException()
+        else:
+            raise RootNodeForwardingObj.MoreThanOneObjSubnodeException()
+    
+    def _check_subnode(self, node):
+        return True
+    def _check_owner(self, node):
+        return type(node) is RootNode
+    def _check_child(self, node):
+        return type(node) in standard_children
+    def _check_parent(self, node):
+        return type(node) in standard_parents and len( parents_get(self.parents, self.exe_model.order()) ) < 1
 
 class FuncNode(Node):
     ''' Holds a fixed function, with no direct execution allowed. '''
@@ -297,9 +357,9 @@ class FuncNode(Node):
     def _check_owner(self, node):
         return type(node) is RootNode
     def _check_child(self, node):
-        return type(node) in (FuncNode, ObjNode, MethodNode, ReturnFuncNode, MethodAsFunctionNode)
+        return type(node) in standard_children
     def _check_parent(self, node):
-        return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and True
+        return type(node) in standard_parents and True
 
 class MethodNode(Node):
     ''' Represents a method reference on some object, requires an ObjNode owner. '''
@@ -314,9 +374,9 @@ class MethodNode(Node):
         def can_call(self):
             return True
         def objects(self):
-            return [ObjNode, ObjLitteralNode]
+            return standard_objects
         def subjects(self):
-            return [FuncNode, MethodNode, MethodAsFunctionNode]
+            return standard_subjects
 
     def __init__(self, name, methodname):
         self.methodname = methodname
@@ -339,9 +399,9 @@ class MethodNode(Node):
     def _check_owner(self, node):
         return type(node) in (ObjNode, RootNode)
     def _check_child(self, node):
-        return type(node) in (FuncNode, ObjNode, MethodNode, ReturnFuncNode, MethodAsFunctionNode) and True
+        return type(node) in standard_children and True
     def _check_parent(self, node):
-        return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and True
+        return type(node) in standard_parents and True
 
 class MethodAsFunctionNode(Node):
     ''' Akin to FuncNode, but with first argument 'self'. Calls its "func target" string as a method on 'self'. '''
@@ -364,9 +424,9 @@ class MethodAsFunctionNode(Node):
     def _check_owner(self, node):
         return type(node) is RootNode
     def _check_child(self, node):
-        return type(node) in (FuncNode, ObjNode, MethodNode, ReturnFuncNode, MethodAsFunctionNode) and True
+        return type(node) in standard_children and True
     def _check_parent(self, node):
-        return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and True
+        return type(node) in standard_parents and True
 
 class ReturnFuncNode(Node):
     ''' Callable node, which holds a function returning a bool or N_0 int. Can not have child nodes. '''
@@ -379,9 +439,9 @@ class ReturnFuncNode(Node):
         def can_call(self):
             return True
         def objects(self):
-            return [ObjNode]
+            return standard_objects
         def subjects(self):
-            return [FuncNode, MethodNode, MethodAsFunctionNode]
+            return standard_subjects
 
     def __init__(self, name, func=None):
         self.func = func
@@ -403,7 +463,12 @@ class ReturnFuncNode(Node):
     def _check_child(self, node):
         return False
     def _check_parent(self, node):
-        return type(node) in (FuncNode, ObjNode, ObjLitteralNode, MethodNode, MethodAsFunctionNode) and True
+        return type(node) in standard_children and True
+
+standard_children = (FuncNode, ObjNode, MethodNode, ReturnFuncNode, MethodAsFunctionNode)
+standard_parents = (FuncNode, ObjNode, ObjLiteralNode, MethodNode, MethodAsFunctionNode)
+standard_objects = (ObjNode, ObjLiteralNode, RootNodeForwardingObj)
+standard_subjects = (FuncNode, MethodNode, MethodAsFunctionNode)
 
 '''
 Node graph operations.

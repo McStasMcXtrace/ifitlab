@@ -1050,6 +1050,9 @@ class GraphData {
     }
     else throw "node of that id already exists"
   }
+  getLinks(n) {
+    return n.links;
+  }
   getNeighbours(n) {
     let nbs = [];
     let l = null;
@@ -1141,7 +1144,7 @@ class ConnRulesBasic {
   static _nodeBaseClasses() {
     return [
       NodeObject,
-      NodeObjectLitteral,
+      NodeObjectLiteral,
       NodeFunction,
       NodeFunctionNamed,
       NodeMethodAsFunction,
@@ -1346,9 +1349,9 @@ class NodeObject extends Node {
   }
 }
 
-class NodeObjectLitteral extends Node {
-  static get basetype() { return "object_litteral"; }
-  get basetype() { return NodeObjectLitteral.basetype; }
+class NodeObjectLiteral extends Node {
+  static get basetype() { return "object_literal"; }
+  get basetype() { return NodeObjectLiteral.basetype; }
   static get prefix() { return "o"; }
   constructor(x, y, id, name, label, typeconf) {
     typeconf.itypes = [];
@@ -1511,17 +1514,17 @@ class GraphInterface {
   _exeNodeCB(gNode) {
     this.run(gNode.owner.id);
   }
-  // only works for up to five args :P)
   _delNodeAndLinks(n) {
     // formalize link removal (node cleanup before removal)
     let l = null;
     let nbs = this.graphData.getNeighbours(n);
-    let numlinks = n.links.length;
+    let lks = this.graphData.getLinks(n);
+    let numlinks = lks.length;
     for (var i=0; i<numlinks; i++) {
-      l = n.links[0];
+      l = lks[0];
       this.link_rm(l.d1.owner.owner.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx);
     }
-    // request node state update on neighbours
+    // update (x)neighbour node states
     for (var i=0; i<nbs.length; i++) this.graphData.updateNodeState(nbs[i]);
 
     // formalize the now clean node removal
@@ -1621,7 +1624,7 @@ class GraphInterface {
     for (let key in this.nodes) {
       n = this.nodes[key];
       nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
-      if (n.basetype == 'object_litteral') datas[n.id] = btoa(JSON.stringify(n.userdata));
+      if (n.basetype == 'object_literal') datas[n.id] = btoa(JSON.stringify(n.userdata));
 
       let elks = n.gNode.exitLinks;
       if (elks.length == 0) continue;
