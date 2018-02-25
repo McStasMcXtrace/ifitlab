@@ -1135,7 +1135,7 @@ class ConnRulesBasic {
     let t1 = a2.i_o;
     let t2 = !a1.i_o;
     // inputs can only have one connection
-    let t5 = a2.connections == 0;
+    let t5 = a2.numconnections == 0;
     // SHOULD BE a2.numconnections, an externally set int
     // both anchors must be of the same type
     let t6 = a1.type == a2.type;
