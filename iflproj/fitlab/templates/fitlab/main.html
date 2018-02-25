@@ -126,9 +126,9 @@ setUserData = function(node) {
   $("#tbxNodeLabel").val(node.label);
   $("#lgndNodeIdNameTypeEtc").html("id: "+node.id+"; type: "+node.type+"("+node.basetype+")");
 
-  // Why does "litteral" node type get special treatment?
+  // Why does "literal" node type get special treatment?
   // Because, it is currently the only way we have of entering actual JSON data into the graph environment...
-  if (node.basetype == "object_litteral") {
+  if (node.basetype == "object_literal") {
     let rowid = "row_42"; // some key strings have whitespaces in them...
     $("#tblUserData tbody")
       .append('<tr id="'+rowid+'" class="dynamicProperty"><td><textarea rows="20" cols="64"></textarea></td></tr>');
