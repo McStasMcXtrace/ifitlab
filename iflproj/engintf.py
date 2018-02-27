@@ -7,7 +7,6 @@ its name - e.g. _get_plot_1D - will be omitted.
 2) any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
 whereby its constructor node will output that type name
 '''
-from numpy.f2py.auxfuncs import isprivate
 __author__ = "Jakob Garde"
 
 import logging
