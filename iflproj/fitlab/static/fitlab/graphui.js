@@ -342,11 +342,16 @@ class Anchor {
 
     this.ext = null;
 
-    this.isTarget = false;
-    this.isLinked = false;
     this.arrowHead = null;
     this.i_o = i_o;
     this.idx = idx;
+    this.numconnections = 0;
+  }
+  get isLinked() {
+    return this.numconnections > 0;
+  }
+  get isTarget() {
+    return (this.i_o == true) && (this.numconnections > 0);
   }
   get tt() {
     let parname = this.parname;
@@ -368,6 +373,7 @@ class Anchor {
     return answer;
   }
   drawArrowhead(branch, i) {
+    console.log("drawarrow")
     if (!this.isTarget) return branch;
 
     let angle1 = Math.PI/180*(this.angle - arrowHeadAngle);
@@ -490,9 +496,8 @@ class Link {
     d1.owner.addLink(this, false);
     d2.owner.addLink(this, true);
 
-    d2.isTarget = true;
-    d1.isLinked = true;
-    d2.isLinked = true;
+    d1.numconnections += 1;
+    d2.numconnections += 1;
   }
   recalcPathAnchors() {
     this.pathAnchors = [];
@@ -528,10 +533,8 @@ class Link {
     return result;
   }
   detatch() {
-    this.d2.isTarget = false;
-    this.d1.isLinked = false;
-    this.d2.isLinked = false;
-
+    this.d1.numconnections -= 1;
+    this.d2.numconnections -= 1;
     this.d1.owner.rmLink(this, false);
     this.d2.owner.rmLink(this, true);
   }
@@ -1132,7 +1135,8 @@ class ConnRulesBasic {
     let t1 = a2.i_o;
     let t2 = !a1.i_o;
     // inputs can only have one connection
-    let t5 = a2.connections == 0;
+    let t5 = a2.numconnections == 0;
+    // SHOULD BE a2.numconnections, an externally set int
     // both anchors must be of the same type
     let t6 = a1.type == a2.type;
     let t7 = a1.type == '' || a2.type == '';
@@ -1150,7 +1154,7 @@ class ConnRulesBasic {
       NodeMethodAsFunction,
       NodeIData,
       NodeIFunc,
-      NodeFunctional
+      NodeFunctional,
     ];
   }
   static getNodeIdPrefix(basetype) {
