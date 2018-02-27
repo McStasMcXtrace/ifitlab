@@ -373,7 +373,6 @@ class Anchor {
     return answer;
   }
   drawArrowhead(branch, i) {
-    console.log("drawarrow")
     if (!this.isTarget) return branch;
 
     let angle1 = Math.PI/180*(this.angle - arrowHeadAngle);
@@ -1835,8 +1834,9 @@ class GraphInterface {
       let n = this.nodes[id];
       let prevdata_str = JSON.stringify(n.userdata);
 
-      // apply data only if node is not static
+      // apply data only if node is flagged for edit
       if (n.edit == true) {
+        console.log("setting data ("+id+"): ", data_str);
         n.userdata = JSON.parse(data_str);
         this.graphData.updateNodeState(n.gNode);
         this.updateUi();
@@ -1886,7 +1886,6 @@ class GraphInterface {
     }
   }
   node_data(id, data) {
-    console.log("setting data: ", id, data);
     // str, str
     if (this.lock == true) { console.log("node_data call during lock"); return -1; }
     let cmd_rev = this._command(["node_data", id, data]);
