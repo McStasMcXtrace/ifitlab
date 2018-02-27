@@ -89,21 +89,11 @@ NodeState = {
   FAIL : 4,
 }
 function getNodeStateClass(state) {
-  if (state==NodeState.DISCONNECTED) {
-    return "disconnected";
-  }
-  else if (state==NodeState.PASSIVE) {
-    return "passive";
-  }
-  else if (state==NodeState.ACTIVE) {
-    return "active";
-  }
-  else if (state==NodeState.RUNNING) {
-    return "running";
-  }
-  else if (state==NodeState.FAIL) {
-    return "fail";
-  }
+  if (state==NodeState.DISCONNECTED) return "disconnected";
+  else if (state==NodeState.PASSIVE) return "passive";
+  else if (state==NodeState.ACTIVE) return "active";
+  else if (state==NodeState.RUNNING) return "running";
+  else if (state==NodeState.FAIL) return "fail";
   else throw "invalid value"
 }
 
@@ -128,10 +118,6 @@ class GraphicsNode {
   setAnchors(anchors) {
     if (this.anchors) throw "anchors only intended to be set once";
     this.anchors = anchors;
-  }
-  isAllConnected() {
-    let c = this.getConnections();
-    return c.indexOf(false) == -1;
   }
   getConnections() {
     // collect local link anchors
@@ -632,11 +618,10 @@ class LinkDouble extends Link {
 // responsible for drawing, and acts as an interface
 class GraphDraw {
   constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB) {
-    // pythonicism
     self = this;
 
-    this.graphData = graphData; // this is needed for accessing anchors and nodes for simulations
-    this.mouseAddLinkCB =  mouseAddLinkCB; // this is the cb callled when anchors are dragged on top of one another
+    this.graphData = graphData; // this is needed for accessing anchors and nodes for drawing and simulations
+    this.mouseAddLinkCB =  mouseAddLinkCB; // this is callled when anchors are dragged to other anchors
     this.delNodeCB = delNodeCB;
     this.selectNodeCB = selectNodeCB;
     this.executeNodeCB = executeNodeCB;
@@ -963,7 +948,7 @@ class GraphDraw {
         let node = d3.select(this).datum();
         d3.event.stopPropagation();
         if (d3.event.ctrlKey) {
-          self.delNodeCB( node.owner );
+          self.delNodeCB( node );
         }
         else {
           self.graphData.selectedNode = node;
@@ -1022,7 +1007,6 @@ class GraphData {
     this.links = [];
     this.anchors = [];
     this.forceLinks = [];
-
     this.nodeIds = [];
 
     this._selectedNode = null;
@@ -1031,7 +1015,6 @@ class GraphData {
     let m = this._selectedNode;
     if (m) m.active = false;
     this._selectedNode = n;
-    // n could be null - de-selection
     if (n) n.active = true;
   }
   get selectedNode() {
@@ -1067,17 +1050,20 @@ class GraphData {
     }
     else throw "node of that id already exists"
   }
-  rmNodeAndLinks(n) {
-    let nl = n.links.length;
-    let report = [];
+  getLinks(n) {
+    return n.links;
+  }
+  getNeighbours(n) {
+    let nbs = [];
     let l = null;
-    for (var i=0; i<nl; i++) {
-      l = n.links[0];
-      report.push(["link_add", l.d1.owner.id, l.d1.idx, l.d2.owner.id, l.d2.idx]);
-      this.rmLink(l);
+    let numlinks = n.links.length;
+    for (var i=0; i<numlinks; i++) {
+      l = n.links[i];
+      nbs.push(l.d1.owner);
+      nbs.push(l.d2.owner);
     }
-    remove(this.nodes, n);
-    return report;
+    nbs = nbs.filter(m=>n!=m);
+    return nbs;
   }
   rmNodeSecure(n) {
     if (n.links.length > 0) throw "some links persist on node, won't delete " + n.owner.id;
@@ -1091,11 +1077,26 @@ class GraphData {
     l.detatch();
     remove(this.links, l);
   }
+  _connectivity(n) {
+    return n.getConnections();
+  }
+  updateNodeState(n) {
+    let o = n.owner;
+    let conn = this._connectivity(n);
+    if (o.isActive()) {
+      n.state = NodeState.ACTIVE;
+    }
+    else if (!o.isConnected(conn)){
+      n.state = NodeState.DISCONNECTED;
+    }
+    else {
+      n.state = NodeState.PASSIVE;
+    }
+  }
 }
 
 class ConnRulesBasic {
-  // returns the specified number of angles which will all be interpreted as inputs
-  // NOTE: input angle are reversed, due to the let-to-right counting for inputs as function arguments
+  // .reverse()'d into left-to-right ordering in the return list
   static getInputAngles(num) {
     if (num == 0) {
       return [];
@@ -1111,8 +1112,6 @@ class ConnRulesBasic {
       return [50, 70, 90, 110, 130].reverse();
     } else throw "give a number from 0 to 5";
   }
-  // returns the specified number of angles which will all be interpreted as outputs
-  // NOTE: output angles are NOT reversed, see comment on getInputAngles
   static getOutputAngles(num) {
     if (num == 0) {
       return [];
@@ -1129,49 +1128,23 @@ class ConnRulesBasic {
     } else throw "give a number from 0 to 5";
   }
   static canConnect(a1, a2) {
-    // a1 must be an output and a2 an input
+    //  a2 input anchor, a1 output
     let t1 = a2.i_o;
     let t2 = !a1.i_o;
     // inputs can only have one connection
     let t5 = a2.connections == 0;
     // both anchors must be of the same type
     let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == ''; // the latter of these two is questionable
-    let t8 = a1.type == 'obj' || a2.type == 'obj'; // the latter of these two is questionable
+    let t7 = a1.type == '' || a2.type == '';
+    let t8 = a1.type == 'obj' || a2.type == 'obj';
 
     let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
     return ans;
   }
-  static updateNodeState(node) {
-    let o = node.owner;
-    if (o.isActive()) {
-      node.state = NodeState.ACTIVE;
-    }
-    else if (!o.isConnected()){
-      node.state = NodeState.DISCONNECTED;
-    }
-    else {
-      node.state = NodeState.PASSIVE;
-    }
-  }
-  static _getBaseNodeClassName(basetype) {
-    let ncs = this._nodeBaseClasses();
-    let nt = ncs.map(cn => cn.basetype);
-    let i = nt.indexOf(basetype);
-    if (i >= 0) return ncs[i]; else throw "_getBaseNodeClassName: unknown basetype: " + basetype;
-  }
-  static _getPrefix(basetype) {
-    let ncs = this._nodeBaseClasses();
-    let prefixes = ncs.map(cn => cn.prefix);
-    let basetypes = ncs.map(cn => cn.basetype);
-    let i = basetypes.indexOf(basetype);
-    if (i >= 0) return prefixes[i]; else throw "_getPrefix: unknown basetype";
-  }
-  // register all node types here
   static _nodeBaseClasses() {
     return [
       NodeObject,
-      NodeObjectLitteral,
+      NodeObjectLiteral,
       NodeFunction,
       NodeFunctionNamed,
       NodeMethodAsFunction,
@@ -1180,9 +1153,23 @@ class ConnRulesBasic {
       NodeFunctional
     ];
   }
+  static getNodeIdPrefix(basetype) {
+    let ncs = this._nodeBaseClasses();
+    let prefixes = ncs.map(cn => cn.prefix);
+    let basetypes = ncs.map(cn => cn.basetype);
+    let i = basetypes.indexOf(basetype);
+    if (i >= 0) return prefixes[i]; else throw "getNodeIdPrefix: unknown basetype";
+  }
   static createNode(typeconf, id, x=0, y=0) {
-    let cn =  ConnRulesBasic._getBaseNodeClassName(typeconf.basetype);
-    let n = new cn(x, y, id,
+    // find the node basetype class
+    let tpe = null
+    let ncs = this._nodeBaseClasses();
+    let nt = ncs.map(cn => cn.basetype);
+    let i = nt.indexOf(typeconf.basetype);
+    if (i >= 0) tpe = ncs[i]; else throw "unknown typeconf.basetype: " + typeconf.basetype;
+
+    // create the node
+    let n = new tpe(x, y, id,
       typeconf.name,
       typeconf.label,
       typeconf,
@@ -1190,12 +1177,11 @@ class ConnRulesBasic {
     if (typeconf.data) {
       n.userdata = typeconf.data;
     }
-    return n
+    return n;
   }
 }
 
-
-// high-level node types
+// high-level datagraph node types
 //
 class Node {
   static get basetype() { throw "Node: basetype property must be overridden"; }
@@ -1254,16 +1240,13 @@ class Node {
   set label(value) {
     if (value || value=="") this.gNode.label = value;
   }
-  static isAllConnected() {
-    return this.gNode.isAllConnected();
-  }
   _getGNType() {
     throw "abstract method call"
   }
   _getAnchorType() {
     throw "abstract method call"
   }
-  isConnected(iIsConn, oIsConn) {
+  isConnected(connectivity) {
     throw "abstract method call";
   }
   isActive() {
@@ -1286,7 +1269,7 @@ class Node {
 
 class NodeFunction extends Node {
   static get basetype() { return "function"; }
-  get basetype() { return NodeFunction.basetype; } // js is not class-based
+  get basetype() { return NodeFunction.basetype; }
   static get prefix() { return "f"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typecond);
@@ -1297,15 +1280,14 @@ class NodeFunction extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    return conn.indexOf(false) == -1;
+  isConnected(connectivity) {
+    return connectivity.indexOf(false) == -1;
   }
 }
 
 class NodeFunctionNamed extends Node {
   static get basetype() { return "function_named"; }
-  get basetype() { return NodeFunctionNamed.basetype; } // js is not class-based
+  get basetype() { return NodeFunctionNamed.basetype; }
   static get prefix() { return "f"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf);
@@ -1316,9 +1298,8 @@ class NodeFunctionNamed extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    return conn.indexOf(false) == -1;
+  isConnected(connectivity) {
+    return connectivity.indexOf(false) == -1;
   }
   isActive() {
     // assumed to be associated with an underlying function object
@@ -1328,7 +1309,7 @@ class NodeFunctionNamed extends Node {
 
 class NodeMethodAsFunction extends NodeFunctionNamed {
   static get basetype() { return "method_as_function"; }
-  get basetype() { return NodeFunctionNamed.basetype; } // js is not class-based
+  get basetype() { return NodeFunctionNamed.basetype; }
   _getGNType() {
     return GraphicsNodeHexagonal;
   }
@@ -1336,7 +1317,7 @@ class NodeMethodAsFunction extends NodeFunctionNamed {
 
 class NodeObject extends Node {
   static get basetype() { return "object"; }
-  get basetype() { return NodeObject.basetype; } // js is not class-based
+  get basetype() { return NodeObject.basetype; }
   static get prefix() { return "o"; }
   constructor(x, y, id, name, label, typeconf, iotype='obj') {
     typeconf.itypes = [iotype];
@@ -1351,10 +1332,9 @@ class NodeObject extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    if (conn.length > 0) {
-      return conn[0];
+  isConnected(connectivity) {
+    if (connectivity.length > 0) {
+      return connectivity[0];
     }
   }
   onConnect(link, isInput) {
@@ -1369,9 +1349,9 @@ class NodeObject extends Node {
   }
 }
 
-class NodeObjectLitteral extends Node {
-  static get basetype() { return "object_litteral"; }
-  get basetype() { return NodeObjectLitteral.basetype; } // js is not class-based
+class NodeObjectLiteral extends Node {
+  static get basetype() { return "object_literal"; }
+  get basetype() { return NodeObjectLiteral.basetype; }
   static get prefix() { return "o"; }
   constructor(x, y, id, name, label, typeconf) {
     typeconf.itypes = [];
@@ -1385,9 +1365,8 @@ class NodeObjectLitteral extends Node {
   _getAnchorType() {
     return AnchorCircular;
   }
-  isConnected() {
-    let conn = this.gNode.getConnections();
-    if (conn.length > 0) {
+  isConnected(connectivity) {
+    if (connectivity.length > 0) {
       return conn[0];
     }
   }
@@ -1413,7 +1392,7 @@ class NodeObjectLitteral extends Node {
 
 class NodeIData extends NodeObject {
   static get basetype() { return "object_idata"; }
-  get basetype() { return NodeIData.basetype; } // js is not class-based
+  get basetype() { return NodeIData.basetype; }
   static get prefix() { return "id"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf, 'IData');
@@ -1429,7 +1408,7 @@ class NodeIData extends NodeObject {
 
 class NodeIFunc extends NodeObject {
   static get basetype() { return "object_ifunc"; }
-  get basetype() { return NodeIFunc.basetype; } // js is not class-based
+  get basetype() { return NodeIFunc.basetype; }
   static get prefix() { return "id"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf, 'IFunc');
@@ -1444,7 +1423,7 @@ class NodeIFunc extends NodeObject {
 
 class NodeFunctional extends Node {
   static get basetype() { return "functional"; }
-  get basetype() { return NodeFunctional.basetype; } // js is not class-based
+  get basetype() { return NodeFunctional.basetype; }
   static get prefix() { return "op"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf);
@@ -1455,8 +1434,8 @@ class NodeFunctional extends Node {
   _getAnchorType() {
     return AnchorSquare;
   }
-  isConnected() {
-    return this.gNode.getConnections().indexOf(false) == -1;
+  isConnected(connectivity) {
+    return connectivity.indexOf(false) == -1;
   }
 }
 
@@ -1514,7 +1493,9 @@ class GraphInterface {
     if (listener) this._nodeSelectionListn.push([listener, rmfunc]);
   }
   _selNodeCB(node) {
-    this._fireEvents(this._nodeSelectionListn, [node]);
+    let n = null;
+    if (node) n = node.owner;
+    this._fireEvents(this._nodeSelectionListn, [n]);
   }
   _createNodeCB(x, y) {
     let conf = this._createConf;
@@ -1533,17 +1514,19 @@ class GraphInterface {
   _exeNodeCB(gNode) {
     this.run(gNode.owner.id);
   }
-  // only works for up to five args :P)
   _delNodeAndLinks(n) {
-    if (n.gNode) n = n.gNode; // totally should be un-hacked
-
-    // formalize "node cleanup" which is link removal
+    // formalize link removal (node cleanup before removal)
     let l = null;
-    let numlinks = n.links.length;
+    let nbs = this.graphData.getNeighbours(n);
+    let lks = this.graphData.getLinks(n);
+    let numlinks = lks.length;
     for (var i=0; i<numlinks; i++) {
-      l = n.links[0];
+      l = lks[0];
       this.link_rm(l.d1.owner.owner.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx);
     }
+    // update (x)neighbour node states
+    for (var i=0; i<nbs.length; i++) this.graphData.updateNodeState(nbs[i]);
+
     // formalize the now clean node removal
     let id = n.owner.id;
     this.node_rm(id);
@@ -1597,6 +1580,9 @@ class GraphInterface {
   setCreateNodeConf(conf) {
     this._createConf = cloneConf(conf);
   }
+  getSelectedNode() {
+    return this.graphData.selectedNode.owner;
+  }
   pushSelectedNodeLabel(text) {
     this.node_label(this.graphData.selectedNode.owner.id, text);
   }
@@ -1638,7 +1624,7 @@ class GraphInterface {
     for (let key in this.nodes) {
       n = this.nodes[key];
       nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
-      if (n.basetype == 'object_litteral') datas[n.id] = btoa(JSON.stringify(n.userdata));
+      if (n.basetype == 'object_literal') datas[n.id] = btoa(JSON.stringify(n.userdata));
 
       let elks = n.gNode.exitLinks;
       if (elks.length == 0) continue;
@@ -1719,14 +1705,14 @@ class GraphInterface {
         selfref.node_data(id, JSON.stringify(obj.userdata));
         n.obj = obj; // (re)set all data
         selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-        ConnRulesBasic.updateNodeState(n.gNode);
+        selfref.graphData.updateNodeState(n.gNode);
         selfref.updateUi();
         selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
       function() {
         console.log("run() ajax fail (id: " + id + ")");
         selfref.lock = false;
-        ConnRulesBasic.updateNodeState(n.gNode);
+        selfref.graphData.updateNodeState(n.gNode);
         selfref.updateUi();
       }
     );
@@ -1747,13 +1733,13 @@ class GraphInterface {
       conf.name = name;
       conf.label = label;
       if ((id == '') || (!id) || (id in this.nodes)) {
-        id = this._getId(ConnRulesBasic._getPrefix(conf.basetype));
+        id = this._getId(ConnRulesBasic.getNodeIdPrefix(conf.basetype));
       }
       let n = ConnRulesBasic.createNode(conf, id, x, y);
       this.nodes[id] = n;
 
       this.graphData.addNode(n.gNode);
-      this.truth.updateNodeState(n.gNode);
+      this.graphData.updateNodeState(n.gNode);
       this.draw.resetChargeSim();
 
       return [["node_add", n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address], ["node_rm", n.id]];
@@ -1791,8 +1777,8 @@ class GraphInterface {
       if (this.truth.canConnect(a1, a2)) {
         let l = new LinkSingle(a1, a2)
         this.graphData.addLink(l);
-        this.truth.updateNodeState(a1.owner);
-        this.truth.updateNodeState(a2.owner);
+        this.graphData.updateNodeState(a1.owner);
+        this.graphData.updateNodeState(a2.owner);
       }
       return [["link_add"].concat(args), ["link_rm"].concat(args)];
     }
@@ -1848,7 +1834,7 @@ class GraphInterface {
       // apply data only if node is not static
       if (n.edit == true) {
         n.userdata = JSON.parse(data_str);
-        this.truth.updateNodeState(n.gNode);
+        this.graphData.updateNodeState(n.gNode);
         this.updateUi();
         return [["node_data", id, data_str], ["node_data", id, prevdata_str]];
       }

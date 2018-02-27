@@ -10,6 +10,7 @@ whereby its constructor node will output that type name
 from numpy.f2py.auxfuncs import isprivate
 __author__ = "Jakob Garde"
 
+import logging
 import inspect
 import json
 import re
@@ -17,7 +18,21 @@ import os
 from collections import OrderedDict
 
 from nodespeak import RootNode, FuncNode, ObjNode, MethodNode, MethodAsFunctionNode, add_subnode, remove_subnode
-from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, ObjLitteralNode
+from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, ObjLiteralNode
+
+_englog = None
+def _log(msg):
+    global _englog
+    if not _englog:
+        _englog = logging.getLogger('engine')
+        hdlr = logging.FileHandler('engine.log')
+        formatter = logging.Formatter('%(message)s')
+        hdlr.setFormatter(formatter)
+        _englog.addHandler(hdlr) 
+        _englog.info("")
+        _englog.info("")
+        _englog.info("%%  starting engine log session  %%")
+    _englog.info(msg)
 
 class TreeJsonAddr:
     '''
@@ -78,8 +93,6 @@ class ObjReprJson:
     def _get_full_repr_dict(self):
         ''' people can overload get_repr without having to call super, but just get the standard dict format from this method '''
         ans = OrderedDict()
-        # TODO: consider adding more meta stuff here
-        #ans['__class__'] = str(self.__class__)
         ans['info'] = '__class__: %s' % str(self.__class__)
         ans['userdata'] = ''
         ans['plotdata'] = ''
@@ -109,8 +122,8 @@ class FlatGraph:
         node_tpe = basetypes[conf['basetype']]
         if node_tpe == ObjNode:
             n = ObjNode(id, None)
-        elif node_tpe == ObjLitteralNode:
-            n = ObjLitteralNode(id, None)
+        elif node_tpe == ObjLiteralNode:
+            n = ObjLiteralNode(id, None)
         elif node_tpe == FuncNode:
             func = getattr(self.pmodule, conf['type'])
             n = FuncNode(id, func)
@@ -122,7 +135,7 @@ class FlatGraph:
 
     def node_add(self, x, y, id, name, label, tpe):
         n = self._create_node(id, tpe)
-        print('created node of type: "%s", content: "%s"' % (str(type(n)), str(n.get_object())))
+        _log('created node of type: "%s", content: "%s"' % (str(type(n)), str(n.get_object())))
         add_subnode(self.root, n)
         # caching
         self.node_cmds_cache[id] = (x, y, id, name, label, tpe)
@@ -136,6 +149,7 @@ class FlatGraph:
         remove_subnode(self.root, n)
         # caching
         del self.node_cmds_cache[id]
+        _log("deleted node: %s" % id)
 
     def link_add(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
@@ -145,6 +159,7 @@ class FlatGraph:
         if not self.dslinks_cache.get(id1, None):
             self.dslinks_cache[id1] = []
         self.dslinks_cache[id1].append((id1, idx1, id2, idx2, order))
+        _log("added link from (%s, %d) to (%s, %d)" % (id1, idx1, id2, idx2))
 
     def link_rm(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
@@ -154,9 +169,10 @@ class FlatGraph:
         lst = self.dslinks_cache[id1]
         idx = lst.index((id1, idx1, id2, idx2, order))
         del lst[idx]
+        _log("removed link from (%s, %d) to (%s, %d)" % (id1, idx1, id2, idx2))
 
     def node_label(self, id, label):
-        print("node (%s) label clange (%s) always ignored." % (id, label))
+        _log("node label update always ignored, (%s, %s)." % (id, label))
         # caching
         e = self.node_cmds_cache[id]
         self.node_cmds_cache[id] = (e[0], e[1], e[2], e[3], label, e[5])
@@ -169,13 +185,13 @@ class FlatGraph:
         - any json (incl. empty string) results in a tried inject_json call on the object, if any
         '''
         n = self.root.subnodes[id]
-        if not type(n) in [ObjNode, ObjLitteralNode, FuncNode]:
-            print('node_data ignored for node of type "%s"' % type(n))
+        if not type(n) in [ObjNode, ObjLiteralNode, FuncNode]:
+            _log('node_data ignored for node of type "%s"' % type(n))
             return
 
         if data_str == None:
             n.assign(None)
-            print('node_data assigning None to object of node "%s"' % n.name)
+            _log('node_data assigning None to object of node "%s"' % n.name)
             return
 
         # deserialise
@@ -183,52 +199,56 @@ class FlatGraph:
         try:
             obj = json.loads(data_str)
         except:
-            print("node_data input could not be deserialised")
+            _log("node_data input could not be deserialised")
             return
 
         # assign / set
         if obj == None:
             # clear-functionality enabled by setting even userdata = null
             n.assign(None)
-        elif type(n) in (ObjLitteralNode,):
+            _log("node_data clearing node: %s" % id)
+        elif type(n) in (ObjLiteralNode,):
             n.assign(obj)
-            print('node_data assigning deserialised input to litteral object node "%s"' % n.name)
+            _log('node_data assigning deserialised input to literal object node "%s"' % n.name)
         elif type(n) in (FuncNode,):
             n.assign(obj)
-            print("node_data assigning to FuncNode %s" % n.name)
+            _log("node_data assigning to FuncNode %s" % n.name)
         else:
             try:
                 n.get_object().set_user_data(obj)
-                print('node_data injected into node "%s"' % n.name)
+                _log('node_data injected into node "%s"' % n.name)
             except Exception as e:
                 # set_user_data does not have to be implemented
-                print('node_data failed to set data "%s" on node "%s" (%s)' % (data_str, n.name, str(e)))
+                _log('node_data failed to set data "%s" on node "%s" (%s)' % (data_str, n.name, str(e)))
 
     def graph_update(self, redo_lsts):
         ''' takes an undo-redo list and sequentially modifies the server-side graph '''
+        _log('graph update: %d commands' % len(redo_lsts))
         for redo in redo_lsts:
             cmd = redo[0]
             args = redo[1:]
             try:
                 getattr(self, cmd)(*args)
             except:
-                print('failed graph update call "%s"' % cmd)
+                _log('graph update failed: "%s"' % redo)
 
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''
+        _log("execute_node: %s" % id)
         n = self.root.subnodes[id]
         try:
             obj = execute_node(n)
-            print("exe %s yields: %s" % (id, str(obj)))
-            print("returning json representation...")
+            _log("exe yields: %s" % str(obj))
+            _log("returning json representation...")
             represent = obj.get_repr()
             return represent
         except NodeNotExecutableException:
-            print("exe %s yields: Node is not executable")
+            _log("exe %s yields: Node is not executable")
             return None
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition '''
+        _log("extracting graph def...")
         gdef = {}
         gdef["nodes"] = {}
         #gdef["datas"] = {}
@@ -245,7 +265,7 @@ class FlatGraph:
 
 basetypes = {
     'object' : ObjNode,
-    'object_litteral' : ObjLitteralNode,
+    'object_literal' : ObjLiteralNode,
     'function' : FuncNode,
     'function_named' : FuncNode,
     'method' : MethodNode,
@@ -341,10 +361,10 @@ class NodeConfig:
         self.executable = 'true'
         self.edit = 'false'
 
-    def make_litteral(self, branch):
-        self.type = 'litteral'
-        self.address = '.'.join([branch, 'litteral'])
-        self.basetype = 'object_litteral'
+    def make_literal(self, branch):
+        self.type = 'literal'
+        self.address = '.'.join([branch, 'literal'])
+        self.basetype = 'object_literal'
         self.data = {}
         self.static = 'false'
         self.executable = 'false'
@@ -411,11 +431,11 @@ def ctypeconf_tree_ifit(classes, functions):
     tree.put('handles', obj.get_repr(), get_key)
     addrss.append(obj.address)
 
-    # object_litteral
-    litteral= NodeConfig()
-    litteral.make_litteral('handles')
-    tree.put('handles', litteral.get_repr(), get_key)
-    addrss.append(litteral.address)
+    # object_literal
+    literal= NodeConfig()
+    literal.make_literal('handles')
+    tree.put('handles', literal.get_repr(), get_key)
+    addrss.append(literal.address)
 
     # object_idata
     idata = NodeConfig()
@@ -499,7 +519,7 @@ def ctypeconf_tree_ifit(classes, functions):
         # create method node types
         methods = entry['methods']
         for m in methods:
-            conf = configure_method_node()
+            conf = configure_method_node(cls, m)
 
             tree.put('classes.' + cls.__name__, conf.get_repr(), get_key)
             addrss.append(conf.address)
