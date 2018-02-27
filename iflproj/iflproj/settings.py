@@ -25,7 +25,7 @@ SECRET_KEY = 'e^vu3p6nhfhk5fh!+&zskh!xr_szi9bv+u(x3g$_qk%pp8m#k&'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['elearn1.fysik.dtu.dk']
 
 
 # Application definition
@@ -118,4 +118,5 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = '/ifl-static/'
+STATIC_ROOT = '/srv/mcweb/ifitlab/iflproj/static/'
