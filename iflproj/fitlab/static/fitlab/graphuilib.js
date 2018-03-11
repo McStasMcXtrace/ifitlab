@@ -33,7 +33,7 @@ class NodeTypeHelper {
       id = prefix + (this.idxs[prefix] += 1);
     else
       id = prefix + (this.idxs[prefix] = 0);
-    while (id in existingids) {
+    while (existingids.indexOf(id)!=-1) {
       if (prefix in this.idxs)
         id = prefix + (this.idxs[prefix] += 1);
       else
