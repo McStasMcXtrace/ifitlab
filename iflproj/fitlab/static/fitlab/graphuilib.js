@@ -119,6 +119,9 @@ class GraphTree {
     }
     return seqs;
   }
+  getExitLinks(id) {
+    return this.getLinks(id).filter(cmd=>cmd[0]==id);
+  }
   // returns a node object or null
   getNode(id) {
     let n = this._current.nodes[id]
@@ -335,13 +338,7 @@ class GraphTree {
       n.gNode.state = NodeState.PASSIVE;
     }
   }
-
-  // NOTE 1: updateNodeState() and things like updateAnchors() should always be done internally whenever needed
-  // NOTE 2: messages such as the above two may be put on a qeue, to avoid overcalling them, which might be
-  // triggered by g.e. processInternal(), but this should preferably be avoided, as such a call relies upon
-  // knowledge about the internals of GraphTree
   extractGraphDefinition() {
-    // NOTE: this is untested
     let def = {};
     def.nodes = {};
     def.datas = {};
@@ -351,20 +348,25 @@ class GraphTree {
     let nodes = def.nodes;
     let datas = def.datas;
     let links = def.links;
+    let lk_keys = [];
     let n = null;
-    for (let key in this.nodes) {
-      n = this.nodes[key];
+    for (let key in this._current.nodes) {
+      n = this._current.nodes[key];
+
+      // NODES
       nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
-      if (n.basetype == 'object_literal') datas[n.id] = btoa(JSON.stringify(n.userdata));
 
-      let elks = n.gNode.exitLinks;
-      if (elks.length == 0) continue;
+      // DATA
+      if (n.basetype == 'object_literal')
+        datas[n.id] = btoa(JSON.stringify(n.userdata));
 
+      // EXIT-LINKS BY NODE
       links[n.id] = [];
-      let l = null;
+      let elks = this.getExitLinks(n.id);
+      let cmd = null;
       for (var j=0;j<elks.length;j++) {
-        l = elks[j];
-        links[n.id].push([n.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx]);
+        cmd = elks[j];
+        links[n.id].push([cmd[0], cmd[1], cmd[2], cmd[3]]);
       }
     }
     let def_text = JSON.stringify(def);

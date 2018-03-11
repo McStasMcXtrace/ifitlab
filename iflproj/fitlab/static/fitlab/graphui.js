@@ -1454,37 +1454,7 @@ class GraphInterface {
     this._fireEvents(this._updateUiListn, [this.graphData.getSelectedNode()]);
   }
   extractGraphDefinition() {
-    // TODO: forward to GraphTree
-
-    let def = {};
-    def.nodes = {};
-    def.datas = {};
-    def.links = {};
-    // put meta-properties here, s.a. version, date
-
-    let nodes = def.nodes;
-    let datas = def.datas;
-    let links = def.links;
-    let n = null;
-    for (let key in this.nodes) {
-      n = this.nodes[key];
-      nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
-      if (n.basetype == 'object_literal') datas[n.id] = btoa(JSON.stringify(n.userdata));
-
-      let elks = n.gNode.exitLinks;
-      if (elks.length == 0) continue;
-
-      links[n.id] = [];
-      let l = null;
-      for (var j=0;j<elks.length;j++) {
-        l = elks[j];
-        links[n.id].push([n.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx]);
-      }
-    }
-    let def_text = JSON.stringify(def);
-    //console.log(JSON.stringify(def, null, 2));
-    console.log(def_text);
-    return def_text;
+    return this.graphData.extractGraphDefinition();
   }
   injectGraphDefinition(def) {
     let args = null;
