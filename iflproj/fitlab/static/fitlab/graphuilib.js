@@ -163,7 +163,16 @@ class GraphTree {
   // **************************
   // ui and graphdraw interface
   // **************************
-
+  recalcPathAnchorsAroundNodeObj(g) {
+    let id = g.owner.id;
+    let lks = [];
+    for (let id2 in this._current.links[id]) {
+      lks = lks.concat(this._current.links[id][id2]);
+    };
+    for (let i=0;i<lks.length;i++) {
+      lks[i].recalcPathAnchors();
+    }
+  }
   setSelectedNode(n) {
     let m = this._selectedNode;
     if (m) m.active = false;
@@ -315,6 +324,7 @@ class GraphTree {
       n.gNode.state = NodeState.PASSIVE;
     }
   }
+
   // NOTE 1: updateNodeState() and things like updateAnchors() should always be done internally whenever needed
   // NOTE 2: messages such as the above two may be put on a qeue, to avoid overcalling them, which might be
   // triggered by g.e. processInternal(), but this should preferably be avoided, as such a call relies upon

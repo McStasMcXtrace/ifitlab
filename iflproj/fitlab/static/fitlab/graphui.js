@@ -108,7 +108,6 @@ class GraphicsNode {
 
     this.anchors = null;
     this.r = nodeRadius;
-    this.links = [];
     this.centerAnchor = new CenterAnchor(this);
 
     // graphics switch on this property, which is updated externally according to some rule
@@ -128,46 +127,6 @@ class GraphicsNode {
         return a;
     }
     throw "could not get anchor: ", idx, level;
-  }
-  getConnections() {
-    // collect local link anchors
-    let links = this.links;
-    let linkAnchors = [];
-    let l = null;
-    for (var j=0; j<links.length; j++) {
-      l = links[j];
-      linkAnchors.push(l.d1);
-      linkAnchors.push(l.d2);
-    }
-    // match anchors with link anchors
-    let connectivity = [];
-    let anchors = this.anchors;
-    let a = null;
-    for (var j=0; j<anchors.length; j++) {
-      a = anchors[j];
-      connectivity.push(linkAnchors.indexOf(a) != -1);
-    }
-    return connectivity;
-  }
-  get exitLinks() {
-    let exLinks = [];
-    let idxs = [];
-    let a = null;
-    let l = null;
-    for (var j=0;j<this.links.length;j++) {
-      l = this.links[j];
-      a = l.d1;
-      if (this.anchors.indexOf(a) != -1) exLinks.push(l);
-    }
-    return exLinks;
-  }
-  addLink(link, isInput) {
-    this.links.push(link);
-    this.onConnect(link, isInput);
-  }
-  rmLink(link, isInput) {
-    remove(this.links, link);
-    this.onDisconnect(link, isInput);
   }
   draw(branch, i) {
     return branch
@@ -492,9 +451,6 @@ class Link {
     this.pathAnchors = [];
     this.recalcPathAnchors();
 
-    d1.owner.addLink(this, false);
-    d2.owner.addLink(this, true);
-
     d1.numconnections += 1;
     d2.numconnections += 1;
   }
@@ -534,8 +490,6 @@ class Link {
   detatch() {
     this.d1.numconnections -= 1;
     this.d2.numconnections -= 1;
-    this.d1.owner.rmLink(this, false);
-    this.d2.owner.rmLink(this, true);
   }
 }
 
@@ -777,14 +731,11 @@ class GraphDraw {
     self.restartCollideSim();
   }
   dragended(d) {
-    // recalc node link path anchors here
-    d.links.forEach( function(l) {
-      l.recalcPathAnchors();
-    } )
+    self.graphData.recalcPathAnchorsAroundNodeObj(d);
 
     // restart post-drag relevant layout sims
     self.restartChargeSim();
-    self.resetPathSim(); // we need to reset, because the path anchors may have changed during recalcPathAnchors
+    self.resetPathSim();
     self.restartPathSim();
     self.recenter();
 
