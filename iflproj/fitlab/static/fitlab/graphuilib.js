@@ -28,7 +28,7 @@ class NodeTypeHelper {
     let prefix = null;
     let id = null;
 
-    let classes = this._nodeClasses();
+    let classes = NodeTypeHelper._nodeClasses();
     let prefixes = classes.map(name => name.prefix);
     let basetypes = classes.map(name => name.basetype);
     let i = basetypes.indexOf(basetype);
@@ -47,8 +47,6 @@ class NodeTypeHelper {
     return id;
   }
   createNode(x, y, id, typeconf) {
-    console.log("createNode: ", typeconf)
-
     // get node class
     let cls = null
     let nodeclasses = NodeTypeHelper._nodeClasses();
@@ -170,7 +168,7 @@ class GraphTree {
   // safe calls that return true on success
   nodeAdd(x, y, conf, id=null) {
     if ((id == '') || !id || (id in this._current.nodes))
-      id = this._helper.getId(conf.basetype, this.nodes.keys());
+      id = this._helper.getId(conf.basetype, Object.keys(this._current.nodes));
     let n = this._helper.createNode(x, y, id, conf);
     if (n) {
       this._viewNodes.push(n);

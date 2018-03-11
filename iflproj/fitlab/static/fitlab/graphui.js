@@ -744,8 +744,7 @@ class GraphDraw {
   }
   resetPathSim() {
     self.pathSim.stop();
-    self.graphData.updateAnchors();
-    self.pathSim.nodes(self.graphData.anchors);
+    self.pathSim.nodes(self.graphData.getAnchors());
     self.pathSim.force("link").links(self.graphData.getForceLinks());
   }
   restartPathSim() {
@@ -762,7 +761,7 @@ class GraphDraw {
     self.collideSim.alpha(1).restart();
     // path anchors go into the center-sim only
     self.centeringSim.stop();
-    self.centeringSim.nodes(self.graphData.getGraphicsNodeObjs().concat(self.graphData.anchors));
+    self.centeringSim.nodes(self.graphData.getGraphicsNodeObjs().concat(self.graphData.getAnchors()));
     self.centeringSim.alpha(1).restart();
   }
   dragged(d) {
@@ -869,7 +868,6 @@ class GraphDraw {
   static drawNodes(branch) {
     // draw anchor nodes
     branch.each( function(d, i) {
-      console.log("d equals...", d);
       let sbranch = d3.select(this)
         .append("g")
         .selectAll("circle")
@@ -1603,11 +1601,7 @@ class GraphInterface {
     this.updateUi();
   }
   updateUi() {
-    console.log("updateUi callled, not returning...")
-    //return
-
     this.draw.drawAll();
-    //this._fireEvents(this._updateUiListn, [this.graphData.selectedNode]);
     this._fireEvents(this._updateUiListn, [this.graphData.getSelectedNode()]);
   }
   extractGraphDefinition() {
@@ -1673,10 +1667,6 @@ class GraphInterface {
       this.injectGraphDefinition(JSON.parse(msg));
     }.bind(this));
   }
-  // DEBUG TEST STUFF
-  testNewData() {
-    console.log(this.graphData);
-  }
   saveGraphDef() {
     let graphDef = this.extractGraphDefinition();
     let post_data = { "graphdef" : graphDef };
@@ -1725,7 +1715,6 @@ class GraphInterface {
     let args = cmd.slice(1);
     let command = cmd[0]
     if (command=="node_add") {
-      console.log("node_add called...")
       let x = args[0];
       let y = args[1];
       let id = args[2];
