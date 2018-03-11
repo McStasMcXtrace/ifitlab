@@ -121,26 +121,35 @@ class GraphTree {
     return this._viewNodes.map(n=>n.gNode);
   }
   getAnchors() {
-    return [];
+    this._updateAnchors();
+    return this._viewAnchors;
   }
   getForceLinks() {
-    return [];
+    this._updateAnchors();
+    return this._viewForceLinks;
   }
   // should be private
-  _updateAnchors() {
+  _updateAnchors(maybe=false) {
     this._viewAnchors = [];
     this._viewForceLinks = [];
-    for (let j = 0; j < this._viewLinks.length; j++) {
-
+    for (let j=0;j<this._viewLinks.length;j++) {
       let lanchs = this._viewLinks[j].getAnchors();
       let fl = null;
 
-      for (let i = 0; i < lanchs.length; i++) {
+      for (let i=0;i<lanchs.length;i++) {
         this._viewAnchors.push(lanchs[i]);
         if (i > 0) {
           fl = { 'source' : lanchs[i-1], 'target' : lanchs[i], 'index' : null }
           this._viewForceLinks.push(fl);
         }
+      }
+    }
+    let g = null;
+    for (let i=0;i<this._viewNodes.length;i++) {
+      g = this._viewNodes[i].gNode;
+      this._viewAnchors.push(g.centerAnchor);
+      for (let j=0;j<g.anchors.length;j++) {
+        this._viewAnchors.push(g.anchors[j]);
       }
     }
   }

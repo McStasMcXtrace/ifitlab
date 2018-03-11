@@ -10,10 +10,10 @@ const nodeRadius = 30;
 const anchorRadius = 6;
 
 const extensionLength = 40;
-const anchSpace = 80;
-const pathChargeStrength = -100;
-const pathLinkStrength = 2;
-const distance = 80;
+const anchSpace = 40;
+const pathChargeStrength = -50;
+const pathLinkStrength = 1;
+const distance = 20;
 
 const arrowHeadLength = 12;
 const arrowHeadAngle = 25;
@@ -723,7 +723,7 @@ class GraphDraw {
     self.centeringSim.force("centering").x(window.innerWidth/2);
     self.centeringSim.force("centering").y(window.innerHeight/2);
     let nodes = self.graphData.getGraphicsNodeObjs();
-    let anchors = [];
+    let anchors = self.graphData.getAnchors();
     self.centeringSim.nodes(nodes.concat(anchors));
     self.centeringSim.alpha(1).restart();
   }
@@ -761,7 +761,9 @@ class GraphDraw {
     self.collideSim.alpha(1).restart();
     // path anchors go into the center-sim only
     self.centeringSim.stop();
-    self.centeringSim.nodes(self.graphData.getGraphicsNodeObjs().concat(self.graphData.getAnchors()));
+    let nodes = self.graphData.getGraphicsNodeObjs();
+    let anchors = self.graphData.getAnchors();
+    self.centeringSim.nodes(nodes.concat(anchors));
     self.centeringSim.alpha(1).restart();
   }
   dragged(d) {
@@ -860,6 +862,7 @@ class GraphDraw {
 
     /*
     // for DEBUG purposes
+    if (!self.anchors) return;
     self.anchors
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; });
@@ -982,7 +985,7 @@ class GraphDraw {
 
     /*
     // DEBUG draw anchors
-    let anchors = self.graphData.anchors;
+    let anchors = self.graphData.getAnchors();
     if (self.anchors) self.anchors.remove();
     self.anchors = self.linkGroup.selectAll("circle")
       .data(anchors)
