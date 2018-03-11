@@ -46,10 +46,12 @@ class NodeTypeHelper {
     }
     return id;
   }
-  createNode(x, y, id, conf) {
+  createNode(x, y, id, typeconf) {
+    console.log("createNode: ", typeconf)
+
     // get node class
     let cls = null
-    let nodeclasses = this._nodeClasses();
+    let nodeclasses = NodeTypeHelper._nodeClasses();
     let basetypes = nodeclasses.map(cn => cn.basetype);
     let i = basetypes.indexOf(typeconf.basetype);
     if (i >= 0) cls = nodeclasses[i]; else throw "unknown typeconf.basetype: " + typeconf.basetype;
@@ -72,8 +74,8 @@ class NodeTypeHelper {
 class GraphTree {
   constructor(connrules) {
     this._connrules = connrules;
-    this._helper = NodeTypeHelper();
-    this._current = GraphTreeBranch();
+    this._helper = new NodeTypeHelper();
+    this._current = new GraphTreeBranch();
     this._viewLinks = [];
     this._viewNodes = [];
     this._viewForceLinks = [];
@@ -117,8 +119,8 @@ class GraphTree {
   getLinkObjs() {
     return this._viewLinks;
   }
-  getNodeObjs() {
-    return this._viewNodes;
+  getGraphicsNodeObjs() {
+    return this._viewNodes.map(n=>n.gNode);
   }
   getAnchors() {
     return [];
@@ -132,7 +134,7 @@ class GraphTree {
     this._viewForceLinks = [];
     for (let j = 0; j < this._viewLinks.length; j++) {
 
-      let lanchs = this._viewLinks.[j].getAnchors();
+      let lanchs = this._viewLinks[j].getAnchors();
       let fl = null;
 
       for (let i = 0; i < lanchs.length; i++) {
@@ -167,11 +169,11 @@ class GraphTree {
   // set interface / _command impls
   // safe calls that return true on success
   nodeAdd(x, y, conf, id=null) {
-    if ((id == '') || !id || (id in this.nodes))
+    if ((id == '') || !id || (id in this._current.nodes))
       id = this._helper.getId(conf.basetype, this.nodes.keys());
-    let n = this._helper.createNode(x, y, conf, id);
+    let n = this._helper.createNode(x, y, id, conf);
     if (n) {
-      this._current.nodeObjs = n;
+      this._viewNodes.push(n);
       this._current.nodes[id] = n;
     }
     else throw "could not create node of id: " + id
@@ -201,15 +203,17 @@ class GraphTree {
 
     // check connection rules
     // NOTE: checks to avoid duplicate links must be implemented in canConnect
-    if (!this.truth.canConnect(a1, conn1, a2, conn2)) return null;
+    if (!this._connrules.canConnect(a1, a2)) return null;
 
     // create link object
     let l = new LinkSingle(a1, a2);
     this._viewLinks.push(l);
-    // store link object in connectivity structure
+    // store link object in connectivity structure, which may have to be updated
     let lks = this._current.links;
-    if (!lks[id1]) { lks[id1] = {}; lks[id1][id2] = []; }
-    if (!lks[id2]) { lks[id2] = {}; lks[id2][id1] = []; }
+    if (!lks[id1]) { lks[id1] = {}; }
+    if (!lks[id1][id2]) { lks[id1][id2] = []; }
+    if (!lks[id2]) { lks[id2] = {}; }
+    if (!lks[id2][id1]) { lks[id2][id1] = []; }
     lks[id1][id2].push(l);
     lks[id2][id1].push(l);
 
@@ -237,8 +241,8 @@ class GraphTree {
       // l1 and l2 may not have been assigned
       if (!l1 && !l2) return null;
       // l1 and l2 may have been assigned then emptied
-      let l1 = l1.filter(l => l.d1.idx==idx1 && l.d2.idx==idx2);
-      let l2 = l2.filter(l => l.d1.idx==idx1 && l.d2.idx==idx2);
+      l1 = l1.filter(l => l.d1.idx==idx1 && l.d2.idx==idx2);
+      l2 = l2.filter(l => l.d1.idx==idx1 && l.d2.idx==idx2);
       if (l1.length == 0 && l2.length ==0 ) return null;
       // idx-filtered l1 and l2 must never be different
       if (l2[0] != l2[0]) throw "error";
@@ -271,7 +275,7 @@ class GraphTree {
     let n = this._current.nodes[id];
     if (n.edit != true) return null;
     n.userdata = JSON.parse(data_str);
-    this.updateNodeState(n);
+    this._updateNodeState(n);
     return true;
   }
 
@@ -280,11 +284,11 @@ class GraphTree {
   }
   _connectivity(n) {
     let connectivity = [];
-    let anchors = this.anchors;
+    let anchors = n.gNode.anchors;
     let a = null;
     for (var j=0; j<anchors.length; j++) {
       a = anchors[j];
-      connectivity.push(linkAnchors.indexOf(a) != -1);
+      connectivity.push(a.numconnections>0);
     }
     return connectivity;
   }
@@ -304,4 +308,36 @@ class GraphTree {
   // NOTE 2: messages such as the above two may be put on a qeue, to avoid overcalling them, which might be
   // triggered by g.e. processInternal(), but this should preferably be avoided, as such a call relies upon
   // knowledge about the internals of GraphTree
+  extractGraphDefinition() {
+    // NOTE: this is untested
+    let def = {};
+    def.nodes = {};
+    def.datas = {};
+    def.links = {};
+    // put meta-properties here, s.a. version, date
+
+    let nodes = def.nodes;
+    let datas = def.datas;
+    let links = def.links;
+    let n = null;
+    for (let key in this.nodes) {
+      n = this.nodes[key];
+      nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
+      if (n.basetype == 'object_literal') datas[n.id] = btoa(JSON.stringify(n.userdata));
+
+      let elks = n.gNode.exitLinks;
+      if (elks.length == 0) continue;
+
+      links[n.id] = [];
+      let l = null;
+      for (var j=0;j<elks.length;j++) {
+        l = elks[j];
+        links[n.id].push([n.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx]);
+      }
+    }
+    let def_text = JSON.stringify(def);
+    //console.log(JSON.stringify(def, null, 2));
+    console.log(def_text);
+    return def_text;
+  }
 }

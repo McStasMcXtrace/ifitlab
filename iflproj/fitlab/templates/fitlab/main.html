@@ -108,6 +108,7 @@
 <script src="/static/fitlab/d3.v4.min.js"></script>
 <script src="/static/fitlab/jquery.min.js"></script>
 <script src="/static/fitlab/jquery-ui.js"></script>
+<script src="/static/fitlab/graphuilib.js"></script>
 <script src="/static/fitlab/graphui.js"></script>
 <script src="/static/fitlab/plainui.js"></script>
 <script src="/static/fitlab/nodetypes.js"></script>
@@ -230,6 +231,9 @@ $(document).ready(() => {
   // why is this needed to get rid of the "self.draggable is null" error message?
   intface.updateUi();
   intface.loadGraphDef(); // this also updates the ui...
+
+  // TEST
+  intface.testNewData();
 });
 </script>
 </html>
