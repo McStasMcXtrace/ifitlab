@@ -95,7 +95,11 @@ class GraphTree {
     if (!this._current.links[id]) {
       return [];
     }
-    return this._current.links[id].keys();
+    let nbs = [];
+    for (let id2 in this._current.links[id]) {
+      if (this._current.links[id][id2].length > 0) nbs.push(id2);
+    }
+    return nbs;
   }
   // returns a list of [id1, idx1, id2, idx2] sequences
   getLinks(id) {
@@ -104,10 +108,13 @@ class GraphTree {
     }
     let lks = this._current.links;
     let seqs = [];
-    for (id2 in lks[id]) {
-      let lst = lks[id2];
+    let lst = null;
+    let l = null
+    for (let id2 in lks[id]) {
+      lst = lks[id][id2];
       for (var j=0;j<lst.length;j++) {
-        seqs.push([id, lst[j].d1.idx, id2, lst[j].d2.idx]);
+        l = lst[j];
+        seqs.push([l.d1.owner.owner.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx]);
       }
     }
     return seqs;
@@ -173,24 +180,25 @@ class GraphTree {
       lks[i].recalcPathAnchors();
     }
   }
-  setSelectedNode(n) {
-    let m = this._selectedNode;
-    if (m) m.active = false;
-    this._selectedNode = n;
-    if (n) n.active = true;
-  }
   getSelectedNode() {
     return this._selectedNode;
-  } // perhaps ...return a NodeRepr, not an Node obj?
+  } // perhaps: return a NodeRepr, not an Node obj?
   setSelectedNode(id) {
+    let prev = this._selectedNode;
+    if (prev) prev.gNode.active = false;
+
+    if (!id) this._selectedNode = null;
     let n = this._current.nodes[id];
     if (!n) return null;
-    self._selectedNode = n;
-  } // id must be accessible even from gNode
+
+    n.gNode.active = true;
+    this._selectedNode = n;
+  }
 
   // set interface / _command impls
   // safe calls that return true on success
   nodeAdd(x, y, conf, id=null) {
+    // will throw an error if the requested id already exists, as this should not happen
     if ((id == '') || !id || (id in this._current.nodes))
       id = this._helper.getId(conf.basetype, Object.keys(this._current.nodes));
     let n = this._helper.createNode(x, y, id, conf);
@@ -286,14 +294,17 @@ class GraphTree {
     return true;
   }
   nodeLabel(id, label) {
-    let n = this.nodes[id];
+    let n = this._current.nodes[id];
     if (!n) return null;
     n.label = label;
     return true;
   }
   nodeData(id, data_str) {
     let n = this._current.nodes[id];
-    if (n.edit != true) return null;
+    if (n.edit != true) {
+      console.log("node_data operation on non-edit node: ", n.id);
+      return null;
+    }
     n.userdata = JSON.parse(data_str);
     this._updateNodeState(n);
     return true;
