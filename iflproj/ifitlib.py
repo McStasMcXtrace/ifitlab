@@ -252,7 +252,6 @@ class IFunc(_IFitObject):
 
         symb = self._modelsymbol()
         _eval("%s = %s()" % (vn, symb), nargout=0)
-        _eval('[signal, %s, axes, name] = feval(%s)' % (vn, vn), nargout=0) # trigger internal pvals guess
 
     def get_repr(self):
         vn = self.varname
@@ -261,7 +260,11 @@ class IFunc(_IFitObject):
         for key in pkeys:
             idx = pkeys.index(key)
             key0 = key.split(' ')[0]
-            params[key] = _eval('%s.%s' % (vn, key0), nargout=1)
+            val = _eval('%s.%s' % (vn, key0), nargout=1)
+            if type(val) != float:
+                params[key] = None
+            else:
+                params[key] = val
 
         retdct = self._get_full_repr_dict()
         retdct['userdata'] = params
@@ -274,7 +277,8 @@ class IFunc(_IFitObject):
             try:
                 val = json_obj[key]
                 key0 = key.split(' ')[0]
-                _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
+                if val:
+                    _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
             except:
                 print('IFunc.set_user_data: set failed for param "%s" to val "%s"' % (key, val))
                 continue
