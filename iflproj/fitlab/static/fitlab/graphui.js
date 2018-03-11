@@ -1520,7 +1520,7 @@ class GraphInterface {
         selfref.node_data(id, JSON.stringify(obj.userdata));
         n.obj = obj; // (re)set all data
         selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-        selfref.graphData._updateNodeState(n.gNode);
+        selfref.graphData._updateNodeState(n);
         selfref.updateUi();
         selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
