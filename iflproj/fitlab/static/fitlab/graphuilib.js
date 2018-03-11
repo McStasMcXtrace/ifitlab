@@ -1,13 +1,8 @@
-class GraphTreeBranch {
-  constructor(parent=null) {
-    // tree
-    this.parent = parent
-    this.children = {} // corresponding rootnode instances are stored in .nodes
-    // graph
-    this.nodes = {}
-    this.links = {}
-  }
-}
+/*
+*
+*
+*
+*/
 class NodeTypeHelper {
   constructor() {
     this.idxs = {};
@@ -69,6 +64,17 @@ class NodeTypeHelper {
   }
 }
 
+class GraphTreeBranch {
+  constructor(parent=null) {
+    // tree
+    this.parent = parent
+    this.children = {} // corresponding rootnode instances are stored in .nodes
+    // graph
+    this.nodes = {}
+    this.links = {}
+  }
+}
+
 class GraphTree {
   constructor(connrules) {
     this._connrules = connrules;
@@ -93,7 +99,7 @@ class GraphTree {
   }
   // returns a list of [id1, idx1, id2, idx2] sequences
   getLinks(id) {
-    if (!this.links[id]) {
+    if (!this._current.links[id]) {
       return [];
     }
     let lks = this._current.links;
@@ -187,11 +193,10 @@ class GraphTree {
     return id;
   }
   nodeRm(id) {
-    if (!(id in this.nodes)) return null;
-    let nbs = this.getNeighbours(id);
-    if (nbs.length > 0) return null;
-    remove(this._current.nodeObjs, this.nodes[id]);
-    delete this.nodes[id];
+    if (!(id in this._current.nodes)) return null;
+    if (this.getNeighbours(id).length > 0) return null;
+    remove(this._viewNodes, this._current.nodes[id]);
+    delete this._current.nodes[id];
     return true;
   }
   linkAdd(addr1, idx1, addr2, idx2) {
@@ -225,7 +230,6 @@ class GraphTree {
     lks[id2][id1].push(l);
 
     // update
-    this._updateAnchors();
     this._updateNodeState(n1);
     this._updateNodeState(n2);
     return true;
@@ -243,6 +247,7 @@ class GraphTree {
     let l = null;
     let lks = this._current.links;
     try {
+      // NOTE: l1 and l2 are in fact lists of links, not links
       let l1 = lks[id1][id2];
       let l2 = lks[id2][id1];
       // l1 and l2 may not have been assigned
@@ -264,10 +269,9 @@ class GraphTree {
     remove(this._viewLinks, l);
     remove(lks[id1][id2], l);
     remove(lks[id2][id1], l);
-    l1.detach();
+    l.detatch();
 
     // update
-    this._updateAnchors();
     this._updateNodeState(n1);
     this._updateNodeState(n2);
     return true;

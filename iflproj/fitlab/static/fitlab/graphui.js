@@ -1745,6 +1745,8 @@ class GraphInterface {
       return [["node_add", n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address], ["node_rm", n.id]];
     }
     else if (command=="node_rm") {
+      let id = args[0];
+
       let n = this.graphData.getNode(id);
       if (!n) throw "invalid node_rm: node not found (by id)";
 
@@ -1799,8 +1801,10 @@ class GraphInterface {
       let id2 = args[2];
       let idx2 = args[3];
 
-      let n1 = this.nodes[id1];
-      let n2 = this.nodes[id2];
+      this.graphData.linkRm(id1, idx1, id2, idx2);
+      /*
+      let n1 = this.graphData.getNode(id1);
+      let n2 = this.graphData.getNode(id2);
 
       let a1 = null;
       let a2 = null;
@@ -1819,6 +1823,7 @@ class GraphInterface {
       n1.gNode.rmLink(l);
       n2.gNode.rmLink(l);
       this.graphData.rmLink(l);
+      */
 
       return [["link_rm"].concat(args), ["link_add"].concat(args)];
     }
