@@ -359,15 +359,14 @@ def trapz(ifunc: IFunc) -> IFunc:
     return obj
 
 '''
-ifit functions
+functions (also called "methods" in the ifit documentation
 '''
 def eval(idata: IData, ifunc: IFunc):
     logging.debug("eval: %s, %s" % (idata, ifunc))
     retobj = IData(None)
     # TODO: can we properly clone idata objects? For example, error disappears by doing it like this
     
-    _eval('%s = %s(%s);' % (retobj.varname, idata.varname, ifunc.varname), nargout=0)
-    
+    _eval("%s = %s(%s);" % (retobj.varname, idata.varname, ifunc.varname), nargout=0)
     return retobj
 
 def fit(idata: IData, ifunc: IFunc) -> IFunc:
@@ -380,5 +379,40 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     _eval('[p, c, m, o_%s] = fits(%s, %s)' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
     _eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
     _eval('clear o_%s' % vn_newfunc, nargout=0)
+    return retobj
+
+def combine(files, rank:int=0) -> IData:
+    logging.debug("combine")
+    
+    '''
+    def elementfunc(files):
+        pass
+    
+    def rankrecurse():
+        pass
+    '''
+    
+    # rank: denotes the number of indices required to identify each element of the output individually
+    retobj = IData(None)
+    if rank==0:
+        # enable flexibility: a list is not needed for single-file arguments, remember this is the inner func
+        if type(files) != list:
+            files = [files];
+        
+        # for rank 0, list elements must be files (strings)
+        vnlst= []
+        for i in range(len(files)):
+            tmpvarname = "%s_tmp_%d" % (retobj.varname, i)
+            _eval("%s = iData('%s');" % (tmpvarname, files[i]), nargout=0)
+            vnlst.append(tmpvarname)
+        mlargs = ' '.join(vnlst)
+        _eval("%s = combine([%s]);" % (retobj.varname, mlargs), nargout=0)
+
+        # clear the temporary variables in matlab
+        for varname in vnlst:
+            _eval("clear %s" % varname, nargout=0)
+    else:
+        pass
+
     return retobj
 
