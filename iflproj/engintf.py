@@ -326,7 +326,7 @@ class NodeConfig:
         self.type = funcname
         self.address = address
         self.ipars = args
-        self.itypes = [annotations[a].__name__ for a in args if annotations.get(a, None)]
+        self.itypes = [annotations[a].__name__ if annotations.get(a, None) else '' for a in args]
         self.otypes = ['']
         if 'return' in annotations:
             self.otypes = [annotations['return'].__name__]
