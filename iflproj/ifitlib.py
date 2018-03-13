@@ -384,35 +384,34 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
 def combine(files, rank:int=0) -> IData:
     logging.debug("combine")
     
-    '''
     def elementfunc(files):
-        pass
+        obj = IData(None)
+        # enable flexibility: a list is not needed for single-file arguments, remember this is the inner func
+        if type(files) != list:
+            files = [files];
+        vnlst= []
+        for i in range(len(files)):
+            tmpvarname = "%s_tmp_%d" % (obj.varname, i)
+            _eval("%s = iData('%s');" % (tmpvarname, files[i]), nargout=0)
+            vnlst.append(tmpvarname)
+        mlargs = ' '.join(vnlst)
+        _eval("%s = combine([%s]);" % (obj.varname, mlargs), nargout=0)
+        # clear the temporary variables in matlab
+        for varname in vnlst:
+            _eval("clear %s" % varname, nargout=0)
+        return obj
     
-    def rankrecurse():
-        pass
-    '''
+    def reclst(lst, dec):
+        return lst
     
     # rank: denotes the number of indices required to identify each element of the output individually
     retobj = IData(None)
     if rank==0:
-        # enable flexibility: a list is not needed for single-file arguments, remember this is the inner func
-        if type(files) != list:
-            files = [files];
-        
-        # for rank 0, list elements must be files (strings)
-        vnlst= []
-        for i in range(len(files)):
-            tmpvarname = "%s_tmp_%d" % (retobj.varname, i)
-            _eval("%s = iData('%s');" % (tmpvarname, files[i]), nargout=0)
-            vnlst.append(tmpvarname)
-        mlargs = ' '.join(vnlst)
-        _eval("%s = combine([%s]);" % (retobj.varname, mlargs), nargout=0)
-
-        # clear the temporary variables in matlab
-        for varname in vnlst:
-            _eval("clear %s" % varname, nargout=0)
+        retobj = elementfunc(files)
     else:
-        pass
+        idatas = reclst(files, rank)
+        
+        # TODO: put these into a single idata ...
 
     return retobj
 
