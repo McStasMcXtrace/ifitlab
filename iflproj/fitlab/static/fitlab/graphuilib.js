@@ -357,7 +357,7 @@ class GraphTree {
       nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
 
       // DATA
-      if (n.basetype == 'object_literal')
+      if (['object_literal', 'function_named', 'method_as_function'].indexOf(n.basetype) != -1)
         datas[n.id] = btoa(JSON.stringify(n.userdata));
 
       // EXIT-LINKS BY NODE
