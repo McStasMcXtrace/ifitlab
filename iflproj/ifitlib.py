@@ -26,6 +26,7 @@ import matlab.engine
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
+import json
 
 _eng = None
 _cmdlog = None
@@ -58,16 +59,13 @@ def _get_idata_prefix():
     _idataidx += 1
     return 'idata%d' % (_idataidx)
 
-class _IFitObject(engintf.ObjReprJson):
-    ''' implements a way to pass on the varnames between instances '''
-    def _varname(self):
-        return 'obj_%d' % id(self)
-
-class IData(_IFitObject):
+class IData(engintf.ObjReprJson):
     def __init__(self, url: str):
         logging.debug("IData.__init__('%s')" % url)
         self.url = url
         self.varname = '%s_%d' % (_get_idata_prefix(), id(self))
+        self.islist = False
+        self.datashape = None
         if url==None:
             '''
             NOTE: This branch (url==None) is to be used only programatically, as a "prepper" intermediary
@@ -78,154 +76,71 @@ class IData(_IFitObject):
         else:
             _eval("%s = iData('%s')" % (self.varname, url), nargout=0)
 
-    def _get_plot_1D(self, axisvals, signal, yerr, xlabel, ylabel, title):
-        ''' returns the dict required by the svg 1d plotting function '''
-        params = {}
-        p = params
-        p['w'] = 326
-        p['h'] = 220
-        p['x'] = axisvals[0]
-        p['y'] = signal
-        p['yerr'] = yerr
-        p['xlabel'] = xlabel
-        p['ylabel'] = ylabel
-        p['title'] = title
-        p['ndims'] = 1
-        return params
+    def _get_iData_repr(self):
+        varname = self.varname
+        ndims = int(_eval('ndims(%s)' % varname))
+        axes_names = _eval('%s.Axes' % varname, nargout=1) # NOTE: len(axes_names) == ndims
+        if not ndims == len(axes_names):
+            # TODO: handle this case seperately, in which ifit has not found any axes in the data
+            raise Exception("ifit could not find axes")
+        axesvals = []
+        pltdct = {}
 
-    def _get_plot_2D(self, axisvals, signal, yerr, xlabel, ylabel, title):
-        ''' returns the dict required by the svg 1d plotting function '''
-        def lookup(cm, x):
-            xp = (len(cm)-1) * x
-            f = np.floor(xp)
-            c = np.ceil(xp)
-            a1 = xp - f
-            a2 = c - xp
-            # the below should be better, but there are still some strange artefacts in the generated image
-            #return np.add(cm[f], (xp-f)*(np.subtract(cm[c], cm[f])) ).astype(np.ubyte)
-            return cm[np.int(np.round(xp))]
-        
-        dims = np.shape(signal)
-        
-        # create the 2d data as a png given our colormap
-        img = np.zeros((dims[0], dims[1], 4))
-        maxval = np.max(signal)
-        cm = np.array([[0,0,143,255], [0,0,159,255], [0,0,175,255], [0,0,191,255], [0,0,207,255], [0,0,223,255], [0,0,239,255], [0,0,255,255], [0,16,255,255], [0,32,255,255], [0,48,255,255], [0,64,255,255], [0,80,255,255], [0,96,255,255], [0,112,255,255], [0,128,255,255], [0,143,255,255], [0,159,255,255], [0,175,255,255], [0,191,255,255], [0,207,255,255], [0,223,255,255], [0,239,255,255], [0,255,255,255], [16,255,239,255], [32,255,223,255], [48,55,207,255], [64,255,191,255], [80,255,175,255], [96,255,159,255], [112,255,143,255], [128,255,128,255], [143,255,112,255], [159,255,96,255], [175,255,80,255], [191,255,64,255], [207,255,48,255], [223,255,32,255], [239,255,16,255], [255,255,0,255], [255,239,0,255], [255,223,0,255], [255,207,0,255], [255,191,0,255], [255,175,0,255], [255,159,0,255], [255,143,0,255], [255,128,0,255], [255, 112,0, 255], [255,96,0, 255], [255,80,0, 255], [255,64,0, 255], [255,48,0, 255], [255,32,0, 255], [255,16,0, 255], [255,0,0, 255], [239,0,0, 255], [223,0,0, 255], [207,0,0, 255], [191,0,0, 255], [175,0,0, 255], [159,0,0, 255], [143,0,0, 255], [128,0,0, 255]], dtype=np.ubyte)
-        for i in range(dims[0]):
-            for j in range(dims[1]):
-                color = lookup(cm, signal[i][j]/maxval)
-                img[i,j,:] = color
+        # get signal
+        if ndims == 1:
+            xvals = _eval('%s.%s;' % (varname, axes_names[0]))
+            if len(xvals)==1:
+                try:
+                    xvals = xvals[0]
+                except:
+                    pass
+            xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
+            axesvals.append(xvals)
+
+            signal = np.array(_eval('%s.Signal;' % varname, nargout=1)).astype(np.float)
+            signal = np.reshape(signal, (1, len(signal)))[0].tolist()
+            try:
+                error = np.array(_eval('%s.Error;' % varname, nargout=1)).astype(np.float)
+                error = np.reshape(error, (1, len(error)))[0].tolist()
+            except:
+                error = np.sqrt(signal).tolist()
+
+            pltdct = _get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self.varname)
+        elif ndims == 2:
+            xvals = list(_eval('%s.%s;' % (varname, axes_names[0]) )[0])
+            yvals = list(_eval('%s.%s;' % (varname, axes_names[1]) )[0])
+            axesvals.append(xvals)
+            axesvals.append(yvals)
+
+            signal = np.array(_eval('%s.Signal;' % varname, nargout=1)).astype(np.float).tolist()
+            error = np.array(_eval('%s.Error;' % varname, nargout=1)).astype(np.float).tolist()
             
-        # encode png as base64 string
-        image = scipy.misc.toimage(img)
-        output = io.BytesIO()
-        image.save(output, format="png")
-        contents = output.getvalue()
-        output.close()
-        encoded_2d_data = str(base64.b64encode(contents)).lstrip('b').strip("\'")
-            
-        # color bar
-        img = np.zeros((256, 1, 4))
-        for i in range(256):
-            color = lookup(cm, i/255)
-            img[255-i, 0] = color
-        cb_img = scipy.misc.toimage(img)
-        output = io.BytesIO()
-        cb_img.save(output, format='png')
-        contents = output.getvalue()
-        output.close()
-        encoded_cb = str(base64.b64encode(contents)).lstrip('b').strip("\'")
-
-        x = axisvals[0]
-        y = axisvals[1]
-        xmin = np.min(x)
-        xmax = np.max(x)
-        ymin = np.min(y)
-        ymax = np.max(y)
-            
-        cb_min = np.min(signal)
-        cb_max = np.max(signal)
-
-        params = {}
-        p = params
-        p['w'] = 326
-        p['h'] = 220
-
-        p['xmin'] = xmin
-        p['xmax'] = xmax
-        p['ymin'] = ymin
-        p['ymax'] = ymax
-
-        p['img2dData'] = encoded_2d_data
-        p['imgColorbar'] = encoded_cb
-
-        p['cbMin'] = cb_min
-        p['cbMax'] = cb_max
-
-        p['xlabel'] = xlabel
-        p['ylabel'] = ylabel
-        p['title'] = title
+            pltdct = _get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=self.varname)
+        else:
+            for i in range(ndims):
+                ivals = list(_eval('%s.%s' % (varname, axes_names[i]) )[0])
+                axesvals.append(ivals)
+            signal = list(_eval('%s.Signal;' % varname)[0])
+            error = list(_eval('%s.Error;' % varname)[0])
         
-        p['ndims'] = 2
-
-        return params
+        infdct = {'datashape' : None}
+        infdct['ndims'] = _eval('ndims(%s)' % varname)
+        return pltdct, infdct
 
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         try:
-            varname = self.varname
-            ndims = _eval('ndims(%s)' % varname)
-            ndims = int(ndims)
+            try:
+                _eval("%s.Signal;" % self.varname, nargout=0)
+            except:
+                self.islist = True
+                self.datashape = np.array(_eval("size(%s)"%self.varname, nargout=1)[0]).astype(int).tolist()
             
-            signal = None
-            error = None
-            axes_names = _eval('%s.Axes' % varname, nargout=1) # NOTE: len(axes_names) == ndims
-            axesvals = []
-            pltdct = {}
-            
-            if not ndims == len(axes_names):
-                # TODO: handle this case seperately, in which ifit has not found any axes in the data
-                raise Exception("ifit could not find axes")
-    
-            # get signal
-            if ndims == 1:
-                xvals = _eval('%s.%s' % (varname, axes_names[0]))
-                if len(xvals)==1:
-                    try:
-                        xvals = xvals[0]
-                    except:
-                        pass
-                xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
-                axesvals.append(xvals)
-
-                signal = np.array(_eval('%s.Signal' % varname, nargout=1)).astype(np.float)
-                signal = np.reshape(signal, (1, len(signal)))[0].tolist()
-                try:
-                    error = np.array(_eval('%s.Error' % varname, nargout=1)).astype(np.float)
-                    error = np.reshape(error, (1, len(error)))[0].tolist()
-                except:
-                    error = np.sqrt(signal).tolist()
-
-                pltdct = self._get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self._varname())
-            elif ndims == 2:
-                xvals = list(_eval('%s.%s' % (varname, axes_names[0]) )[0])
-                yvals = list(_eval('%s.%s' % (varname, axes_names[1]) )[0])
-                axesvals.append(xvals)
-                axesvals.append(yvals)
-
-                signal = np.array(_eval('%s.Signal' % varname, nargout=1)).astype(np.float).tolist()
-                error = np.array(_eval('%s.Error' % varname, nargout=1)).astype(np.float).tolist()
-                
-                pltdct = self._get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=self._varname())
+            if not self.islist:
+                pltdct, infdct = self._get_iData_repr()
             else:
-                for i in range(ndims):
-                    ivals = list(_eval('%s.%s' % (varname, axes_names[i]) )[0])
-                    axesvals.append(ivals)
-                signal = list(_eval('%s.Signal' % varname)[0])
-                error = list(_eval('%s.Error' % varname)[0])
-
-            infdct = {}
-            infdct['ndims'] = _eval('ndims(%s)' % varname)
+                pltdct = {}
+                infdct = {'datashape' : self.datashape, 'ndims' : None}
 
             retdct['plotdata'] = pltdct
             retdct['info'] = infdct
@@ -238,10 +153,102 @@ class IData(_IFitObject):
         return retdct
 
     def __exit__(self, exc_type, exc_value, traceback):
-        cmd = "clear %s;" % self._varname()
+        cmd = "clear %s;" % self.varname
         _eval(cmd)
 
-class IFunc(_IFitObject):
+def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
+    ''' returns the dict required by the svg 1d plotting function '''
+    params = {}
+    p = params
+    p['w'] = 326
+    p['h'] = 220
+    p['x'] = axisvals[0]
+    p['y'] = signal
+    p['yerr'] = yerr
+    p['xlabel'] = xlabel
+    p['ylabel'] = ylabel
+    p['title'] = title
+    p['ndims'] = 1
+    return params
+
+def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
+    ''' returns the dict required by the svg 1d plotting function '''
+    def lookup(cm, x):
+        xp = (len(cm)-1) * x
+        f = np.floor(xp)
+        c = np.ceil(xp)
+        a1 = xp - f
+        a2 = c - xp
+        # the below should be better, but there are still some strange artefacts in the generated image
+        #return np.add(cm[f], (xp-f)*(np.subtract(cm[c], cm[f])) ).astype(np.ubyte)
+        return cm[np.int(np.round(xp))]
+    
+    dims = np.shape(signal)
+    
+    # create the 2d data as a png given our colormap
+    img = np.zeros((dims[0], dims[1], 4))
+    maxval = np.max(signal)
+    cm = np.array([[0,0,143,255], [0,0,159,255], [0,0,175,255], [0,0,191,255], [0,0,207,255], [0,0,223,255], [0,0,239,255], [0,0,255,255], [0,16,255,255], [0,32,255,255], [0,48,255,255], [0,64,255,255], [0,80,255,255], [0,96,255,255], [0,112,255,255], [0,128,255,255], [0,143,255,255], [0,159,255,255], [0,175,255,255], [0,191,255,255], [0,207,255,255], [0,223,255,255], [0,239,255,255], [0,255,255,255], [16,255,239,255], [32,255,223,255], [48,55,207,255], [64,255,191,255], [80,255,175,255], [96,255,159,255], [112,255,143,255], [128,255,128,255], [143,255,112,255], [159,255,96,255], [175,255,80,255], [191,255,64,255], [207,255,48,255], [223,255,32,255], [239,255,16,255], [255,255,0,255], [255,239,0,255], [255,223,0,255], [255,207,0,255], [255,191,0,255], [255,175,0,255], [255,159,0,255], [255,143,0,255], [255,128,0,255], [255, 112,0, 255], [255,96,0, 255], [255,80,0, 255], [255,64,0, 255], [255,48,0, 255], [255,32,0, 255], [255,16,0, 255], [255,0,0, 255], [239,0,0, 255], [223,0,0, 255], [207,0,0, 255], [191,0,0, 255], [175,0,0, 255], [159,0,0, 255], [143,0,0, 255], [128,0,0, 255]], dtype=np.ubyte)
+    for i in range(dims[0]):
+        for j in range(dims[1]):
+            color = lookup(cm, signal[i][j]/maxval)
+            img[i,j,:] = color
+        
+    # encode png as base64 string
+    image = scipy.misc.toimage(img)
+    output = io.BytesIO()
+    image.save(output, format="png")
+    contents = output.getvalue()
+    output.close()
+    encoded_2d_data = str(base64.b64encode(contents)).lstrip('b').strip("\'")
+        
+    # color bar
+    img = np.zeros((256, 1, 4))
+    for i in range(256):
+        color = lookup(cm, i/255)
+        img[255-i, 0] = color
+    cb_img = scipy.misc.toimage(img)
+    output = io.BytesIO()
+    cb_img.save(output, format='png')
+    contents = output.getvalue()
+    output.close()
+    encoded_cb = str(base64.b64encode(contents)).lstrip('b').strip("\'")
+
+    x = axisvals[0]
+    y = axisvals[1]
+    xmin = np.min(x)
+    xmax = np.max(x)
+    ymin = np.min(y)
+    ymax = np.max(y)
+        
+    cb_min = np.min(signal)
+    cb_max = np.max(signal)
+
+    params = {}
+    p = params
+    p['w'] = 326
+    p['h'] = 220
+
+    p['xmin'] = xmin
+    p['xmax'] = xmax
+    p['ymin'] = ymin
+    p['ymax'] = ymax
+
+    p['img2dData'] = encoded_2d_data
+    p['imgColorbar'] = encoded_cb
+
+    p['cbMin'] = cb_min
+    p['cbMax'] = cb_max
+
+    p['xlabel'] = xlabel
+    p['ylabel'] = ylabel
+    p['title'] = title
+    
+    p['ndims'] = 2
+
+    return params
+
+class IFunc(engintf.ObjReprJson):
     def _modelsymbol(self):
         return 'iFunc'
 
@@ -255,7 +262,7 @@ class IFunc(_IFitObject):
 
     def get_repr(self):
         vn = self.varname
-        pkeys = _eval('%s.Parameters' % vn, nargout=1)
+        pkeys = _eval('%s.Parameters;' % vn, nargout=1)
         params = {}
         for key in pkeys:
             idx = pkeys.index(key)
@@ -272,7 +279,7 @@ class IFunc(_IFitObject):
 
     def set_user_data(self, json_obj):
         vn = self.varname
-        params = _eval('%s.Parameters' % vn)
+        params = _eval('%s.Parameters;' % vn)
         for key in params:
             try:
                 val = json_obj[key]
@@ -381,37 +388,50 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
 
-def combine(files, rank:int=0) -> IData:
+def _maprec(lst, rank, innerfunc):
+    ''' data-shape preserving map recursive given index depth "rank" '''
+    for i in range(len(lst)):
+        if rank > 1:
+            _maprec(lst[i], rank-1, innerfunc)
+        else:
+            lst[i] = innerfunc(lst[i])
+    return lst
+
+def combine(filename, rank:int=0) -> IData:
+    ''' a data reduce / merges which is vectorized explicitely for rank>0'''
     logging.debug("combine")
     
-    def elementfunc(files):
+    def atomicfunc(filesvals):
         obj = IData(None)
         # enable flexibility: a list is not needed for single-file arguments, remember this is the inner func
-        if type(files) != list:
-            files = [files];
+        if type(filesvals) != list:
+            filesvals = [filesvals];
         vnlst= []
-        for i in range(len(files)):
+        for i in range(len(filesvals)):
             tmpvarname = "%s_tmp_%d" % (obj.varname, i)
-            _eval("%s = iData('%s');" % (tmpvarname, files[i]), nargout=0)
+            _eval("%s = iData('%s');" % (tmpvarname, filesvals[i]), nargout=0)
             vnlst.append(tmpvarname)
-        mlargs = ' '.join(vnlst)
-        _eval("%s = combine([%s]);" % (obj.varname, mlargs), nargout=0)
+        _eval("%s = combine([%s]);" % (obj.varname, ' '.join(vnlst)), nargout=0)
         # clear the temporary variables in matlab
         for varname in vnlst:
-            _eval("clear %s" % varname, nargout=0)
+            _eval("clear %s;" % varname, nargout=0)
         return obj
     
-    def reclst(lst, dec):
-        return lst
+    def maptovarname(idata):
+        return idata.varname
     
     # rank: denotes the number of indices required to identify each element of the output individually
     retobj = IData(None)
     if rank==0:
-        retobj = elementfunc(files)
+        retobj = atomicfunc(filename)
     else:
-        idatas = reclst(files, rank)
+        # idatas: shape of filename to the rank'th index, and values atomicfunc(element)
+        idatas = _maprec(filename, rank, atomicfunc)
+        idatas = np.asarray(idatas)
+        varnames = np.vectorize(maptovarname)(idatas)
+        array_varnames_str = json.dumps(varnames.tolist()).replace('"','')
         
-        # TODO: put these into a single idata ...
+        _eval("%s = %s;" % (retobj.varname, array_varnames_str), nargout=0)
 
     return retobj
 
