@@ -1250,7 +1250,9 @@ class NodeIData extends NodeObject {
   }
   isActive() {
     // assumed to be associated with an underlying function object
-    return this.plotdata && true;
+    let b1 = this.plotdata && true;
+    let b2 = this.obj != null;
+    return b1 || b2
   }
 }
 
