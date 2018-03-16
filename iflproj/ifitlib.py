@@ -139,7 +139,7 @@ class IData(engintf.ObjReprJson):
             if not self.islist:
                 pltdct, infdct = self._get_iData_repr()
             else:
-                pltdct = {}
+                pltdct = None
                 infdct = {'datashape' : self.datashape, 'ndims' : None}
 
             retdct['plotdata'] = pltdct
@@ -155,6 +155,9 @@ class IData(engintf.ObjReprJson):
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
+    
+    def rmint(self, start: int, end: int):
+        pass
 
 def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
     ''' returns the dict required by the svg 1d plotting function '''
@@ -295,6 +298,50 @@ class IFunc(engintf.ObjReprJson):
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
+    
+    def fixpars(self, parnames: list):
+        '''
+        Hello Jakob,
+
+        if you have a model g, e.g.
+        
+        * g = gauss;
+        
+        then to fix some parameter you may use the following syntax:
+        
+        * g.Amplitude = 'fix';
+        * g.Amplitude = 'lock';
+        * fix(g, 'Amplitude');
+        * fix(g, 1); % if Amplitude is the 1st parameter
+        * fix(g, 'all'); fix all
+        * mlock(g, 'Amplitude'); % mlock == fix
+        
+        to free parameters:
+        
+        * fix(g, 'none'); % free all parameters
+        * munlock(g, 'Amplitude')
+        * munlock(g, 1)
+        * g.Amplitude = 'free'; % or 'clear' or 'unlock'
+        
+        except for direct assignment, all method calls return the modified
+        object (and if possible update the initial object itself).
+        
+        To get the list of all fixed/locked parameters:
+        
+        * mlock(g)
+        
+        to get the unlock/free parameters:
+        
+        * munlock(g)
+        
+        Cheers, Emmanuel.
+        '''
+    
+    def guess(self, vals: list):
+        '''
+        this can be implemented in the singular by copying code from set_user_data
+        ---> but also vectorized
+        '''
 
 class Gauss(IFunc):
     @staticmethod
@@ -382,8 +429,7 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     vn_data = idata.varname
     retobj = IFunc()
     vn_newfunc = retobj.varname
-    #_eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
-    _eval('[p, c, m, o_%s] = fits(%s, %s)' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
     _eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
@@ -398,7 +444,7 @@ def _maprec(lst, rank, innerfunc):
     return lst
 
 def combine(filename, rank:int=0) -> IData:
-    ''' a data reduce / merges which is vectorized explicitely for rank>0'''
+    ''' a data reduce / merges which is vectorized explicitly for rank>0'''
     logging.debug("combine")
     
     def atomicfunc(filesvals):
@@ -417,21 +463,15 @@ def combine(filename, rank:int=0) -> IData:
             _eval("clear %s;" % varname, nargout=0)
         return obj
     
-    def maptovarname(idata):
-        return idata.varname
-    
-    # rank: denotes the number of indices required to identify each element of the output individually
+    # rank: denotes the number of indices required to identify each element individually
     retobj = IData(None)
     if rank==0:
         retobj = atomicfunc(filename)
     else:
-        # idatas: shape of filename to the rank'th index, and values atomicfunc(element)
-        idatas = _maprec(filename, rank, atomicfunc)
-        idatas = np.asarray(idatas)
-        varnames = np.vectorize(maptovarname)(idatas)
-        array_varnames_str = json.dumps(varnames.tolist()).replace('"','')
-        
-        _eval("%s = %s;" % (retobj.varname, array_varnames_str), nargout=0)
+        idatas = np.asarray(_maprec(filename, rank, atomicfunc))
+        varnames = np.vectorize(lambda d: d.varname)(idatas)
+        avarnames_str = json.dumps(varnames.tolist()).replace('"','')
+        _eval("%s = %s;" % (retobj.varname, avarnames_str), nargout=0)
 
     return retobj
 
