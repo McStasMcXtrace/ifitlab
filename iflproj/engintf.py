@@ -449,7 +449,6 @@ def ctypeconf_tree_ifit(classes, functions):
     addrss.append(ifunc.address)
 
     def get_args_and_data(func):
-        argspec = inspect.getfullargspec(func)
         sign = inspect.signature(func)
         data = {}
         args = []
@@ -498,14 +497,19 @@ def ctypeconf_tree_ifit(classes, functions):
         argspec = inspect.getfullargspec(func)
         conf = NodeConfig()
         args, data = get_args_and_data(func)
+        # "functions" which are capitalized are assumed to be substitutes for class constructors
+        # ..now that the system isn't polymorphic really
+        hladdr = 'functions'
+        if func.__name__[0].upper() == func.__name__[0]:
+            hladdr = 'classes'
         conf.make_function_like_wtypehints(
-            'functions.'+func.__name__,
+            hladdr+'.'+func.__name__,
             func.__name__,
             args,
             argspec.annotations,
             data=data)
         conf.basetype = 'function_named'
-        return conf
+        return conf, hladdr
 
     # create types from a the give classes and functions
     for entry in classes:
@@ -525,9 +529,9 @@ def ctypeconf_tree_ifit(classes, functions):
 
     for f in functions:
         # create function node types
-        conf = configure_function_node(f)
+        conf, hladdr = configure_function_node(f)
 
-        tree.put('functions', conf.get_repr(), get_key)
+        tree.put(hladdr, conf.get_repr(), get_key)
         addrss.append(conf.address)
 
     return tree, addrss

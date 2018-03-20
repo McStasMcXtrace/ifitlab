@@ -196,7 +196,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
         for j in range(dims[1]):
             color = lookup(cm, signal[i][j]/maxval)
             img[i,j,:] = color
-        
+
     # encode png as base64 string
     image = scipy.misc.toimage(img)
     output = io.BytesIO()
@@ -204,7 +204,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     contents = output.getvalue()
     output.close()
     encoded_2d_data = str(base64.b64encode(contents)).lstrip('b').strip("\'")
-        
+
     # color bar
     img = np.zeros((256, 1, 4))
     for i in range(256):
@@ -223,7 +223,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     xmax = np.max(x)
     ymin = np.min(y)
     ymax = np.max(y)
-        
+
     cb_min = np.min(signal)
     cb_max = np.max(signal)
 
@@ -246,7 +246,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     p['xlabel'] = xlabel
     p['ylabel'] = ylabel
     p['title'] = title
-    
+
     p['ndims'] = 2
 
     return params
@@ -255,7 +255,7 @@ class IFunc(engintf.ObjReprJson):
     def _modelsymbol(self):
         return 'iFunc'
 
-    def __init__(self):
+    def __init__(self, datashape:list=None):
         logging.debug("%s.__init__" % str(type(self)))
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
         vn = self.varname
@@ -298,7 +298,7 @@ class IFunc(engintf.ObjReprJson):
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
-    
+
     def fixpars(self, parnames: list):
         '''
         Hello Jakob,
@@ -336,33 +336,27 @@ class IFunc(engintf.ObjReprJson):
         
         Cheers, Emmanuel.
         '''
-    
+
     def guess(self, vals: list):
         '''
         this can be implemented in the singular by copying code from set_user_data
         ---> but also vectorized
         '''
 
-class Gauss(IFunc):
-    @staticmethod
-    def non_polymorphic_typename():
-        return 'IFunc'
-    def _modelsymbol(self):
-        return 'gauss'
+'''
+constructor functions for various models, easy-gen substitutes for class constructors
+'''
+def Gauss(datashape:list=None) -> IFunc:
+    i = IFunc(datashape)
+    i._modelsymbol = lambda self: 'gauss'
 
-class Lorentz(IFunc):
-    @staticmethod
-    def non_polymorphic_typename():
-        return 'IFunc'
-    def _modelsymbol(self):
-        return 'lorz'
+def Lorentz(datashape:list=None) -> IFunc:
+    i = IFunc(datashape)
+    i._modelsymbol = lambda self: 'lorz'
 
-class Lin(IFunc):
-    @staticmethod
-    def non_polymorphic_typename():
-        return 'IFunc'
-    def _modelsymbol(self):
-        return 'strline'
+def Lin(datashape:list=None) -> IFunc:
+    i = IFunc(datashape)
+    i._modelsymbol = lambda self: 'strline'
 
 
 '''
@@ -462,6 +456,8 @@ def combine(filename, rank:int=0) -> IData:
         for varname in vnlst:
             _eval("clear %s;" % varname, nargout=0)
         return obj
+    
+    # TODO: check if files is uniform of size (down to rank)?
     
     # rank: denotes the number of indices required to identify each element individually
     retobj = IData(None)
