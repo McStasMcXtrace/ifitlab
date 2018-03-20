@@ -349,14 +349,17 @@ constructor functions for various models, easy-gen substitutes for class constru
 def Gauss(datashape:list=None) -> IFunc:
     i = IFunc(datashape)
     i._modelsymbol = lambda self: 'gauss'
+    return i
 
 def Lorentz(datashape:list=None) -> IFunc:
     i = IFunc(datashape)
     i._modelsymbol = lambda self: 'lorz'
+    return i
 
 def Lin(datashape:list=None) -> IFunc:
     i = IFunc(datashape)
     i._modelsymbol = lambda self: 'strline'
+    return i
 
 
 '''
