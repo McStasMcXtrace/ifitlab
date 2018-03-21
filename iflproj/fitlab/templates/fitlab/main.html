@@ -99,6 +99,7 @@
 
 <div id="divUserData" style="position:absolute;"><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
   <table id="tblUserData" style="width:460px;">
+    <tr><td colspan=2><label id="lblNodeInfo"></label></td></tr>
     <tr><td colspan=2><input type="text" id="tbxNodeLabel" style="width:440px;"/></td></tr>
   </table>
 </fieldset></div>
@@ -116,6 +117,7 @@
 
 <script>
 clearUserDataPanel = function() {
+  $("#lblNodeInfo").text("");
   $("#tbxNodeLabel").val("");
   $("#lgndNodeIdNameTypeEtc").html("userdata");
   $(".dynamicProperty").remove();
@@ -124,6 +126,7 @@ setUserData = function(node) {
   clearUserDataPanel();
 
   if (!node) return;
+  if (node.info) $("#lblNodeInfo").text("Error: " + node.info);
   $("#tbxNodeLabel").val(node.label);
   $("#lgndNodeIdNameTypeEtc").html("id: "+node.id+"; type: "+node.type+"("+node.basetype+")");
 

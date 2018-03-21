@@ -17,7 +17,7 @@ import os
 from collections import OrderedDict
 
 from nodespeak import RootNode, FuncNode, ObjNode, MethodNode, MethodAsFunctionNode, add_subnode, remove_subnode
-from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, ObjLiteralNode
+from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, InternalExecutionException, ObjLiteralNode
 
 _englog = None
 def _log(msg):
@@ -81,6 +81,7 @@ class TreeJsonAddr:
             key = address
             return self._get_or_create(branch, key)
 
+class ObjectRepresentationException(Exception): pass
 
 class ObjReprJson:
     '''
@@ -92,7 +93,7 @@ class ObjReprJson:
     def _get_full_repr_dict(self):
         ''' people can overload get_repr without having to call super, but just get the standard dict format from this method '''
         ans = OrderedDict()
-        ans['info'] = '__class__: %s' % str(self.__class__)
+        ans['info'] = {'__class__' : str(self.__class__) }
         ans['userdata'] = ''
         ans['plotdata'] = ''
         return ans
@@ -228,7 +229,7 @@ class FlatGraph:
             args = redo[1:]
             try:
                 getattr(self, cmd)(*args)
-            except:
+            except Exception as e:
                 _log('graph update failed: "%s"' % redo)
 
     def execute_node(self, id):
@@ -239,11 +240,22 @@ class FlatGraph:
             obj = execute_node(n)
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
-            represent = obj.get_repr()
-            return represent
-        except NodeNotExecutableException:
-            _log("exe %s yields: Node is not executable")
-            return None
+            represent = None
+            try:
+                if obj:
+                    represent = obj.get_repr()
+                return represent
+            except Exception as e:
+                raise ObjectRepresentationException(str(e))
+        except InternalExecutionException as e:
+            _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
+            return {'error' : {'message' : str(e), 'source-id' : e.name} }
+        except NodeNotExecutableException as e:
+            _log("exe %s yields: Node is not executable" % id)
+            return {'error' : {'message' : str(e)} }
+        except Exception as e:
+            _log("exe %s engine error: %s" % str(e))
+            return {'error' : {'message' : str(e)} }
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition '''
@@ -260,7 +272,6 @@ class FlatGraph:
             except:
                 pass # not all nodes have outgoing links...
         return gdef
-
 
 basetypes = {
     'object' : ObjNode,
@@ -346,7 +357,7 @@ class NodeConfig:
         if 'return' in annotations:
             self.otypes = [annotations['return'].__name__]
         self.static = 'true'
-        self.executable = 'false'
+        self.executable = 'true'
         self.edit = 'true'
         self.name = methodname
         self.label = methodname[0:5]
@@ -417,7 +428,6 @@ class NodeConfig:
 
 def ctypeconf_tree_ifit(classes, functions):
     ''' creates complete "flatext" conf types json file from a python module and some defaults '''
-    # TODO: load typehints
 
     tree = TreeJsonAddr()
     addrss = [] # currently lacking an iterator, we save all adresses to allow iterative access to the tree

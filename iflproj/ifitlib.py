@@ -81,7 +81,7 @@ class IData(engintf.ObjReprJson):
         ndims = int(_eval('ndims(%s)' % varname))
         axes_names = _eval('%s.Axes' % varname, nargout=1) # NOTE: len(axes_names) == ndims
         if not ndims == len(axes_names):
-            # TODO: handle this case seperately, in which ifit has not found any axes in the data
+            # TODO: handle this case in which ifit has not found any axes in the data
             raise Exception("ifit could not find axes")
         axesvals = []
         pltdct = {}
@@ -130,25 +130,19 @@ class IData(engintf.ObjReprJson):
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         try:
-            try:
-                _eval("%s.Signal;" % self.varname, nargout=0)
-            except:
-                self.islist = True
-                self.datashape = np.array(_eval("size(%s)"%self.varname, nargout=1)[0]).astype(int).tolist()
-            
-            if not self.islist:
-                pltdct, infdct = self._get_iData_repr()
-            else:
-                pltdct = None
-                infdct = {'datashape' : self.datashape, 'ndims' : None}
+            _eval("%s.Signal;" % self.varname, nargout=0)
+        except:
+            self.islist = True
+            self.datashape = np.array(_eval("size(%s)"%self.varname, nargout=1)[0]).astype(int).tolist()
+        
+        if not self.islist:
+            pltdct, infdct = self._get_iData_repr()
+        else:
+            pltdct = None
+            infdct = {'datashape' : self.datashape, 'ndims' : None}
 
-            retdct['plotdata'] = pltdct
-            retdct['info'] = infdct
-
-        except Exception as e:
-            infdct = {}
-            infdct['error'] = 'IData.get_repr failed ("%s")' % str(e)
-            retdct['info'] = infdct
+        retdct['plotdata'] = pltdct
+        retdct['info'] = infdct
 
         return retdct
 
@@ -252,42 +246,39 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     return params
 
 class IFunc(engintf.ObjReprJson):
-    def _modelsymbol(self):
-        return 'iFunc'
-
-    def __init__(self, datashape:list=None):
+    '''  '''
+    def __init__(self, datashape:list=None, symbol='iFunc'):
         logging.debug("%s.__init__" % str(type(self)))
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
         vn = self.varname
 
-        symb = self._modelsymbol()
-        _eval("%s = %s()" % (vn, symb), nargout=0)
+        _eval("%s = %s()" % (vn, symbol), nargout=0)
 
     def get_repr(self):
         vn = self.varname
         pkeys = _eval('%s.Parameters;' % vn, nargout=1)
-        params = {}
+        pvals = {}
         for key in pkeys:
             idx = pkeys.index(key)
             key0 = key.split(' ')[0]
             val = _eval('%s.%s' % (vn, key0), nargout=1)
             if type(val) != float:
-                params[key] = None
+                pvals[key] = None
             else:
-                params[key] = val
+                pvals[key] = val
 
         retdct = self._get_full_repr_dict()
-        retdct['userdata'] = params
+        retdct['userdata'] = pvals
         return retdct
 
     def set_user_data(self, json_obj):
         vn = self.varname
-        params = _eval('%s.Parameters;' % vn)
-        for key in params:
+        pkeys = _eval('%s.Parameters;' % vn)
+        for key in pkeys:
             try:
                 val = json_obj[key]
                 key0 = key.split(' ')[0]
-                if val:
+                if val != None:
                     _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
             except:
                 print('IFunc.set_user_data: set failed for param "%s" to val "%s"' % (key, val))
@@ -299,7 +290,30 @@ class IFunc(engintf.ObjReprJson):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
 
+    def guess(self, guess: dict):
+        pkeys = _eval('%s.Parameters;' % self.varname, nargout=1)
+        vn = self.varname
+
+        for key in pkeys:
+            try:
+                key0 = key.split(' ')[0]
+
+                val = guess.get(key0, None)
+                if val == None:
+                    val = 'NaN'
+                _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
+            except:
+                pass
+        _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
+        
+        '''
+        this can be implemented in the singular by copying code from set_user_data
+        ---> but also vectorized
+        '''
+
     def fixpars(self, parnames: list):
+        for p in parnames:
+            _eval("" % p, nargout=0)
         '''
         Hello Jakob,
 
@@ -337,29 +351,18 @@ class IFunc(engintf.ObjReprJson):
         Cheers, Emmanuel.
         '''
 
-    def guess(self, vals: list):
-        '''
-        this can be implemented in the singular by copying code from set_user_data
-        ---> but also vectorized
-        '''
 
 '''
 constructor functions for various models, easy-gen substitutes for class constructors
 '''
 def Gauss(datashape:list=None) -> IFunc:
-    i = IFunc(datashape)
-    i._modelsymbol = lambda self: 'gauss'
-    return i
+    return IFunc(datashape, 'gauss')
 
 def Lorentz(datashape:list=None) -> IFunc:
-    i = IFunc(datashape)
-    i._modelsymbol = lambda self: 'lorz'
-    return i
+    return IFunc(datashape, 'lorz')
 
 def Lin(datashape:list=None) -> IFunc:
-    i = IFunc(datashape)
-    i._modelsymbol = lambda self: 'strline'
-    return i
+    return IFunc(datashape, 'strline')
 
 
 '''
@@ -415,7 +418,6 @@ functions (also called "methods" in the ifit documentation
 def eval(idata: IData, ifunc: IFunc):
     logging.debug("eval: %s, %s" % (idata, ifunc))
     retobj = IData(None)
-    # TODO: can we properly clone idata objects? For example, error disappears by doing it like this
     
     _eval("%s = %s(%s);" % (retobj.varname, idata.varname, ifunc.varname), nargout=0)
     return retobj

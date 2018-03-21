@@ -1090,6 +1090,14 @@ class Node {
     if (this._obj) return this._obj.plotdata;
     return null;
   }
+  set info(value) {
+    if (this._obj == null) this._obj = {};
+    this._obj.info = value;
+  }
+  get info() {
+    if (this._obj) return this._obj.info;
+    return null;
+  }
   onUserDataChange(userdata) {}
   onObjChange(obj) {}
   get label() {
@@ -1517,9 +1525,32 @@ class GraphInterface {
     // TODO: consider a locking mechanism for the entire ui, or drop data updates completely...
     simpleajax('/ajax_run_node', post_data,
       function(msg) {
-        selfref.lock = false; // js is single threaded and finished everything before moving on
+        selfref.lock = false;
         let obj = JSON.parse(msg);
-        selfref.node_data(id, JSON.stringify(obj.userdata));
+
+        // fail section
+        let fail = obj['error']
+        if (fail != null) {
+
+          selfref.graphData._updateNodeState(n);
+          let sourceid = fail['source-id'];
+          if (sourceid) {
+            let m = selfref.graphData.getNode(sourceid);
+
+            m.gNode.state = NodeState.FAIL;
+            m.info = fail['message'];
+            selfref.updateUi();
+            alert(m.label + "(" + sourceid + "): " + fail['message']);
+          }
+          else {
+            alert(fail['message']);
+          }
+          return;
+        }
+
+        if (obj != null) {
+          selfref.node_data(id, JSON.stringify(obj.userdata));
+        }
         n.obj = obj; // (re)set all data
         selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
         selfref.graphData._updateNodeState(n);
@@ -1527,7 +1558,6 @@ class GraphInterface {
         selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
       function() {
-        console.log("run() ajax fail (id: " + id + ")");
         selfref.lock = false;
         selfref.graphData._updateNodeState(n.gNode);
         selfref.updateUi();
@@ -1600,7 +1630,7 @@ class GraphInterface {
     }
     else if (command=="node_data") {
       if (!isString(args[1])) {
-        throw "arg[1] must be a string";
+        throw "node_data: args[1] must be a string: ", args;
       }
       let id = args[0];
       let data_str = args[1];
