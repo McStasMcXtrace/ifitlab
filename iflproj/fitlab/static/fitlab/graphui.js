@@ -1534,6 +1534,7 @@ class GraphInterface {
 
         // fail section
         let fail = retobj['error']
+        console.log("fail: ", fail)
         if (fail != null) {
           selfref.graphData._updateNodeState(n);
           let sourceid = fail['source-id'];
@@ -1549,24 +1550,29 @@ class GraphInterface {
           }
           return;
         }
+
         // success section
-        for (let key in retobj) {
-          let obj = retobj[key];
-          //if (id != null) {
-          //selfref.node_data(id, JSON.stringify(obj.userdata));
+        let update = retobj['update'];
+        console.log(update)
+        for (let key in update) {
+          let obj = update[key];
+          console.log("key,obj:", key, obj);
           if (obj != null) {
             selfref.node_data(key, JSON.stringify(obj.userdata));
-            n.obj = obj; // (re)set all data
+            let m = selfref.graphData.getNode(key);
+            m.obj = obj; // (re)set all data
             selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
+            console.log("m.info: ", m.info)
           }
-          selfref.graphData._updateNodeState(n);
-          selfref.updateUi();
-          selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
         }
+        selfref.graphData._updateNodeState(n);
+        selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
+        selfref.updateUi();
       },
       function() {
+        // unhandled server exception section
         selfref.lock = false;
-        selfref.graphData._updateNodeState(n.gNode);
+        selfref.graphData._updateNodeState(n);
         selfref.updateUi();
       }
     );

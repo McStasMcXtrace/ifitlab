@@ -126,7 +126,7 @@ setUserData = function(node) {
   clearUserDataPanel();
 
   if (!node) return;
-  if (node.info) $("#lblNodeInfo").text("Error: " + node.info);
+  if (node.info) $("#lblNodeInfo").text("Info: " + JSON.stringify(node.info));
   $("#tbxNodeLabel").val(node.label);
   $("#lgndNodeIdNameTypeEtc").html("id: "+node.id+"; type: "+node.type+"("+node.basetype+")");
 

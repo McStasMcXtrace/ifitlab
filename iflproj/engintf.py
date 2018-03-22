@@ -240,15 +240,29 @@ class FlatGraph:
             obj = execute_node(n)
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
-            represent = None
-            retobj = {}
-            try:
-                if obj:
-                    represent = obj.get_repr()
-                retobj[id] = represent
-                return retobj
-            except Exception as e:
-                raise ObjectRepresentationException(str(e))
+            
+            retobj = {'update':{}}
+            update_lst = [id]
+            if type(n) in (MethodAsFunctionNode, ):
+                update_lst.append([o[0].name for o in n.parents if type(o[0])==ObjNode ][0]) # find "owner" id...
+            if type(n) in (MethodNode, ):
+                # TODO: implement
+                pass
+            for key in update_lst:
+                try:
+                    retobj['update'][key] = None
+                    #if obj and id==key:
+                    #    retobj['update'][id] = obj.get_repr()
+                    #else:
+                    m = self.root.subnodes[key]
+                    if m.exemodel().can_assign():
+                        objm = m.get_object()
+                        if objm:
+                            retobj['update'][key] = objm.get_repr()
+                except Exception as e:
+                    raise ObjectRepresentationException(str(e))
+            return retobj
+        
         except InternalExecutionException as e:
             _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
             return {'error' : {'message' : str(e), 'source-id' : e.name} }
@@ -256,7 +270,11 @@ class FlatGraph:
             _log("exe %s yields: Node is not executable" % id)
             return {'error' : {'message' : str(e)} }
         except Exception as e:
-            _log("exe %s engine error: %s" % str(e))
+            _log("exe %s engine error: %s" % (id, str(e)))
+            return {'error' : {'message' : str(e)} }
+        except ObjectRepresentationException as e:
+            # TODO: implement this branch
+            _log("object representation error...")
             return {'error' : {'message' : str(e)} }
 
     def extract_graphdef(self):
