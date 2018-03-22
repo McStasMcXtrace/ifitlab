@@ -23,6 +23,7 @@ import scipy.misc
 import io
 import base64
 import matlab.engine
+import math
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
@@ -262,7 +263,11 @@ class IFunc(engintf.ObjReprJson):
             idx = pkeys.index(key)
             key0 = key.split(' ')[0]
             val = _eval('%s.%s' % (vn, key0), nargout=1)
+            while type(val) == list:
+                val = val[0]
             if type(val) != float:
+                pvals[key] = None
+            elif math.isnan(float(val)):
                 pvals[key] = None
             else:
                 pvals[key] = val
@@ -305,7 +310,7 @@ class IFunc(engintf.ObjReprJson):
             except:
                 pass
         _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
-        
+        pass
         '''
         this can be implemented in the singular by copying code from set_user_data
         ---> but also vectorized
