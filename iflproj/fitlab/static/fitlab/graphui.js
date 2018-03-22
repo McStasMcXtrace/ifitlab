@@ -1534,7 +1534,6 @@ class GraphInterface {
     let post_data = {json_str: JSON.stringify({ run_id: id, sync: syncset })};
     let selfref = this; // replace this with the .bind(this) method on a func object
 
-    // TODO: consider a locking mechanism for the entire ui, or drop data updates completely...
     simpleajax('/ajax_run_node', post_data,
       function(msg) {
         selfref.lock = false;
@@ -1562,15 +1561,15 @@ class GraphInterface {
         let update = retobj['update'];
         for (let key in update) {
           let obj = update[key];
+          let m = selfref.graphData.getNode(key);
           if (obj != null) {
             selfref.node_data(key, JSON.stringify(obj.userdata));
-            let m = selfref.graphData.getNode(key);
             m.obj = obj; // (re)set all data
             selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
           }
+          selfref.graphData._updateNodeState(m);
+          selfref._fireEvents(selfref._nodeRunReturnListn, [m]);
         }
-        selfref.graphData._updateNodeState(n);
-        selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
         selfref.updateUi();
       },
       function() {
