@@ -43,6 +43,11 @@ def child_or_parent_rm_allref(lst, item):
 '''
 Base node types.
 '''
+class NodeNotExecutableException(Exception): pass
+class InternalExecutionException(Exception):
+    def __init__(self, name, msg=None):
+        self.name = name
+        super().__init__(msg)
 
 class GraphInconsistenceException(Exception): pass
 class AbstractMethodException(Exception): pass
@@ -348,7 +353,10 @@ class FuncNode(Node):
             if k in self.defaults:
                 self.defaults[k] = obj[k]
     def call(self, *args):
-        return self.func(*args, **self.defaults)
+        try:
+            return self.func(*args, **self.defaults)
+        except Exception as e:
+            raise InternalExecutionException(self.name, str(e))
     def get_object(self):
         return self.defaults
 
@@ -388,10 +396,15 @@ class MethodNode(Node):
         last = None
         for o in self.owners:
             if type(o) is ObjNode:
+                method = None
                 try:
-                    last = getattr(o.get_object(), self.methodname)(*args)
+                    method = getattr(o.get_object(), self.methodname)
                 except:
                     raise MethodNode.NoMethodOfThatNameException()
+                try:
+                    last = method(*args)
+                except Exception as e:
+                    raise InternalExecutionException(self.name, str(e))
         return last
 
     def _check_subnode(self, node):
@@ -415,7 +428,16 @@ class MethodAsFunctionNode(Node):
     def call(self, *args):
         slf = args[0]
         realargs = args[1:]
-        return getattr(slf, self.methodname)(*realargs)
+        method = None
+        try:
+            method = getattr(slf, self.methodname)
+        except:
+            raise MethodNode.NoMethodOfThatNameException()
+        try:
+            return method(*realargs)
+        except Exception as e:
+            raise InternalExecutionException(self.name, str(e))
+
     def get_object(self):
         return self.methodname
 
@@ -451,9 +473,12 @@ class ReturnFuncNode(Node):
         raise ReturnFuncNode.AssignException()
     def call(self, *args):
         if self.func:
-            return self.func(*args)
+            try:
+                return self.func(*args)
+            except Exception as e:
+                raise InternalExecutionException(self.name, str(e))
         else:
-            ''' is_not_none default behavior '''
+            '''_not_none default behavior '''
             if len(args) > 0:
                 return args[0] is not None
     def _check_subnode(self, node):
@@ -503,7 +528,6 @@ def del_node(node):
 '''
 Node graph engine execution.
 '''
-class NodeNotExecutableException(Exception): pass
 def execute_node(node):
     '''
     Executes a node by means of directed graph subtree building and evaluation, depending on the 

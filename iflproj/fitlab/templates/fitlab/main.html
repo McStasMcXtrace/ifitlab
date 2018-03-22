@@ -99,6 +99,7 @@
 
 <div id="divUserData" style="position:absolute;"><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
   <table id="tblUserData" style="width:460px;">
+    <tr><td colspan=2><label id="lblNodeInfo"></label></td></tr>
     <tr><td colspan=2><input type="text" id="tbxNodeLabel" style="width:440px;"/></td></tr>
   </table>
 </fieldset></div>
@@ -108,6 +109,7 @@
 <script src="/static/fitlab/d3.v4.min.js"></script>
 <script src="/static/fitlab/jquery.min.js"></script>
 <script src="/static/fitlab/jquery-ui.js"></script>
+<script src="/static/fitlab/graphuilib.js"></script>
 <script src="/static/fitlab/graphui.js"></script>
 <script src="/static/fitlab/plainui.js"></script>
 <script src="/static/fitlab/nodetypes.js"></script>
@@ -115,6 +117,7 @@
 
 <script>
 clearUserDataPanel = function() {
+  $("#lblNodeInfo").text("");
   $("#tbxNodeLabel").val("");
   $("#lgndNodeIdNameTypeEtc").html("userdata");
   $(".dynamicProperty").remove();
@@ -123,6 +126,7 @@ setUserData = function(node) {
   clearUserDataPanel();
 
   if (!node) return;
+  if (node.info) $("#lblNodeInfo").text("Info: " + JSON.stringify(node.info));
   $("#tbxNodeLabel").val(node.label);
   $("#lgndNodeIdNameTypeEtc").html("id: "+node.id+"; type: "+node.type+"("+node.basetype+")");
 
@@ -173,7 +177,7 @@ $(document).ready(() => {
   // construct graph engine and add listeners
   intface = new GraphInterface();
   intface.addNodeRunReturnListener( (node) => {
-    // remove previous elements with this id no matter what
+    // clear previous subwindow elements with this id
     let x_y = removeSubWindow(node.id);
 
     if (node.plotdata) {
@@ -192,7 +196,6 @@ $(document).ready(() => {
       pltdata.title='';
       pltdata.w = width;
       pltdata.h = height;
-      console.log(JSON.stringify(pltdata));
       if (pltdata.ndims == 1) plot_1d(pltdata, plotbranch);
       if (pltdata.ndims == 2) plot_2d(pltdata, plotbranch);
 
@@ -200,6 +203,10 @@ $(document).ready(() => {
       intface.addNodeDeletedListener( (id) => {
         if (id == node.id) $("#"+subwinid_containerid[1]).remove();
       });
+    }
+
+    if (node.userdata) {
+      setUserData(intface.getSelectedNode());
     }
   }, null);
 

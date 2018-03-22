@@ -7,7 +7,6 @@ its name - e.g. _get_plot_1D - will be omitted.
 2) any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
 whereby its constructor node will output that type name
 '''
-from numpy.f2py.auxfuncs import isprivate
 __author__ = "Jakob Garde"
 
 import logging
@@ -18,7 +17,7 @@ import os
 from collections import OrderedDict
 
 from nodespeak import RootNode, FuncNode, ObjNode, MethodNode, MethodAsFunctionNode, add_subnode, remove_subnode
-from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, ObjLiteralNode
+from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, InternalExecutionException, ObjLiteralNode
 
 _englog = None
 def _log(msg):
@@ -82,6 +81,7 @@ class TreeJsonAddr:
             key = address
             return self._get_or_create(branch, key)
 
+class ObjectRepresentationException(Exception): pass
 
 class ObjReprJson:
     '''
@@ -93,7 +93,7 @@ class ObjReprJson:
     def _get_full_repr_dict(self):
         ''' people can overload get_repr without having to call super, but just get the standard dict format from this method '''
         ans = OrderedDict()
-        ans['info'] = '__class__: %s' % str(self.__class__)
+        ans['info'] = {'__class__' : str(self.__class__) }
         ans['userdata'] = ''
         ans['plotdata'] = ''
         return ans
@@ -229,7 +229,7 @@ class FlatGraph:
             args = redo[1:]
             try:
                 getattr(self, cmd)(*args)
-            except:
+            except Exception as e:
                 _log('graph update failed: "%s"' % redo)
 
     def execute_node(self, id):
@@ -240,11 +240,42 @@ class FlatGraph:
             obj = execute_node(n)
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
-            represent = obj.get_repr()
-            return represent
-        except NodeNotExecutableException:
-            _log("exe %s yields: Node is not executable")
-            return None
+            
+            retobj = {'update':{}}
+            update_lst = [id]
+            if type(n) in (MethodAsFunctionNode, ):
+                update_lst.append([o[0].name for o in n.parents if type(o[0])==ObjNode ][0]) # find "owner" id...
+            if type(n) in (MethodNode, ):
+                # TODO: implement
+                pass
+            for key in update_lst:
+                try:
+                    retobj['update'][key] = None
+                    #if obj and id==key:
+                    #    retobj['update'][id] = obj.get_repr()
+                    #else:
+                    m = self.root.subnodes[key]
+                    if m.exemodel().can_assign():
+                        objm = m.get_object()
+                        if objm:
+                            retobj['update'][key] = objm.get_repr()
+                except Exception as e:
+                    raise ObjectRepresentationException(str(e))
+            return retobj
+        
+        except InternalExecutionException as e:
+            _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
+            return {'error' : {'message' : str(e), 'source-id' : e.name} }
+        except NodeNotExecutableException as e:
+            _log("exe %s yields: Node is not executable" % id)
+            return {'error' : {'message' : str(e)} }
+        except Exception as e:
+            _log("exe %s engine error: %s" % (id, str(e)))
+            return {'error' : {'message' : str(e)} }
+        except ObjectRepresentationException as e:
+            # TODO: implement this branch
+            _log("object representation error...")
+            return {'error' : {'message' : str(e)} }
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition '''
@@ -261,7 +292,6 @@ class FlatGraph:
             except:
                 pass # not all nodes have outgoing links...
         return gdef
-
 
 basetypes = {
     'object' : ObjNode,
@@ -327,7 +357,7 @@ class NodeConfig:
         self.type = funcname
         self.address = address
         self.ipars = args
-        self.itypes = [annotations[a].__name__ for a in args if annotations.get(a, None)]
+        self.itypes = [annotations[a].__name__ if annotations.get(a, None) else '' for a in args]
         self.otypes = ['']
         if 'return' in annotations:
             self.otypes = [annotations['return'].__name__]
@@ -343,11 +373,11 @@ class NodeConfig:
         self.address = address
         self.ipars = args
         annotations['self'] = clsobj
-        self.itypes = [annotations[a].__name__ for a in args if annotations.get(a, None)]
+        self.itypes = [annotations[a].__name__ if annotations.get(a, None) else '' for a in args]
         if 'return' in annotations:
             self.otypes = [annotations['return'].__name__]
         self.static = 'true'
-        self.executable = 'false'
+        self.executable = 'true'
         self.edit = 'true'
         self.name = methodname
         self.label = methodname[0:5]
@@ -418,7 +448,6 @@ class NodeConfig:
 
 def ctypeconf_tree_ifit(classes, functions):
     ''' creates complete "flatext" conf types json file from a python module and some defaults '''
-    # TODO: load typehints
 
     tree = TreeJsonAddr()
     addrss = [] # currently lacking an iterator, we save all adresses to allow iterative access to the tree
@@ -450,7 +479,6 @@ def ctypeconf_tree_ifit(classes, functions):
     addrss.append(ifunc.address)
 
     def get_args_and_data(func):
-        argspec = inspect.getfullargspec(func)
         sign = inspect.signature(func)
         data = {}
         args = []
@@ -499,14 +527,19 @@ def ctypeconf_tree_ifit(classes, functions):
         argspec = inspect.getfullargspec(func)
         conf = NodeConfig()
         args, data = get_args_and_data(func)
+        # "functions" which are capitalized are assumed to be substitutes for class constructors
+        # ..now that the system isn't polymorphic really
+        hladdr = 'functions'
+        if func.__name__[0].upper() == func.__name__[0]:
+            hladdr = 'classes'
         conf.make_function_like_wtypehints(
-            'functions.'+func.__name__,
+            hladdr+'.'+func.__name__,
             func.__name__,
             args,
             argspec.annotations,
             data=data)
         conf.basetype = 'function_named'
-        return conf
+        return conf, hladdr
 
     # create types from a the give classes and functions
     for entry in classes:
@@ -526,9 +559,9 @@ def ctypeconf_tree_ifit(classes, functions):
 
     for f in functions:
         # create function node types
-        conf = configure_function_node(f)
+        conf, hladdr = configure_function_node(f)
 
-        tree.put('functions', conf.get_repr(), get_key)
+        tree.put(hladdr, conf.get_repr(), get_key)
         addrss.append(conf.address)
 
     return tree, addrss

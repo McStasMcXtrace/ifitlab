@@ -10,10 +10,10 @@ const nodeRadius = 30;
 const anchorRadius = 6;
 
 const extensionLength = 40;
-const anchSpace = 80;
-const pathChargeStrength = -100;
-const pathLinkStrength = 2;
-const distance = 80;
+const anchSpace = 40;
+const pathChargeStrength = -50;
+const pathLinkStrength = 1;
+const distance = 20;
 
 const arrowHeadLength = 12;
 const arrowHeadAngle = 25;
@@ -108,7 +108,6 @@ class GraphicsNode {
 
     this.anchors = null;
     this.r = nodeRadius;
-    this.links = [];
     this.centerAnchor = new CenterAnchor(this);
 
     // graphics switch on this property, which is updated externally according to some rule
@@ -119,45 +118,15 @@ class GraphicsNode {
     if (this.anchors) throw "anchors only intended to be set once";
     this.anchors = anchors;
   }
-  getConnections() {
-    // collect local link anchors
-    let links = this.links;
-    let linkAnchors = [];
-    let l = null;
-    for (var j=0; j<links.length; j++) {
-      l = links[j];
-      linkAnchors.push(l.d1);
-      linkAnchors.push(l.d2);
-    }
-    // match anchors with link anchors
-    let connectivity = [];
-    let anchors = this.anchors;
+  // level means itypes/otypes == 0/1
+  getAnchor(idx, level) {
     let a = null;
-    for (var j=0; j<anchors.length; j++) {
-      a = anchors[j];
-      connectivity.push(linkAnchors.indexOf(a) != -1);
+    for (var i=0;i<this.anchors.length;i++) {
+      a = this.anchors[i];
+      if (a.idx==idx && (!a.i_o | 0) == level)
+        return a;
     }
-    return connectivity;
-  }
-  get exitLinks() {
-    let exLinks = [];
-    let idxs = [];
-    let a = null;
-    let l = null;
-    for (var j=0;j<this.links.length;j++) {
-      l = this.links[j];
-      a = l.d1;
-      if (this.anchors.indexOf(a) != -1) exLinks.push(l);
-    }
-    return exLinks;
-  }
-  addLink(link, isInput) {
-    this.links.push(link);
-    this.onConnect(link, isInput);
-  }
-  rmLink(link, isInput) {
-    remove(this.links, link);
-    this.onDisconnect(link, isInput);
+    throw "could not get anchor: ", idx, level;
   }
   draw(branch, i) {
     return branch
@@ -362,18 +331,7 @@ class Anchor {
   set x(value) { /* empty:)) */ }
   get y() { return this.owner.y + this.localy; }
   set y(value) { /* empty:)) */ }
-  get connections() {
-    let answer = 0;
-    let olinks = this.owner.links;
-    let l = null;
-    for (var i=0; i<olinks.length; i++) {
-      l = olinks[i];
-      if (this == l.d1 || this == l.d2) answer++;
-    }
-    return answer;
-  }
   drawArrowhead(branch, i) {
-    console.log("drawarrow")
     if (!this.isTarget) return branch;
 
     let angle1 = Math.PI/180*(this.angle - arrowHeadAngle);
@@ -493,9 +451,6 @@ class Link {
     this.pathAnchors = [];
     this.recalcPathAnchors();
 
-    d1.owner.addLink(this, false);
-    d2.owner.addLink(this, true);
-
     d1.numconnections += 1;
     d2.numconnections += 1;
   }
@@ -535,8 +490,6 @@ class Link {
   detatch() {
     this.d1.numconnections -= 1;
     this.d2.numconnections -= 1;
-    this.d1.owner.rmLink(this, false);
-    this.d2.owner.rmLink(this, true);
   }
 }
 
@@ -640,7 +593,7 @@ class GraphDraw {
       //}.bind(this)));
     this.svg
       .on("click", function() {
-        self.graphData.selectedNode = null;
+        self.graphData.setSelectedNode(null);
         self.selectNodeCB( null );
         self.update();
         let m = d3.mouse(this)
@@ -723,13 +676,14 @@ class GraphDraw {
     self.centeringSim.stop();
     self.centeringSim.force("centering").x(window.innerWidth/2);
     self.centeringSim.force("centering").y(window.innerHeight/2);
-    self.graphData.updateAnchors();
-    self.centeringSim.nodes(self.graphData.nodes.concat(self.graphData.anchors));
+    let nodes = self.graphData.getGraphicsNodeObjs();
+    let anchors = self.graphData.getAnchors();
+    self.centeringSim.nodes(nodes.concat(anchors));
     self.centeringSim.alpha(1).restart();
   }
   resetChargeSim() {
     // the charge force seems to have to reset like this for some reason
-    self.distanceSim = d3.forceSimulation(self.graphData.nodes)
+    self.distanceSim = d3.forceSimulation(self.graphData.getGraphicsNodeObjs())
       .force("noderepulsion",
         d3.forceManyBody()
           .strength( -40 )
@@ -744,8 +698,7 @@ class GraphDraw {
   }
   resetPathSim() {
     self.pathSim.stop();
-    self.graphData.updateAnchors();
-    self.pathSim.nodes(self.graphData.anchors);
+    self.pathSim.nodes(self.graphData.getAnchors());
     self.pathSim.force("link").links(self.graphData.getForceLinks());
   }
   restartPathSim() {
@@ -758,11 +711,13 @@ class GraphDraw {
   }
   restartCollideSim() {
     self.collideSim.stop();
-    self.collideSim.nodes(self.graphData.nodes);
+    self.collideSim.nodes(self.graphData.getGraphicsNodeObjs());
     self.collideSim.alpha(1).restart();
     // path anchors go into the center-sim only
     self.centeringSim.stop();
-    self.centeringSim.nodes(self.graphData.nodes.concat(self.graphData.anchors));
+    let nodes = self.graphData.getGraphicsNodeObjs();
+    let anchors = self.graphData.getAnchors();
+    self.centeringSim.nodes(nodes.concat(anchors));
     self.centeringSim.alpha(1).restart();
   }
   dragged(d) {
@@ -776,14 +731,11 @@ class GraphDraw {
     self.restartCollideSim();
   }
   dragended(d) {
-    // recalc node link path anchors here
-    d.links.forEach( function(l) {
-      l.recalcPathAnchors();
-    } )
+    self.graphData.recalcPathAnchorsAroundNodeObj(d);
 
     // restart post-drag relevant layout sims
     self.restartChargeSim();
-    self.resetPathSim(); // we need to reset, because the path anchors may have changed during recalcPathAnchors
+    self.resetPathSim();
     self.restartPathSim();
     self.recenter();
 
@@ -854,7 +806,6 @@ class GraphDraw {
       .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; } );
     self.nodes
       .classed("selected", function(d) { return d.active; })
-
     self.splines
       .each( function(l, i) {
         l.update(d3.select(this), i);
@@ -862,6 +813,7 @@ class GraphDraw {
 
     /*
     // for DEBUG purposes
+    if (!self.anchors) return;
     self.anchors
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; });
@@ -937,7 +889,7 @@ class GraphDraw {
 
     // prepare node groups
     self.draggable = self.nodeGroup.selectAll("g")
-      .data(self.graphData.nodes)
+      .data(self.graphData.getGraphicsNodeObjs())
       .enter()
       .append("g")
       .call( d3.drag()
@@ -954,22 +906,20 @@ class GraphDraw {
           self.delNodeCB( node );
         }
         else {
-          self.graphData.selectedNode = node;
+          self.graphData.setSelectedNode(node.owner.id);
           self.selectNodeCB( node );
           self.update();
         }
       })
       .on("dblclick", function() {
         let node = d3.select(this).datum();
-        //self.graphData.selectedNode = node;
-        //self.selectNodeCB( node );
         self.executeNodeCB(node);
       });
 
     self.nodes = GraphDraw.drawNodes(self.draggable);
 
     // draw the splines
-    let links = self.graphData.links;
+    let links = self.graphData.getLinkObjs();
 
     if (self.splines) self.splines.remove();
     self.splines = self.splineGroup.selectAll("g")
@@ -984,7 +934,7 @@ class GraphDraw {
 
     /*
     // DEBUG draw anchors
-    let anchors = self.graphData.anchors;
+    let anchors = self.graphData.getAnchors();
     if (self.anchors) self.anchors.remove();
     self.anchors = self.linkGroup.selectAll("circle")
       .data(anchors)
@@ -1000,101 +950,6 @@ class GraphDraw {
     self.recenter();
     // update data properties
     self.update();
-  }
-}
-
-// node data manager, keeping this interface tight and providing convenient arrays for layout sims
-class GraphData {
-  constructor() {
-    this.nodes = [];
-    this.links = [];
-    this.anchors = [];
-    this.forceLinks = [];
-    this.nodeIds = [];
-
-    this._selectedNode = null;
-  }
-  set selectedNode(n) {
-    let m = this._selectedNode;
-    if (m) m.active = false;
-    this._selectedNode = n;
-    if (n) n.active = true;
-  }
-  get selectedNode() {
-    return this._selectedNode;
-  }
-  // should be private
-  updateAnchors() {
-    this.anchors = [];
-    this.forceLinks = [];
-    for (let j = 0; j < this.links.length; j++) {
-
-      let anchors = this.links[j].getAnchors();
-      let fl = null;
-
-      for (let i = 0; i < anchors.length; i++) {
-        this.anchors.push(anchors[i]);
-        if (i > 0) {
-          fl = { 'source' : anchors[i-1], 'target' : anchors[i], 'index' : null }
-          this.forceLinks.push(fl);
-        }
-      }
-    }
-  }
-  getForceLinks() {
-    this.updateAnchors();
-    return this.forceLinks;
-  }
-  addNode(n) {
-    if (!this.nodeIds.includes(n.id)) {
-      this.nodes.push(n);
-      this.nodeIds.push(n.label);
-      this.anchors.push(n.centerAnchor);
-    }
-    else throw "node of that id already exists"
-  }
-  getLinks(n) {
-    return n.links;
-  }
-  getNeighbours(n) {
-    let nbs = [];
-    let l = null;
-    let numlinks = n.links.length;
-    for (var i=0; i<numlinks; i++) {
-      l = n.links[i];
-      nbs.push(l.d1.owner);
-      nbs.push(l.d2.owner);
-    }
-    nbs = nbs.filter(m=>n!=m);
-    return nbs;
-  }
-  rmNodeSecure(n) {
-    if (n.links.length > 0) throw "some links persist on node, won't delete " + n.owner.id;
-    remove(this.nodes, n);
-  }
-  addLink(l) {
-    this.links.push(l);
-    this.updateAnchors();
-  }
-  rmLink(l) {
-    l.detatch();
-    remove(this.links, l);
-  }
-  _connectivity(n) {
-    return n.getConnections();
-  }
-  updateNodeState(n) {
-    let o = n.owner;
-    let conn = this._connectivity(n);
-    if (o.isActive()) {
-      n.state = NodeState.ACTIVE;
-    }
-    else if (!o.isConnected(conn)){
-      n.state = NodeState.DISCONNECTED;
-    }
-    else {
-      n.state = NodeState.PASSIVE;
-    }
   }
 }
 
@@ -1136,7 +991,6 @@ class ConnRulesBasic {
     let t2 = !a1.i_o;
     // inputs can only have one connection
     let t5 = a2.numconnections == 0;
-    // SHOULD BE a2.numconnections, an externally set int
     // both anchors must be of the same type
     let t6 = a1.type == a2.type;
     let t7 = a1.type == '' || a2.type == '';
@@ -1236,6 +1090,14 @@ class Node {
     if (this._obj) return this._obj.plotdata;
     return null;
   }
+  set info(value) {
+    if (this._obj == null) this._obj = {};
+    this._obj.info = value;
+  }
+  get info() {
+    if (this._obj) return this._obj.info;
+    return null;
+  }
   onUserDataChange(userdata) {}
   onObjChange(obj) {}
   get label() {
@@ -1256,16 +1118,6 @@ class Node {
   isActive() {
     let val = this.obj != null;
     return val;
-  }
-  // level means itypes/otypes == 0/1
-  getAnchor(idx, level) {
-    let a = null;
-    for (var i=0;i<this.gNode.anchors.length;i++) {
-      a = this.gNode.anchors[i];
-      if (a.idx==idx && (!a.i_o | 0) == level)
-        return a;
-    }
-    throw "could not get anchor: ", idx, level;
   }
   onConnect(link, isInput) { }
   onDisconnect(link, isInput) { }
@@ -1406,7 +1258,9 @@ class NodeIData extends NodeObject {
   }
   isActive() {
     // assumed to be associated with an underlying function object
-    return this.plotdata && true;
+    let b1 = this.plotdata && true;
+    let b2 = this.obj != null;
+    return b1 || b2
   }
 }
 
@@ -1447,7 +1301,8 @@ class NodeFunctional extends Node {
 //
 class GraphInterface {
   constructor() {
-    this.graphData = new GraphData();
+    //this.graphData = new GraphData();
+    this.graphData = new GraphTree(ConnRulesBasic);
     let linkCB = this._tryCreateLink.bind(this);
     let delNodeCB = this._delNodeAndLinks.bind(this);
     let selNodeCB = this._selNodeCB.bind(this);
@@ -1519,26 +1374,19 @@ class GraphInterface {
     this.run(gNode.owner.id);
   }
   _delNodeAndLinks(n) {
-    // formalize link removal (node cleanup before removal)
-    let l = null;
-    let nbs = this.graphData.getNeighbours(n);
-    let lks = this.graphData.getLinks(n);
-    let numlinks = lks.length;
-    for (var i=0; i<numlinks; i++) {
-      l = lks[0];
-      this.link_rm(l.d1.owner.owner.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx);
-    }
-    // update (x)neighbour node states
-    for (var i=0; i<nbs.length; i++) this.graphData.updateNodeState(nbs[i]);
-
-    // formalize the now clean node removal
+    // link rm's (cleanup before node rm)
     let id = n.owner.id;
+    let lnk_cmds = this.graphData.getLinks(id);
+    let cmd = null;
+    for (var i=0; i<lnk_cmds.length; i++) {
+      cmd = lnk_cmds[i];
+      this.link_rm(cmd[0], cmd[1], cmd[2], cmd[3]);
+    }
+    // node rm
     this.node_rm(id);
 
-    // call deletion listeners
+    // update
     this._fireEvents(this._nodeDeletedListn, [id]);
-
-    // ui related actions
     this.draw.restartCollideSim();
     this.updateUi();
   }
@@ -1585,17 +1433,17 @@ class GraphInterface {
     this._createConf = cloneConf(conf);
   }
   getSelectedNode() {
-    return this.graphData.selectedNode.owner;
+    return this.graphData.getSelectedNode();
   }
   pushSelectedNodeLabel(text) {
-    this.node_label(this.graphData.selectedNode.owner.id, text);
+    this.node_label(this.graphData.getSelectedNode().id, text);
   }
   pushSelectedNodeData(json_txt) {
-    this.node_data(this.graphData.selectedNode.owner.id, json_txt);
+    this.node_data(this.graphData.getSelectedNode().id, json_txt);
   }
   runSelectedNode() {
-    if (this.graphData.selectedNode) {
-      this.run(this.graphData.selectedNode.owner.id);
+    if (this.graphData.getSelectedNode()) {
+      this.run(this.graphData.getSelectedNode().id);
     }
     else {
       console.log("GraphInterface.runSelectedNode: selected node is null");
@@ -1603,7 +1451,8 @@ class GraphInterface {
     }
   }
   reset() {
-    this.graphData = new GraphData();
+    //this.graphData = new GraphData();
+    this.graphData = new GraphTree(ConnRulesBasic);
     this.draw.graphData = this.graphData;
     this.nodes = {};
     this.idxs = {};
@@ -1612,38 +1461,10 @@ class GraphInterface {
   }
   updateUi() {
     this.draw.drawAll();
-    this._fireEvents(this._updateUiListn, [this.graphData.selectedNode]);
+    this._fireEvents(this._updateUiListn, [this.graphData.getSelectedNode()]);
   }
   extractGraphDefinition() {
-    let def = {};
-    def.nodes = {};
-    def.datas = {};
-    def.links = {};
-    // put meta-properties here, s.a. version, date
-
-    let nodes = def.nodes;
-    let datas = def.datas;
-    let links = def.links;
-    let n = null;
-    for (let key in this.nodes) {
-      n = this.nodes[key];
-      nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
-      if (n.basetype == 'object_literal') datas[n.id] = btoa(JSON.stringify(n.userdata));
-
-      let elks = n.gNode.exitLinks;
-      if (elks.length == 0) continue;
-
-      links[n.id] = [];
-      let l = null;
-      for (var j=0;j<elks.length;j++) {
-        l = elks[j];
-        links[n.id].push([n.id, l.d1.idx, l.d2.owner.owner.id, l.d2.idx]);
-      }
-    }
-    let def_text = JSON.stringify(def);
-    //console.log(JSON.stringify(def, null, 2));
-    console.log(def_text);
-    return def_text;
+    return this.graphData.extractGraphDefinition();
   }
   injectGraphDefinition(def) {
     let args = null;
@@ -1689,34 +1510,64 @@ class GraphInterface {
   //
   run(id) {
     // safeties
+    if (id == null) throw "run arg must be a valid id"
     if (this.lock == true) { console.log("GraphInterface.run call during lock (id: " + id + ")" ); return; }
-    let n = this.nodes[id];
+    let n = this.graphData.getNode(id);
     if (n.executable == false) { console.log("GraphInterface.run call on non-executable node (id: " + id + ")"); return; }
 
+    // TODO: clear the state of any error node
+
+    // lock the ui and set running node state
     this.lock = true;
     n.gNode.state = NodeState.RUNNING;
     this.updateUi();
 
     let syncset = this.undoredo.getSyncSet();
-    let post_data = { json_str: JSON.stringify({ run_id: id, sync: syncset }) };
+    let post_data = {json_str: JSON.stringify({ run_id: id, sync: syncset })};
     let selfref = this; // replace this with the .bind(this) method on a func object
 
     // TODO: consider a locking mechanism for the entire ui, or drop data updates completely...
     simpleajax('/ajax_run_node', post_data,
       function(msg) {
-        selfref.lock = false; // js is single threaded and finished everything before moving on
-        let obj = JSON.parse(msg);
-        selfref.node_data(id, JSON.stringify(obj.userdata));
-        n.obj = obj; // (re)set all data
-        selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-        selfref.graphData.updateNodeState(n.gNode);
-        selfref.updateUi();
+        selfref.lock = false;
+        let retobj = JSON.parse(msg);
+
+        // fail section
+        let fail = retobj['error']
+        if (fail != null) {
+          selfref.graphData._updateNodeState(n);
+          let sourceid = fail['source-id'];
+          if (sourceid) {
+            let m = selfref.graphData.getNode(sourceid);
+            m.gNode.state = NodeState.FAIL;
+            m.info = fail['message'];
+            selfref.updateUi();
+            alert(m.label + "(" + sourceid + "): " + fail['message']);
+          }
+          else {
+            alert(fail['message']);
+          }
+        }
+
+        // success section
+        let update = retobj['update'];
+        for (let key in update) {
+          let obj = update[key];
+          if (obj != null) {
+            selfref.node_data(key, JSON.stringify(obj.userdata));
+            let m = selfref.graphData.getNode(key);
+            m.obj = obj; // (re)set all data
+            selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
+          }
+        }
+        selfref.graphData._updateNodeState(n);
         selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
+        selfref.updateUi();
       },
       function() {
-        console.log("run() ajax fail (id: " + id + ")");
+        // unhandled server exception section
         selfref.lock = false;
-        selfref.graphData.updateNodeState(n.gNode);
+        selfref.graphData._updateNodeState(n);
         selfref.updateUi();
       }
     );
@@ -1733,34 +1584,25 @@ class GraphInterface {
       let address = args[5];
 
       let conf = nodeTypeRead(address);
-
       conf.name = name;
       conf.label = label;
-      if ((id == '') || (!id) || (id in this.nodes)) {
-        id = this._getId(ConnRulesBasic.getNodeIdPrefix(conf.basetype));
-      }
-      let n = ConnRulesBasic.createNode(conf, id, x, y);
-      this.nodes[id] = n;
 
-      this.graphData.addNode(n.gNode);
-      this.graphData.updateNodeState(n.gNode);
+      id = this.graphData.nodeAdd(x, y, conf, id);
+      let n = this.graphData.getNode(id);
+      // do we need this call?
       this.draw.resetChargeSim();
-
       return [["node_add", n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address], ["node_rm", n.id]];
     }
     else if (command=="node_rm") {
-      let n = this.nodes[args[0]];
-      if (!n) throw "invalid node_rm command: node not found (by id)";
-      let id = n.id;
+      let id = args[0];
 
-      // construct reverse command
-      let na_cmd = ["node_add", n.gNode.x, n.gNode.y, id, n.name, n.label, n.address];
+      let n = this.graphData.getNode(id);
+      if (!n) throw "invalid node_rm: node not found (by id)";
 
-      // remove node traces
-      this.graphData.rmNodeSecure(n.gNode);
-      delete this.nodes[id];
-
-      return [["node_rm", id], na_cmd];
+      if (this.graphData.nodeRm(id)) {
+        let na_cmd = ["node_add", n.gNode.x, n.gNode.y, id, n.name, n.label, n.address];
+        return [["node_rm", id], na_cmd];
+      }
     }
     else if (command=="link_add") {
       let id1 = args[0];
@@ -1768,23 +1610,9 @@ class GraphInterface {
       let id2 = args[2];
       let idx2 = args[3];
 
-      let n1 = this.nodes[id1];
-      let n2 = this.nodes[id2];
-
-      // extract the proper link given input data
-      let a1 = null;
-      let a2 = null;
-      a1 = n1.getAnchor(idx1, 1);
-      a2 = n2.getAnchor(idx2, 0);
-
-      // connect
-      if (this.truth.canConnect(a1, a2)) {
-        let l = new LinkSingle(a1, a2)
-        this.graphData.addLink(l);
-        this.graphData.updateNodeState(a1.owner);
-        this.graphData.updateNodeState(a2.owner);
+      if (this.graphData.linkAdd(id1, idx1, id2, idx2)) {
+        return [["link_add"].concat(args), ["link_rm"].concat(args)];
       }
-      return [["link_add"].concat(args), ["link_rm"].concat(args)];
     }
     else if (command=="link_rm") {
       let id1 = args[0];
@@ -1792,58 +1620,36 @@ class GraphInterface {
       let id2 = args[2];
       let idx2 = args[3];
 
-      let n1 = this.nodes[id1];
-      let n2 = this.nodes[id2];
-
-      let a1 = null;
-      let a2 = null;
-      a1 = n1.getAnchor(idx1, 1);
-      a2 = n2.getAnchor(idx2, 0);
-
-      // 2) get the link given the anchors
-      let l = null;
-      for (var i=0;i<n1.gNode.links.length;i++) {
-        l = n1.gNode.links[i];
-        // search for the right l
-        if ((l.d1 == a1) && (l.d2 == a2)) break;
+      if (this.graphData.linkRm(id1, idx1, id2, idx2)) {
+        return [["link_rm"].concat(args), ["link_add"].concat(args)];
       }
-      // 3) remove l!
-      if (!l) throw "could not find link to remove!"
-      n1.gNode.rmLink(l);
-      n2.gNode.rmLink(l);
-      this.graphData.rmLink(l);
-
-      return [["link_rm"].concat(args), ["link_add"].concat(args)];
     }
     else if (command=="node_label") {
       let id = args[0];
       let label = args[1];
-      let n = this.nodes[id];
+
+      let n = this.graphData.getNode(id);
+      if (!n) return null;
       let prevlbl = n.label;
-      n.label = label;
-      // check that the change was commited before continuing - or return null
-      this.updateUi();
-      return [["node_label", id, label], ["node_label", id, prevlbl]];
+      if (this.graphData.nodeLabel(id, label)) {
+          this.updateUi();
+          return [["node_label", id, label], ["node_label", id, prevlbl]];
+      }
     }
     else if (command=="node_data") {
       if (!isString(args[1])) {
-        throw "arg[1] must be a string";
+        throw "node_data: args[1] must be a string: ", args;
       }
-
       let id = args[0];
       let data_str = args[1];
-      let n = this.nodes[id];
+
+      let n = this.graphData.getNode(id);
       let prevdata_str = JSON.stringify(n.userdata);
 
-      // apply data only if node is not static
-      if (n.edit == true) {
-        n.userdata = JSON.parse(data_str);
-        this.graphData.updateNodeState(n.gNode);
+      if (this.graphData.nodeData(id, data_str)) {
         this.updateUi();
         return [["node_data", id, data_str], ["node_data", id, prevdata_str]];
       }
-      else console.log("node_data operation on non-edit node: ", n.id)
-      return null;
     }
     else throw "unknown command value";
   }
@@ -1867,44 +1673,40 @@ class GraphInterface {
     // int, int, str, str, str, str
     if (this.lock == true) { console.log("node_add call during lock"); return -1; }
     let cmd_rev = this._command(["node_add", x, y, id, name, label, addr]);
-    this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-    // return node id
-    return cmd_rev[0][3];
+    if (cmd_rev) {
+      this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+      return cmd_rev[0][2];
+    }
   }
   node_rm(id) {
     // str
     if (this.lock == true) { console.log("node_rm call during lock"); return -1; }
     let cmd_rev = this._command(["node_rm", id]);
-    this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
   }
   node_label(id, label) {
     // str, str
     if (this.lock == true) { console.log("node_label call during lock"); return -1; }
     let cmd_rev = this._command(["node_label", id, label]);
-    if (cmd_rev) {
-      this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-    }
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
   }
   node_data(id, data) {
-    console.log("setting data: ", id, data);
     // str, str
     if (this.lock == true) { console.log("node_data call during lock"); return -1; }
     let cmd_rev = this._command(["node_data", id, data]);
-    if (cmd_rev) {
-      this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-    }
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
   }
   link_add(id1, idx1, id2, idx2) {
     // str, int, str, int, int
     if (this.lock == true) { console.log("link_add call during lock"); return -1; }
     let cmd_rev = this._command(["link_add", id1, idx1, id2, idx2]);
-    this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
   }
   link_rm(id1, idx1, id2, idx2) {
     // str, int, str, int, int
     if (this.lock == true) { console.log("link_rm call during lock"); return -1; }
     let cmd_rev = this._command(["link_rm", id1, idx1, id2, idx2]);
-    this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
   }
 }
 
