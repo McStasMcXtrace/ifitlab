@@ -177,7 +177,7 @@ $(document).ready(() => {
   // construct graph engine and add listeners
   intface = new GraphInterface();
   intface.addNodeRunReturnListener( (node) => {
-    // remove previous elements with this id no matter what
+    // clear previous subwindow elements with this id
     let x_y = removeSubWindow(node.id);
 
     if (node.plotdata) {
@@ -203,6 +203,10 @@ $(document).ready(() => {
       intface.addNodeDeletedListener( (id) => {
         if (id == node.id) $("#"+subwinid_containerid[1]).remove();
       });
+    }
+
+    if (node.userdata) {
+      setUserData(intface.getSelectedNode());
     }
   }, null);
 
