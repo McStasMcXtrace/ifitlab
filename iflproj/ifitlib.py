@@ -148,11 +148,10 @@ class IData(engintf.ObjReprJson):
         return retdct
 
     def __exit__(self, exc_type, exc_value, traceback):
-        cmd = "clear %s;" % self.varname
-        _eval(cmd)
-    
-    def rmint(self, start: int, end: int):
-        pass
+        _eval("clear %s;" % self.varname)
+
+    def rmint(self, min:float, max:float):
+        _eval("xlim(%s, [%f %f], 'exclude')" % (self.varname, min, max), nargout=0)
 
 def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
     ''' returns the dict required by the svg 1d plotting function '''

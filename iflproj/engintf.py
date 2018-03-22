@@ -235,8 +235,8 @@ class FlatGraph:
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''
         _log("execute_node: %s" % id)
-        n = self.root.subnodes[id]
         try:
+            n = self.root.subnodes[id]
             obj = execute_node(n)
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
@@ -265,17 +265,17 @@ class FlatGraph:
         
         except InternalExecutionException as e:
             _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
-            return {'error' : {'message' : str(e), 'source-id' : e.name} }
+            return {'error' : {'message' : "Run exc.: %s" % str(e), 'source-id' : e.name}}
         except NodeNotExecutableException as e:
             _log("exe %s yields: Node is not executable" % id)
-            return {'error' : {'message' : str(e)} }
+            return {'error' : {'message' : "Not executable: %s, %s" % (str(e), id)}}
         except Exception as e:
             _log("exe %s engine error: %s" % (id, str(e)))
-            return {'error' : {'message' : str(e)} }
+            return {'error' : {'message' : "Engine exc.: %s %s" % (type(e).__name__, str(e))}}
         except ObjectRepresentationException as e:
             # TODO: implement this branch
             _log("object representation error...")
-            return {'error' : {'message' : str(e)} }
+            return {'error' : {'message' : "Repr. exc.: %s" % str(e)}}
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition '''

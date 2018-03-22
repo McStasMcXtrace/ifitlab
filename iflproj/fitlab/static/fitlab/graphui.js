@@ -1332,6 +1332,9 @@ class GraphInterface {
 
     // node create conf pointer
     this._createConf = null;
+
+    // error node
+    this._errorNode = null;
   }
   //
   // listener & event interface
@@ -1515,7 +1518,12 @@ class GraphInterface {
     let n = this.graphData.getNode(id);
     if (n.executable == false) { console.log("GraphInterface.run call on non-executable node (id: " + id + ")"); return; }
 
-    // TODO: clear the state of any error node
+    // clear the state of any error node, we can hope users have now fixed the problem and we do not want any hangover error nodes
+    if (this._errorNode)
+    {
+      this.graphData._updateNodeState(this._errorNode);
+      this._errorNode = null;
+    }
 
     // lock the ui and set running node state
     this.lock = true;
@@ -1526,7 +1534,6 @@ class GraphInterface {
     let post_data = {json_str: JSON.stringify({ run_id: id, sync: syncset })};
     let selfref = this; // replace this with the .bind(this) method on a func object
 
-    // TODO: consider a locking mechanism for the entire ui, or drop data updates completely...
     simpleajax('/ajax_run_node', post_data,
       function(msg) {
         selfref.lock = false;
@@ -1539,10 +1546,11 @@ class GraphInterface {
           let sourceid = fail['source-id'];
           if (sourceid) {
             let m = selfref.graphData.getNode(sourceid);
+            selfref._errorNode = m;
             m.gNode.state = NodeState.FAIL;
             m.info = fail['message'];
             selfref.updateUi();
-            alert(m.label + "(" + sourceid + "): " + fail['message']);
+            alert(m.label + " " + sourceid + " " + fail['message']);
           }
           else {
             alert(fail['message']);
@@ -1553,15 +1561,15 @@ class GraphInterface {
         let update = retobj['update'];
         for (let key in update) {
           let obj = update[key];
+          let m = selfref.graphData.getNode(key);
           if (obj != null) {
             selfref.node_data(key, JSON.stringify(obj.userdata));
-            let m = selfref.graphData.getNode(key);
             m.obj = obj; // (re)set all data
             selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
           }
+          selfref.graphData._updateNodeState(m);
+          selfref._fireEvents(selfref._nodeRunReturnListn, [m]);
         }
-        selfref.graphData._updateNodeState(n);
-        selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
         selfref.updateUi();
       },
       function() {
