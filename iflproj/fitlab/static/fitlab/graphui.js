@@ -1332,6 +1332,9 @@ class GraphInterface {
 
     // node create conf pointer
     this._createConf = null;
+
+    // error node
+    this._errorNode = null;
   }
   //
   // listener & event interface
@@ -1515,7 +1518,12 @@ class GraphInterface {
     let n = this.graphData.getNode(id);
     if (n.executable == false) { console.log("GraphInterface.run call on non-executable node (id: " + id + ")"); return; }
 
-    // TODO: clear the state of any error node
+    // clear the state of any error node, we can hope users have now fixed the problem and we do not want any hangover error nodes
+    if (this._errorNode)
+    {
+      this.graphData._updateNodeState(this._errorNode);
+      this._errorNode = null;
+    }
 
     // lock the ui and set running node state
     this.lock = true;
@@ -1539,10 +1547,11 @@ class GraphInterface {
           let sourceid = fail['source-id'];
           if (sourceid) {
             let m = selfref.graphData.getNode(sourceid);
+            selfref._errorNode = m;
             m.gNode.state = NodeState.FAIL;
             m.info = fail['message'];
             selfref.updateUi();
-            alert(m.label + "(" + sourceid + "): " + fail['message']);
+            alert(m.label + " " + sourceid + " " + fail['message']);
           }
           else {
             alert(fail['message']);
