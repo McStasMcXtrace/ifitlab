@@ -241,10 +241,12 @@ class FlatGraph:
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
             represent = None
+            retobj = {}
             try:
                 if obj:
                     represent = obj.get_repr()
-                return represent
+                retobj[id] = represent
+                return retobj
             except Exception as e:
                 raise ObjectRepresentationException(str(e))
         except InternalExecutionException as e:

@@ -1510,33 +1510,35 @@ class GraphInterface {
   //
   run(id) {
     // safeties
+    if (id == null) throw "run arg must be a valid id"
     if (this.lock == true) { console.log("GraphInterface.run call during lock (id: " + id + ")" ); return; }
     let n = this.graphData.getNode(id);
     if (n.executable == false) { console.log("GraphInterface.run call on non-executable node (id: " + id + ")"); return; }
 
+    // TODO: clear the state of any error node
+
+    // lock the ui and set running node state
     this.lock = true;
     n.gNode.state = NodeState.RUNNING;
     this.updateUi();
 
     let syncset = this.undoredo.getSyncSet();
-    let post_data = { json_str: JSON.stringify({ run_id: id, sync: syncset }) };
+    let post_data = {json_str: JSON.stringify({ run_id: id, sync: syncset })};
     let selfref = this; // replace this with the .bind(this) method on a func object
 
     // TODO: consider a locking mechanism for the entire ui, or drop data updates completely...
     simpleajax('/ajax_run_node', post_data,
       function(msg) {
         selfref.lock = false;
-        let obj = JSON.parse(msg);
+        let retobj = JSON.parse(msg);
 
         // fail section
-        let fail = obj['error']
+        let fail = retobj['error']
         if (fail != null) {
-
           selfref.graphData._updateNodeState(n);
           let sourceid = fail['source-id'];
           if (sourceid) {
             let m = selfref.graphData.getNode(sourceid);
-
             m.gNode.state = NodeState.FAIL;
             m.info = fail['message'];
             selfref.updateUi();
@@ -1547,15 +1549,20 @@ class GraphInterface {
           }
           return;
         }
-
-        if (obj != null) {
-          selfref.node_data(id, JSON.stringify(obj.userdata));
+        // success section
+        for (let key in retobj) {
+          let obj = retobj[key];
+          //if (id != null) {
+          //selfref.node_data(id, JSON.stringify(obj.userdata));
+          if (obj != null) {
+            selfref.node_data(key, JSON.stringify(obj.userdata));
+            n.obj = obj; // (re)set all data
+            selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
+          }
+          selfref.graphData._updateNodeState(n);
+          selfref.updateUi();
+          selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
         }
-        n.obj = obj; // (re)set all data
-        selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-        selfref.graphData._updateNodeState(n);
-        selfref.updateUi();
-        selfref._fireEvents(selfref._nodeRunReturnListn, [n]);
       },
       function() {
         selfref.lock = false;
