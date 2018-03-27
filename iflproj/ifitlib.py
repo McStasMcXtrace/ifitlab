@@ -134,7 +134,7 @@ class IData(engintf.ObjReprJson):
             _eval("%s.Signal;" % self.varname, nargout=0)
         except:
             self.islist = True
-            self.datashape = np.array(_eval("size(%s)"%self.varname, nargout=1)[0]).astype(int).tolist()
+            self.datashape = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist()
         
         if not self.islist:
             pltdct, infdct = self._get_iData_repr()
@@ -295,6 +295,7 @@ class IFunc(engintf.ObjReprJson):
         _eval(cmd)
 
     def guess(self, guess: dict):
+        ''' applies a guess to the parameters of this instance '''
         pkeys = _eval('%s.Parameters;' % self.varname, nargout=1)
         vn = self.varname
 
@@ -310,14 +311,24 @@ class IFunc(engintf.ObjReprJson):
                 pass
         _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
         pass
-        '''
-        this can be implemented in the singular by copying code from set_user_data
-        ---> but also vectorized
-        '''
 
     def fixpars(self, parnames: list):
-        for p in parnames:
-            _eval("" % p, nargout=0)
+        vn = self.varname
+        allpars = _eval('%s.Parameters;' % vn, nargout=1)
+        fix = parnames
+        dontfix = [p for p in allpars if p not in fix]
+        for p in fix:
+            _eval("fix(%s, %s)" % (vn, p), nargout=0)
+        for p in dontfix:
+            _eval("munlock(%s, %s)" % (vn, p), nargout=0)
+
+        # TESTING:
+        # - this does not work: fix([a b], ['Centre' 'Amplitude'])
+        # - this works : fix([a b], 'Amplitude')
+        # DO we need a manual vectorization?
+        # should we pick a general solution, e.g. numpy vectorization, and execute all atomic calls in matlab?
+
+
         '''
         Hello Jakob,
 
@@ -437,6 +448,40 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
 
+
+def _isirregular(lst):
+    ''' returns true if the input arbitrarily nested list is irregular, e.g. has sublists of varying length '''
+    def _isirregular_rec(l):
+        len0 = None
+        for i in range(len(l)):
+            nxt = l[i]
+            if type(nxt) in (list, np.ndarray):
+                if not len0:
+                    len0 = len(nxt)
+                _isirregular_rec(nxt)
+                if len(nxt) != len0:
+                    raise Exception("array not regular")
+    try:
+        _isirregular_rec(lst)
+        return False
+    except:
+        return True
+
+def _create_ml_array(varname, lst):
+    _eval("%s = zeros%s;" % (varname, str(np.shape(lst))), nargout=0)
+
+def _ml_vectoreval_exprfunc(arr, varname, atomic_mlexpr_func):
+    it = np.nditer(arr, flags=['multi_index'])
+    while not it.finished:
+        expr = atomic_mlexpr_func(element=arr[it.multi_index])
+        indices = [i+1 for i in it.multi_index]
+        indices = str(indices).replace("[","(").replace("]",")")
+        _eval("%s%s = %s;" % (varname, indices, expr), nargout=0)
+        it.iternext()
+
+def _plustwo_expr(element:int):
+    return "%d + 2" % (element)
+
 def _maprec(lst, rank, innerfunc):
     ''' data-shape preserving map recursive given index depth "rank" '''
     for i in range(len(lst)):
@@ -479,4 +524,18 @@ def combine(filename, rank:int=0) -> IData:
         _eval("%s = %s;" % (retobj.varname, avarnames_str), nargout=0)
 
     return retobj
+
+
+'''
+NOTES on vectorization scheme:
+
+- an atomic function is needed
+- we shall only accept regular arrays as input (n-dim rectangles)
+- more than one ndarray arg can be expected, but the vectorization shape is fixed 
+- vectorization shape can be specified from the "primary" object ndarray, allowing the 
+rest to end up being e.g. lists corresponding to objects at the same indices of the primary
+- we don't want matlab-side vectorization as it is used as a script (one-liners)
+- we have two vectorization schemes: one using rank, and one using shape directly
+
+'''
 
