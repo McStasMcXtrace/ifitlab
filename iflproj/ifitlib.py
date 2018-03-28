@@ -60,22 +60,54 @@ def _get_idata_prefix():
     _idataidx += 1
     return 'idata%d' % (_idataidx)
 
+def _npify_shape(shape):
+    ''' takes a naiive shape from matlab or a user, which may include 1's, and elliminates these '''
+    return tuple(s for s in shape if s>1)
+
 class IData(engintf.ObjReprJson):
-    def __init__(self, url: str):
+    def __init__(self, url, datashape=None):
+        '''
+        If url is a string datashape must be None.
+        Otherwise, url must be an ndarray (nested json lists) of shape matching datashape.
+        '''
         logging.debug("IData.__init__('%s')" % url)
         self.url = url
         self.varname = '%s_%d' % (_get_idata_prefix(), id(self))
-        self.islist = False
-        self.datashape = None
+        self.islist = datashape != None
+        datashape = _npify_shape(datashape)
+        self.datashape = datashape
+        
+        def create_idata(vn, url):
+            _eval("%s = iData('%s')" % (vn, url), nargout=0)
+
+        def create_idata_array(vn, shape):
+            if len(shape) == 1:
+                shape = (shape[0], 1)
+            shape = str(list(shape)).replace("[","").replace("]","")
+            _eval("%s = zeros(iData, %s);" % (vn, shape), nargout=0)
+
         if url==None:
             '''
             NOTE: This branch (url==None) is to be used only programatically, as a "prepper" intermediary
             state to get a varname from python, before assigning an actual ifit object, for example while
-            executing (the python-side bookkeeping of) functions like fits or eval.
+            executing functions like fits or eval.
             '''
             pass
         else:
-            _eval("%s = iData('%s')" % (self.varname, url), nargout=0)
+            if datashape:
+                url = np.array(url)
+                self.url = url
+                if not _is_regular_ndarray(url):
+                    raise Exception("url must be a string or regular ndarray/nested lists")
+                if np.shape(url) != datashape:
+                    raise Exception("url shape must match datashape")
+                create_idata_array(self.varname, datashape)
+                vnargs = (self.varname, )
+                args = ()
+                ndaargs = (url, )
+                _vectorized(datashape, create_idata, vnargs, args, ndaargs)
+            else:
+                create_idata(self.varname, url)
 
     def _get_iData_repr(self):
         varname = self.varname
@@ -83,12 +115,14 @@ class IData(engintf.ObjReprJson):
         axes_names = _eval('%s.Axes' % varname, nargout=1) # NOTE: len(axes_names) == ndims
         if not ndims == len(axes_names):
             # TODO: handle this case in which ifit has not found any axes in the data
-            raise Exception("ifit could not find axes")
+            raise Exception("could not find axes")
         axesvals = []
         pltdct = {}
 
         # get signal
-        if ndims == 1:
+        if ndims == 0:
+            ' the trivial case, no data is present '
+        elif ndims == 1:
             xvals = _eval('%s.%s;' % (varname, axes_names[0]))
             if len(xvals)==1:
                 try:
@@ -125,11 +159,12 @@ class IData(engintf.ObjReprJson):
             error = list(_eval('%s.Error;' % varname)[0])
         
         infdct = {'datashape' : None}
-        infdct['ndims'] = _eval('ndims(%s)' % varname)
+        infdct['ndims'] = "%d" % ndims
         return pltdct, infdct
 
     def get_repr(self):
         retdct = self._get_full_repr_dict()
+        # detect if we are a list or a plan iData object
         try:
             _eval("%s.Signal;" % self.varname, nargout=0)
         except:
@@ -253,13 +288,15 @@ class IFunc(engintf.ObjReprJson):
         def create_ifunc(vn, symb):
             _eval("%s = %s();" % (vn, symb), nargout=0)
 
-        def create_array(vn, shape, symb):
+        def create_model_array(vn, shape, symb):
+            if len(shape) == 1:
+                shape = (shape[0], 1)
             shape = str(list(shape)).replace("[","").replace("]","")
             _eval("%s = zeros(%s, %s);" % (vn, symb, shape), nargout=0)
 
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
         if datashape:
-            create_array(self.varname, datashape, symbol)
+            create_model_array(self.varname, datashape, symbol)
             vnargs = (self.varname, )
             args = (symbol, )
             ndaargs = ()
@@ -371,23 +408,23 @@ class IFunc(engintf.ObjReprJson):
         object (and if possible update the initial object itself).
         '''
 
-def _isirregular(lst):
+def _is_regular_ndarray(lst):
     ''' returns true if the input arbitrarily nested list is irregular, e.g. has sublists of varying length '''
-    def _isirregular_rec(l):
+    def _is_regular_rec(l):
         len0 = None
         for i in range(len(l)):
             nxt = l[i]
             if type(nxt) in (list, np.ndarray):
                 if not len0:
                     len0 = len(nxt)
-                _isirregular_rec(nxt)
+                _is_regular_rec(nxt)
                 if len(nxt) != len0:
                     raise Exception("array not regular")
     try:
-        _isirregular_rec(lst)
-        return False
-    except:
+        _is_regular_rec(lst)
         return True
+    except:
+        return False
 
 def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
     it = np.ndindex(shape)
@@ -395,9 +432,9 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
         indices = [i+1 for i in ndindex]
         indices = str(indices).replace("[","(").replace("]",")")
         
-        symbols = ["%s%s" % (vn, indices) for vn in vnargs]
+        symbols = tuple("%s%s" % (vn, indices) for vn in vnargs)
         constants = args
-        elements = [a[ndindex] for a in ndaargs]
+        elements = tuple(a.take(ndindex)[0] for a in ndaargs)
         atomic_func(*symbols, *constants, *elements)
 
 
@@ -489,6 +526,10 @@ def combine(filename, rank:int=0) -> IData:
     # TODO: reimplement using the new vectorization scheme
     # TODO: check if files is uniform of size (down to rank)?
     
+    # TODO: work with filename, or np.asarray(filename) then squeeze, then _isregular.
+    #    we can not accept "blunt" dimenstions since this messes up the indexing.
+    #    Array indexing must be unique for a given (noise-free/squeezed) data shape 
+
     def _maprec(lst, rank, innerfunc):
         ''' data-shape preserving map recursive given index depth "rank" '''
         for i in range(len(lst)):
