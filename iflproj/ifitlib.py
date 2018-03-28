@@ -249,10 +249,21 @@ class IFunc(engintf.ObjReprJson):
     '''  '''
     def __init__(self, datashape:list=None, symbol='iFunc'):
         logging.debug("%s.__init__" % str(type(self)))
-        self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
-        vn = self.varname
 
-        _eval("%s = %s()" % (vn, symbol), nargout=0)
+        # TODO: fix/test after solving the _create_array function
+
+        def create_ifunc(vn, symb):
+            _eval("%s = %s()" % (vn, symb), nargout=0)
+
+        self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
+        if datashape:
+            _create_array(self.varname, datashape)
+            vnargs = (self.varname, )
+            args = (symbol, )
+            ndaargs = ()
+            _vectorized(datashape, create_ifunc, vnargs, args, ndaargs)
+        else:
+            create_ifunc(self.varname, symbol)
 
     def get_repr(self):
         vn = self.varname
@@ -296,6 +307,9 @@ class IFunc(engintf.ObjReprJson):
 
     def guess(self, guess: dict):
         ''' applies a guess to the parameters of this instance '''
+        
+        # TODO: vectorize
+        
         pkeys = _eval('%s.Parameters;' % self.varname, nargout=1)
         vn = self.varname
 
@@ -312,31 +326,30 @@ class IFunc(engintf.ObjReprJson):
         _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
         pass
 
+    def _getdatashape(self):
+        ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
+        return np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist()
+
     def fixpars(self, parnames: list):
-        vn = self.varname
-        allpars = _eval('%s.Parameters;' % vn, nargout=1)
-        fix = parnames
-        dontfix = [p for p in allpars if p not in fix]
-        for p in fix:
-            _eval("fix(%s, %s)" % (vn, p), nargout=0)
-        for p in dontfix:
-            _eval("munlock(%s, %s)" % (vn, p), nargout=0)
+        
+        # TODO: test/fix using the new vectorization scheme
+        
+        def fix_atomic(ifsymbol, fixpars):
+            allpars = _eval('%s.Parameters;' % ifsymbol, nargout=1)
+            dontfix = [p for p in allpars if p not in fixpars]
+            for p in fixpars:
+                _eval("fix(%s, %s)" % (ifsymbol, p), nargout=0)
+            for p in dontfix:
+                _eval("munlock(%s, %s)" % (ifsymbol, p), nargout=0)
 
-        # TESTING:
-        # - this does not work: fix([a b], ['Centre' 'Amplitude'])
-        # - this works : fix([a b], 'Amplitude')
-        # DO we need a manual vectorization?
-        # should we pick a general solution, e.g. numpy vectorization, and execute all atomic calls in matlab?
-
+        vnargs = self.varname
+        args = ()
+        ndaargs = (parnames, )
+        shape = self._getdatashape()
+        _vectorized(shape, fix_atomic, vnargs, args, ndaargs)
 
         '''
-        Hello Jakob,
-
-        if you have a model g, e.g.
-        
         * g = gauss;
-        
-        then to fix some parameter you may use the following syntax:
         
         * g.Amplitude = 'fix';
         * g.Amplitude = 'lock';
@@ -354,17 +367,42 @@ class IFunc(engintf.ObjReprJson):
         
         except for direct assignment, all method calls return the modified
         object (and if possible update the initial object itself).
-        
-        To get the list of all fixed/locked parameters:
-        
-        * mlock(g)
-        
-        to get the unlock/free parameters:
-        
-        * munlock(g)
-        
-        Cheers, Emmanuel.
         '''
+
+def _isirregular(lst):
+    ''' returns true if the input arbitrarily nested list is irregular, e.g. has sublists of varying length '''
+    def _isirregular_rec(l):
+        len0 = None
+        for i in range(len(l)):
+            nxt = l[i]
+            if type(nxt) in (list, np.ndarray):
+                if not len0:
+                    len0 = len(nxt)
+                _isirregular_rec(nxt)
+                if len(nxt) != len0:
+                    raise Exception("array not regular")
+    try:
+        _isirregular_rec(lst)
+        return False
+    except:
+        return True
+
+def _create_array(varname, shape):
+    # TODO: find another way to do this, that allows for iFunc and iData entries, respectively
+    
+    shape = str(list(shape)).replace("[","(").replace("]",")")
+    _eval("%s = zeros%s;" % (varname, shape), nargout=0)
+
+def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
+    it = np.ndindex(shape)
+    for ndindex in it:
+        indices = [i+1 for i in ndindex]
+        indices = str(indices).replace("[","(").replace("]",")")
+        
+        symbols = ["%s%s" % (vn, indices) for vn in vnargs]
+        constants = args
+        elements = [a[ndindex] for a in ndaargs]
+        atomic_func(*symbols, *constants, *elements)
 
 
 '''
@@ -448,53 +486,22 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
 
-
-def _isirregular(lst):
-    ''' returns true if the input arbitrarily nested list is irregular, e.g. has sublists of varying length '''
-    def _isirregular_rec(l):
-        len0 = None
-        for i in range(len(l)):
-            nxt = l[i]
-            if type(nxt) in (list, np.ndarray):
-                if not len0:
-                    len0 = len(nxt)
-                _isirregular_rec(nxt)
-                if len(nxt) != len0:
-                    raise Exception("array not regular")
-    try:
-        _isirregular_rec(lst)
-        return False
-    except:
-        return True
-
-def _create_ml_array(varname, lst):
-    _eval("%s = zeros%s;" % (varname, str(np.shape(lst))), nargout=0)
-
-def _ml_vectoreval_exprfunc(arr, varname, atomic_mlexpr_func):
-    it = np.nditer(arr, flags=['multi_index'])
-    while not it.finished:
-        expr = atomic_mlexpr_func(element=arr[it.multi_index])
-        indices = [i+1 for i in it.multi_index]
-        indices = str(indices).replace("[","(").replace("]",")")
-        _eval("%s%s = %s;" % (varname, indices, expr), nargout=0)
-        it.iternext()
-
-def _plustwo_expr(element:int):
-    return "%d + 2" % (element)
-
-def _maprec(lst, rank, innerfunc):
-    ''' data-shape preserving map recursive given index depth "rank" '''
-    for i in range(len(lst)):
-        if rank > 1:
-            _maprec(lst[i], rank-1, innerfunc)
-        else:
-            lst[i] = innerfunc(lst[i])
-    return lst
-
 def combine(filename, rank:int=0) -> IData:
     ''' a data reduce / merges which is vectorized explicitly for rank>0'''
     logging.debug("combine")
     
+    # TODO: reimplement using the new vectorization scheme
+    # TODO: check if files is uniform of size (down to rank)?
+    
+    def _maprec(lst, rank, innerfunc):
+        ''' data-shape preserving map recursive given index depth "rank" '''
+        for i in range(len(lst)):
+            if rank > 1:
+                _maprec(lst[i], rank-1, innerfunc)
+            else:
+                lst[i] = innerfunc(lst[i])
+        return lst
+
     def atomicfunc(filesvals):
         obj = IData(None)
         # enable flexibility: a list is not needed for single-file arguments, remember this is the inner func
@@ -510,9 +517,8 @@ def combine(filename, rank:int=0) -> IData:
         for varname in vnlst:
             _eval("clear %s;" % varname, nargout=0)
         return obj
-    
-    # TODO: check if files is uniform of size (down to rank)?
-    
+
+
     # rank: denotes the number of indices required to identify each element individually
     retobj = IData(None)
     if rank==0:
