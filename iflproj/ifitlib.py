@@ -250,14 +250,16 @@ class IFunc(engintf.ObjReprJson):
     def __init__(self, datashape:list=None, symbol='iFunc'):
         logging.debug("%s.__init__" % str(type(self)))
 
-        # TODO: fix/test after solving the _create_array function
-
         def create_ifunc(vn, symb):
-            _eval("%s = %s()" % (vn, symb), nargout=0)
+            _eval("%s = %s();" % (vn, symb), nargout=0)
+
+        def create_array(vn, shape, symb):
+            shape = str(list(shape)).replace("[","").replace("]","")
+            _eval("%s = zeros(%s, %s);" % (vn, symb, shape), nargout=0)
 
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
         if datashape:
-            _create_array(self.varname, datashape)
+            create_array(self.varname, datashape, symbol)
             vnargs = (self.varname, )
             args = (symbol, )
             ndaargs = ()
@@ -386,12 +388,6 @@ def _isirregular(lst):
         return False
     except:
         return True
-
-def _create_array(varname, shape):
-    # TODO: find another way to do this, that allows for iFunc and iData entries, respectively
-    
-    shape = str(list(shape)).replace("[","(").replace("]",")")
-    _eval("%s = zeros%s;" % (varname, shape), nargout=0)
 
 def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
     it = np.ndindex(shape)
