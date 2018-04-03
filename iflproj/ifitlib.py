@@ -67,11 +67,17 @@ class IData(engintf.ObjReprJson):
         Otherwise, url must be an ndarray (nested json lists) of shape matching datashape.
         '''
         logging.debug("IData.__init__('%s')" % url)
-        self.url = url
         self.varname = '%s_%d' % (_get_idata_prefix(), id(self))
-        self.islist = datashape != None
+        
         datashape = _npify_shape(datashape)
+        if type(url) != str and not _is_regular_ndarray(url):
+            raise Exception("url must be a string or regular ndarray/nested list")
+        if str(np.shape(url)) != str(datashape):
+            raise Exception("data shape mismatch, shape(url) == %s, datashape == %s" % (str(np.shape(url)), str(datashape)))
+        self.url = url
         self.datashape = datashape
+        print(datashape, type(datashape))
+        self.islist = datashape not in (None, tuple(),)
         
         def create_idata(vn, url):
             _eval("%s = iData('%s')" % (vn, url), nargout=0)
@@ -93,10 +99,6 @@ class IData(engintf.ObjReprJson):
             if datashape:
                 url = np.array(url)
                 self.url = url
-                if not _is_regular_ndarray(url):
-                    raise Exception("url must be a string or regular ndarray/nested lists")
-                if np.shape(url) != datashape:
-                    raise Exception("url shape must match datashape")
                 create_idata_array(self.varname, datashape)
                 vnargs = (self.varname, )
                 args = ()
@@ -408,7 +410,7 @@ class IFunc(engintf.ObjReprJson):
 def _npify_shape(shape):
     ''' takes a naiive shape from matlab or a user, which may include 1's, and elliminates these '''
     if shape == None:
-        return None
+        return np.shape(shape)
     return tuple(s for s in shape if s>1)
 
 def _is_regular_ndarray(lst):
