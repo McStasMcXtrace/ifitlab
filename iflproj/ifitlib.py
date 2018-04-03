@@ -160,6 +160,10 @@ class IData(engintf.ObjReprJson):
         infdct['ndims'] = "%d" % ndims
         return pltdct, infdct
 
+    def _get_datashape(self):
+        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int)
+        return _npify_shape(s)
+
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         # detect if we are a list or a plan iData object
@@ -167,13 +171,14 @@ class IData(engintf.ObjReprJson):
             _eval("%s.Signal;" % self.varname, nargout=0)
         except:
             self.islist = True
-            self.datashape = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist()
+            
+            self.datashape = self._get_datashape()
         
         if not self.islist:
             pltdct, infdct = self._get_iData_repr()
         else:
             pltdct = None
-            infdct = {'datashape' : self.datashape, 'ndims' : None}
+            infdct = {'datashape' : self.datashape, 'ndims' : None} # ndims refers to (individual) data dimensionality
 
         retdct['plotdata'] = pltdct
         retdct['info'] = infdct
@@ -293,7 +298,9 @@ class IFunc(engintf.ObjReprJson):
             _eval("%s = zeros(%s, %s);" % (vn, symb, shape), nargout=0)
 
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
-        if datashape:
+
+        datashape = _npify_shape(datashape)
+        if datashape not in [None, tuple()]:
             create_model_array(self.varname, datashape, symbol)
             vnargs = (self.varname, )
             args = (symbol, )
@@ -321,6 +328,7 @@ class IFunc(engintf.ObjReprJson):
 
         retdct = self._get_full_repr_dict()
         retdct['userdata'] = pvals
+        retdct['info'] = {'datashape' : self._getdatashape()}
         return retdct
 
     def set_user_data(self, json_obj):
@@ -341,6 +349,11 @@ class IFunc(engintf.ObjReprJson):
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
+
+    def _getdatashape(self):
+        ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
+        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int)
+        return _npify_shape(s)
 
     def guess(self, guess: dict):
         ''' applies a guess to the parameters of this instance '''
@@ -363,13 +376,9 @@ class IFunc(engintf.ObjReprJson):
         _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
         pass
 
-    def _getdatashape(self):
-        ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
-        return np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist()
-
     def fixpars(self, parnames: list):
         
-        # TODO: test/fix using the new vectorization scheme
+        # TODO: test/fix vectorization
         
         def fix_atomic(ifsymbol, fixpars):
             allpars = _eval('%s.Parameters;' % ifsymbol, nargout=1)
