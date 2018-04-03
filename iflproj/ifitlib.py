@@ -161,7 +161,7 @@ class IData(engintf.ObjReprJson):
         return pltdct, infdct
 
     def _get_datashape(self):
-        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int)
+        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
         return _npify_shape(s)
 
     def get_repr(self):
@@ -328,7 +328,7 @@ class IFunc(engintf.ObjReprJson):
 
         retdct = self._get_full_repr_dict()
         retdct['userdata'] = pvals
-        retdct['info'] = {'datashape' : self._getdatashape()}
+        retdct['info'] = {'datashape' : self._get_datashape()}
         return retdct
 
     def set_user_data(self, json_obj):
@@ -350,9 +350,9 @@ class IFunc(engintf.ObjReprJson):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
 
-    def _getdatashape(self):
+    def _get_datashape(self):
         ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
-        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int)
+        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
         return _npify_shape(s)
 
     def guess(self, guess: dict):
@@ -391,7 +391,7 @@ class IFunc(engintf.ObjReprJson):
         vnargs = self.varname
         args = ()
         ndaargs = (parnames, )
-        shape = self._getdatashape()
+        shape = self._get_datashape()
         _vectorized(shape, fix_atomic, vnargs, args, ndaargs)
 
         '''
