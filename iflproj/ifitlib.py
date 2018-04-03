@@ -75,9 +75,6 @@ class IData(engintf.ObjReprJson):
         if str(np.shape(url)) != str(datashape):
             raise Exception("data shape mismatch, shape(url) == %s, datashape == %s" % (str(np.shape(url)), str(datashape)))
         self.url = url
-        self.datashape = datashape
-        print(datashape, type(datashape))
-        self.islist = datashape not in (None, tuple(),)
         
         def create_idata(vn, url):
             _eval("%s = iData('%s')" % (vn, url), nargout=0)
@@ -161,24 +158,23 @@ class IData(engintf.ObjReprJson):
         return pltdct, infdct
 
     def _get_datashape(self):
-        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
-        return _npify_shape(s)
+        try:
+            _eval("%s.Signal;" % self.varname, nargout=0)
+        except:
+            s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
+            return _npify_shape(s)
+        return tuple()
 
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         # detect if we are a list or a plan iData object
-        try:
-            _eval("%s.Signal;" % self.varname, nargout=0)
-        except:
-            self.islist = True
-            
-            self.datashape = self._get_datashape()
+        datashape = self._get_datashape()
         
-        if not self.islist:
+        if datashape in (None, tuple(),):
             pltdct, infdct = self._get_iData_repr()
         else:
             pltdct = None
-            infdct = {'datashape' : self.datashape, 'ndims' : None} # ndims refers to (individual) data dimensionality
+            infdct = {'datashape' : datashape, 'ndims' : None} # ndims refers to (individual) data dimensionality
 
         retdct['plotdata'] = pltdct
         retdct['info'] = infdct
@@ -188,8 +184,26 @@ class IData(engintf.ObjReprJson):
     def __exit__(self, exc_type, exc_value, traceback):
         _eval("clear %s;" % self.varname)
 
-    def rmint(self, min:float, max:float):
-        _eval("xlim(%s, [%f %f], 'exclude')" % (self.varname, min, max), nargout=0)
+    def rmint(self, min, max):
+        ''' removes intervals from idata objects 
+        NOTE: a (minmax_lst) signatured version of rmint would require a "rank" indexing 
+        depth parameter (same as combine).
+        '''
+        def rmint_atomic(vn, start, end):
+            _eval("%s = xlim(%s, [%f %f], 'exclude')" % (vn, vn, start, end), nargout=0)
+
+        shape = self._get_datashape()
+        if np.shape(min) != shape or np.shape(max) != shape:
+            raise Exception("shape mismatch, min and max must match %s" % str(shape))
+
+        if len(shape) > 0:
+            vnargs = (self.varname, )
+            args = ()
+            ndaargs = (np.array(min), np.array(max), )
+            _vectorized(shape, rmint_atomic, vnargs, args, ndaargs)
+        else:
+            rmint_atomic(self.varname, min, max)
+
 
 def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
     ''' returns the dict required by the svg 1d plotting function '''
@@ -441,6 +455,11 @@ def _is_regular_ndarray(lst):
         return False
 
 def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
+    # make sure the (python-side) shapes match
+    for nda in ndaargs:
+        if not str(shape) == str(np.shape(nda)):
+            raise Exception("_vectorized shape ndaarg mismatch")
+    # iterate
     it = np.ndindex(shape)
     for ndindex in it:
         indices = [i+1 for i in ndindex]
