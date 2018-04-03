@@ -60,10 +60,6 @@ def _get_idata_prefix():
     _idataidx += 1
     return 'idata%d' % (_idataidx)
 
-def _npify_shape(shape):
-    ''' takes a naiive shape from matlab or a user, which may include 1's, and elliminates these '''
-    return tuple(s for s in shape if s>1)
-
 class IData(engintf.ObjReprJson):
     def __init__(self, url, datashape=None):
         '''
@@ -407,6 +403,13 @@ class IFunc(engintf.ObjReprJson):
         except for direct assignment, all method calls return the modified
         object (and if possible update the initial object itself).
         '''
+
+
+def _npify_shape(shape):
+    ''' takes a naiive shape from matlab or a user, which may include 1's, and elliminates these '''
+    if shape == None:
+        return None
+    return tuple(s for s in shape if s>1)
 
 def _is_regular_ndarray(lst):
     ''' returns true if the input arbitrarily nested list is irregular, e.g. has sublists of varying length '''
