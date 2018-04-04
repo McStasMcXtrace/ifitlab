@@ -186,11 +186,14 @@ class IData(engintf.ObjReprJson):
 
     def rmint(self, min, max):
         ''' removes intervals from idata objects 
-        NOTE: a (minmax_lst) signatured version of rmint would require a "rank" indexing 
+        NOTE: a (minmax_lst) signatured version of rmint would require a "rank" or "shape" indexing 
         depth parameter (same as combine).
         '''
         def rmint_atomic(vn, start, end):
             _eval("%s = xlim(%s, [%f %f], 'exclude')" % (vn, vn, start, end), nargout=0)
+        
+        min = _ifregular_squeeze_cast(min)
+        max = _ifregular_squeeze_cast(max)
 
         shape = self._get_datashape()
         if np.shape(min) != shape or np.shape(max) != shape:
@@ -199,7 +202,7 @@ class IData(engintf.ObjReprJson):
         if len(shape) > 0:
             vnargs = (self.varname, )
             args = ()
-            ndaargs = (np.array(min), np.array(max), )
+            ndaargs = (min, max, )
             _vectorized(shape, rmint_atomic, vnargs, args, ndaargs)
         else:
             rmint_atomic(self.varname, min, max)
@@ -392,7 +395,7 @@ class IFunc(engintf.ObjReprJson):
 
     def fixpars(self, parnames: list):
         
-        # TODO: test/fix vectorization
+        # TODO: vectorize (the below implementation is not complete)
         
         def fix_atomic(ifsymbol, fixpars):
             allpars = _eval('%s.Parameters;' % ifsymbol, nargout=1)
@@ -429,15 +432,28 @@ class IFunc(engintf.ObjReprJson):
         object (and if possible update the initial object itself).
         '''
 
+def _ifregular_squeeze_cast(lst, rank=None):
+    ''' returns squeezeed lst cast to np.array, if regular, optionally limited regular down to the rank'th index '''
+    if type(lst) not in (list, np.array,):
+        return lst
+    reg = _is_regular_ndarray(lst, rank)
+    if not reg:
+        raise Exception("list not regular")
+    return np.squeeze(np.array(lst))
 
 def _npify_shape(shape):
-    ''' takes a naiive shape from matlab or a user, which may include 1's, and elliminates these '''
+    ''' eliminates any 1's from shape, such values may be given by a user or from matlab '''
     if shape == None:
         return np.shape(shape)
     return tuple(s for s in shape if s>1)
 
-def _is_regular_ndarray(lst):
-    ''' returns true if the input arbitrarily nested list is irregular, e.g. has sublists of varying length '''
+def _is_regular_ndarray(lst, rank:int=None):
+    '''
+    Returns true if the input arbitrarily nested list is irregular, e.g. has sublists of varying length.
+    
+    lst: the input ndarray or python list
+    rank: limits the depth to which regularity is checked to the rank'th index
+    '''
     def _is_regular_rec(l):
         len0 = None
         for i in range(len(l)):
@@ -448,18 +464,42 @@ def _is_regular_ndarray(lst):
                 _is_regular_rec(nxt)
                 if len(nxt) != len0:
                     raise Exception("array not regular")
+    def _is_regular_rec_ranked(l, rank):
+        len0 = None
+        for i in range(len(l)):
+            nxt = l[i]
+            if type(nxt) in (list, np.ndarray) and rank > 1:
+                if not len0:
+                    len0 = len(nxt)
+                _is_regular_rec(nxt, rank-1)
+                if len(nxt) != len0:
+                    raise Exception("array not regular")
     try:
-        _is_regular_rec(lst)
+        if type(rank) == int and rank >= 1:
+            _is_regular_rec_ranked(lst)
+        else:
+            _is_regular_rec(lst)
         return True
     except:
         return False
 
 def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
-    # make sure the (python-side) shapes match
-    for nda in ndaargs:
-        if not str(shape) == str(np.shape(nda)):
-            raise Exception("_vectorized shape ndaarg mismatch")
-    # iterate
+    '''
+    Hybrid vectorize python/matlab lists combining varnames and ndim numpy arrays
+    using an "atomic" function which executes the ml command given its required input
+    deterined by the user and matched in vnargs, args and ndaargs in that order.
+    
+    shape: iteration specification
+    atomic_func: atomic function taking naiive arguments
+    vnargs: varname args, the matlab-side vector variable names
+    args: vector scalars, the same for all indices
+    ndaargs: python-side ndarray args (must be numpy arrays)
+    
+    NOTE: Iteration is determined by the "shape" arg. The caller is responsible for 
+    matching the shapes of all ndaargs, given that these may extend "shape", and
+    are free to pass extended shape in case "atomic_func" takes a lits argument 
+    (if it e.g. implements reduce-like functionality).
+    '''
     it = np.ndindex(shape)
     for ndindex in it:
         indices = [i+1 for i in ndindex]
@@ -555,13 +595,6 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
 def combine(filename, rank:int=0) -> IData:
     ''' a data reduce / merges which is vectorized explicitly for rank>0'''
     logging.debug("combine")
-    
-    # TODO: reimplement using the new vectorization scheme
-    # TODO: check if files is uniform of size (down to rank)?
-    
-    # TODO: work with filename, or np.asarray(filename) then squeeze, then _isregular.
-    #    we can not accept "blunt" dimenstions since this messes up the indexing.
-    #    Array indexing must be unique for a given (noise-free/squeezed) data shape 
 
     def _maprec(lst, rank, innerfunc):
         ''' data-shape preserving map recursive given index depth "rank" '''
@@ -587,8 +620,12 @@ def combine(filename, rank:int=0) -> IData:
         for varname in vnlst:
             _eval("clear %s;" % varname, nargout=0)
         return obj
-
-
+    
+    # TODO: apply standard vectorization scheme using appropriate shape to "reduce"
+    
+    '''
+    this was the first, naiive implementation which worked but was too 
+    
     # rank: denotes the number of indices required to identify each element individually
     retobj = IData(None)
     if rank==0:
@@ -600,6 +637,7 @@ def combine(filename, rank:int=0) -> IData:
         _eval("%s = %s;" % (retobj.varname, avarnames_str), nargout=0)
 
     return retobj
+    '''
 
 
 '''
