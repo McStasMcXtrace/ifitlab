@@ -68,6 +68,14 @@ class IData(engintf.ObjReprJson):
         '''
         logging.debug("IData.__init__('%s')" % url)
         self.varname = '%s_%d' % (_get_idata_prefix(), id(self))
+
+        if url==None:
+            '''
+            The url==None option can be used programatically to get a varname before assigning an 
+            actual ifit object or array or ifit objects, for example while executing functions like 
+            fit, eval or combine.
+            '''
+            return
         
         datashape = _npify_shape(datashape)
         if type(url) != str and not _is_regular_ndarray(url):
@@ -85,24 +93,16 @@ class IData(engintf.ObjReprJson):
             shape = str(list(shape)).replace("[","").replace("]","")
             _eval("%s = zeros(iData, %s);" % (vn, shape), nargout=0)
 
-        if url==None:
-            '''
-            NOTE: This branch (url==None) is to be used only programatically, as a "prepper" intermediary
-            state to get a varname from python, before assigning an actual ifit object, for example while
-            executing functions like fits or eval.
-            '''
-            pass
+        if datashape:
+            url = np.array(url)
+            self.url = url
+            create_idata_array(self.varname, datashape)
+            vnargs = (self.varname, )
+            args = ()
+            ndaargs = (url, )
+            _vectorized(datashape, create_idata, vnargs, args, ndaargs)
         else:
-            if datashape:
-                url = np.array(url)
-                self.url = url
-                create_idata_array(self.varname, datashape)
-                vnargs = (self.varname, )
-                args = ()
-                ndaargs = (url, )
-                _vectorized(datashape, create_idata, vnargs, args, ndaargs)
-            else:
-                create_idata(self.varname, url)
+            create_idata(self.varname, url)
 
     def _get_iData_repr(self):
         varname = self.varname
@@ -476,7 +476,7 @@ def _is_regular_ndarray(lst, rank:int=None):
                     raise Exception("array not regular")
     try:
         if type(rank) == int and rank >= 1:
-            _is_regular_rec_ranked(lst)
+            _is_regular_rec_ranked(lst, rank)
         else:
             _is_regular_rec(lst)
         return True
@@ -592,64 +592,40 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
 
-def combine(filename, rank:int=0) -> IData:
+def combine(filenames, rank:int=0) -> IData:
     ''' a data reduce / merges which is vectorized explicitly for rank>0'''
     logging.debug("combine")
 
-    def _maprec(lst, rank, innerfunc):
-        ''' data-shape preserving map recursive given index depth "rank" '''
-        for i in range(len(lst)):
-            if rank > 1:
-                _maprec(lst[i], rank-1, innerfunc)
-            else:
-                lst[i] = innerfunc(lst[i])
-        return lst
+    def combine_atomic(vn, fns):
+        if type(fns) not in (np.ndarray, list, ):
+            raise Exception("combine: file names input must be an ndarray");
+        for i in range(len(fns)):
+            _eval("%s = combine(%s)" % (vn, " iData(\'" + "\'), iData(\'".join(fns) + "\') "), nargout=0)
 
-    def atomicfunc(filesvals):
-        obj = IData(None)
-        # enable flexibility: a list is not needed for single-file arguments, remember this is the inner func
-        if type(filesvals) != list:
-            filesvals = [filesvals];
-        vnlst= []
-        for i in range(len(filesvals)):
-            tmpvarname = "%s_tmp_%d" % (obj.varname, i)
-            _eval("%s = iData('%s');" % (tmpvarname, filesvals[i]), nargout=0)
-            vnlst.append(tmpvarname)
-        _eval("%s = combine([%s]);" % (obj.varname, ' '.join(vnlst)), nargout=0)
-        # clear the temporary variables in matlab
-        for varname in vnlst:
-            _eval("clear %s;" % varname, nargout=0)
-        return obj
-    
-    # TODO: apply standard vectorization scheme using appropriate shape to "reduce"
-    
-    '''
-    this was the first, naiive implementation which worked but was too 
-    
-    # rank: denotes the number of indices required to identify each element individually
-    retobj = IData(None)
-    if rank==0:
-        retobj = atomicfunc(filename)
+    def create_idata_array(vn, shape):
+        if len(shape) == 1:
+            shape = (shape[0], 1)
+        shape = str(list(shape)).replace("[","").replace("]","")
+        _eval("%s = zeros(iData, %s);" % (vn, shape), nargout=0)
+
+    filenames = _ifregular_squeeze_cast(filenames, rank)
+
+    retobj = None
+    if rank == 0:
+        retobj = IData(url=None)
+        combine_atomic(retobj.varname, filenames)
+    elif rank > 0:
+        shape = np.shape(filenames)[0:rank]
+        retobj = IData(url=None)
+        create_idata_array(retobj.varname, shape)
+        
+        vnargs = (retobj.varname, )
+        args = ()
+        ndaargs = (filenames, )
+        _vectorized(shape, combine_atomic, vnargs, args, ndaargs)
     else:
-        idatas = np.asarray(_maprec(filename, rank, atomicfunc))
-        varnames = np.vectorize(lambda d: d.varname)(idatas)
-        avarnames_str = json.dumps(varnames.tolist()).replace('"','')
-        _eval("%s = %s;" % (retobj.varname, avarnames_str), nargout=0)
-
+        raise Exception("combine: rank must be in Z_0")
+    
     return retobj
-    '''
 
-
-'''
-NOTES on vectorization scheme:
-
-- an atomic function is needed
-- we shall only accept regular arrays as input (n-dim rectangles)
-- more than one ndarray arg can be expected, but the vectorization shape is fixed 
-- vectorization shape can be specified from the "primary" object ndarray, allowing the 
-rest to end up being e.g. lists corresponding to objects at the same indices of the primary
-- we don't want matlab-side vectorization as it is used as a script (one-liners)
-- we have two vectorization schemes: one using rank, and one using shape directly
-
-'''
 
