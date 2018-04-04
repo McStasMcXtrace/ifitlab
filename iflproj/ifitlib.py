@@ -190,7 +190,7 @@ class IData(engintf.ObjReprJson):
         depth parameter (same as combine).
         '''
         def rmint_atomic(vn, start, end):
-            _eval("%s = xlim(%s, [%f %f], 'exclude')" % (vn, vn, start, end), nargout=0)
+            _eval("%s = xlim(%s, [%f %f], 'exclude');" % (vn, vn, start, end), nargout=0)
         
         min = _ifregular_squeeze_cast(min)
         max = _ifregular_squeeze_cast(max)
@@ -360,8 +360,8 @@ class IFunc(engintf.ObjReprJson):
             except:
                 print('IFunc.set_user_data: set failed for param "%s" to val "%s"' % (key, val))
                 continue
-        _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
-        _eval('clear p_%s' % vn, nargout=0)
+        _eval('%s.ParameterValues = struct2cell(p_%s);' % (vn, vn), nargout=0)
+        _eval('clear p_%s;' % vn, nargout=0)
 
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self.varname
@@ -390,27 +390,36 @@ class IFunc(engintf.ObjReprJson):
                 _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
             except:
                 pass
-        _eval('%s.ParameterValues = struct2cell(p_%s)' % (vn, vn), nargout=0)
+        _eval('%s.ParameterValues = struct2cell(p_%s);' % (vn, vn), nargout=0)
         pass
 
     def fixpars(self, parnames: list):
-        
+
         # TODO: vectorize (the below implementation is not complete)
-        
-        def fix_atomic(ifsymbol, fixpars):
-            allpars = _eval('%s.Parameters;' % ifsymbol, nargout=1)
+
+        def fixpars_atomic(vn, fixpars):
+            allpars = _eval('%s.Parameters;' % vn, nargout=1)
+            allpars = [p.split(' ')[0] for p in allpars]
             dontfix = [p for p in allpars if p not in fixpars]
             for p in fixpars:
-                _eval("fix(%s, %s)" % (ifsymbol, p), nargout=0)
+                _eval("fix(%s, '%s');" % (vn, p), nargout=0)
             for p in dontfix:
-                _eval("munlock(%s, %s)" % (ifsymbol, p), nargout=0)
+                _eval("munlock(%s, '%s');" % (vn, p), nargout=0)
 
-        vnargs = self.varname
-        args = ()
-        ndaargs = (parnames, )
-        shape = self._get_datashape()
-        _vectorized(shape, fix_atomic, vnargs, args, ndaargs)
+        if parnames == None:
+            parnames = []
+        parnames = _ifregular_squeeze_cast(parnames)
+        shape = np.shape(parnames)
 
+        if len(shape) <= 1:
+            fixpars_atomic(self.varname, parnames)
+        else:
+            vnargs = self.varname
+            args = ()
+            ndaargs = (parnames, )
+            shape = self._get_datashape()
+            _vectorized(shape, fixpars_atomic, vnargs, args, ndaargs)
+        
         '''
         * g = gauss;
         
@@ -436,6 +445,8 @@ def _ifregular_squeeze_cast(lst, rank=None):
     ''' returns squeezeed lst cast to np.array, if regular, optionally limited regular down to the rank'th index '''
     if type(lst) not in (list, np.array,):
         return lst
+    if len(np.shape(lst))==1 and len(lst) == 1:
+        return np.array(lst)
     reg = _is_regular_ndarray(lst, rank)
     if not reg:
         raise Exception("list not regular")
@@ -592,7 +603,7 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
 
-def combine(filenames, rank:int=0) -> IData:
+def combine(filenames:list, rank:int=0) -> IData:
     ''' a data reduce / merges which is vectorized explicitly for rank>0'''
     logging.debug("combine")
 
@@ -600,7 +611,7 @@ def combine(filenames, rank:int=0) -> IData:
         if type(fns) not in (np.ndarray, list, ):
             raise Exception("combine: file names input must be an ndarray");
         for i in range(len(fns)):
-            _eval("%s = combine(%s)" % (vn, " iData(\'" + "\'), iData(\'".join(fns) + "\') "), nargout=0)
+            _eval("%s = combine(%s);" % (vn, " iData(\'" + "\'), iData(\'".join(fns) + "\') "), nargout=0)
 
     def create_idata_array(vn, shape):
         if len(shape) == 1:
