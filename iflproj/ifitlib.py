@@ -307,6 +307,11 @@ class IFunc(engintf.ObjReprJson):
 
         def create_ifunc(vn, symb):
             _eval("%s = %s();" % (vn, symb), nargout=0)
+            parameternames = _eval('%s.Parameters;' % vn, nargout=1) # we basically just need the length
+            parameternames = [p.split()[0] for p in parameternames]
+            evals =[_eval("p.%s = NaN;" % name, nargout=0) for name in parameternames]
+            _eval('%s.ParameterValues = struct2cell(p);' % vn, nargout=0)
+            _eval('clear p;', nargout=0)
 
         def create_model_array(vn, shape, symb):
             if len(shape) == 1:
@@ -331,67 +336,48 @@ class IFunc(engintf.ObjReprJson):
         pkeys = _eval('%s.Parameters;' % vn, nargout=1)
         pvals = {}
         for key in pkeys:
-            idx = pkeys.index(key)
-            key0 = key.split(' ')[0]
+            key0 = key.split(' ')[0] # it should always be key0
             val = _eval('%s.%s' % (vn, key0), nargout=1)
             while type(val) == list:
                 val = val[0]
             if type(val) != float:
-                pvals[key] = None
+                pvals[key0] = None
             elif math.isnan(float(val)):
-                pvals[key] = None
+                pvals[key0] = None
             else:
-                pvals[key] = val
+                pvals[key0] = val
 
         retdct = self._get_full_repr_dict()
         retdct['userdata'] = pvals
         retdct['info'] = {'datashape' : self._get_datashape()}
         return retdct
 
-    def set_user_data(self, json_obj):
-        vn = self.varname
-        pkeys = _eval('%s.Parameters;' % vn)
-        for key in pkeys:
-            try:
-                val = json_obj[key]
-                key0 = key.split(' ')[0]
-                if val != None:
-                    _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
-            except:
-                print('IFunc.set_user_data: set failed for param "%s" to val "%s"' % (key, val))
-                continue
-        _eval('%s.ParameterValues = struct2cell(p_%s);' % (vn, vn), nargout=0)
-        _eval('clear p_%s;' % vn, nargout=0)
+    def _get_parameter_values_dict(self):
+        pass
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        cmd = "clear %s;" % self.varname
-        _eval(cmd)
+    def _set_parameter_values(self, vals_dct):
+        pass
+
+    def set_user_data(self, json_obj):
+        
+        # TODO: vectorize : ignore sets to non-trivial data shape objects
+        
+        _set_ifunc_parameter_values_atomic(self.varname, json_obj)
 
     def _get_datashape(self):
         ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
         s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
-        return _npify_shape(s)
+        s = _npify_shape(s)
+        if s == tuple():
+            s = None
+        return s
 
     def guess(self, guess: dict):
         ''' applies a guess to the parameters of this instance '''
         
-        # TODO: vectorize
+        # TODO: vectorize - do not ignore vectorization as set_user_data does
         
-        pkeys = _eval('%s.Parameters;' % self.varname, nargout=1)
-        vn = self.varname
-
-        for key in pkeys:
-            try:
-                key0 = key.split(' ')[0]
-
-                val = guess.get(key0, None)
-                if val == None:
-                    val = 'NaN'
-                _eval('p_%s.%s = %s;' % (vn, key0, val), nargout=0)
-            except:
-                pass
-        _eval('%s.ParameterValues = struct2cell(p_%s);' % (vn, vn), nargout=0)
-        pass
+        _set_ifunc_parameter_values_atomic(self.varname, guess)
 
     def fixpars(self, parnames: list):
 
@@ -440,6 +426,25 @@ class IFunc(engintf.ObjReprJson):
         except for direct assignment, all method calls return the modified
         object (and if possible update the initial object itself).
         '''
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        cmd = "clear %s;" % self.varname
+        _eval(cmd)
+
+def _set_ifunc_parameter_values_atomic(vn, dct):
+    parameternames = _eval('%s.Parameters;' % vn)
+    parameternames = [p.split(' ')[0] for p in parameternames]
+    for key in dct.keys():
+        if key not in parameternames:
+            raise Exception("undefined parameter name: %s" % key)
+    for key in parameternames:
+        val = dct.get(key, None)
+        if val != None:
+            _eval('p_%s.%s = %s;' % (vn, key, val), nargout=0)
+        else:
+            _eval('p_%s.%s = NaN;' % (vn, key), nargout=0)
+    _eval('%s.ParameterValues = struct2cell(p_%s);' % (vn, vn), nargout=0)
+    _eval('clear p_%s;' % vn, nargout=0)
 
 def _ifregular_squeeze_cast(lst, rank=None):
     ''' returns squeezeed lst cast to np.array, if regular, optionally limited regular down to the rank'th index '''
@@ -598,7 +603,8 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     vn_data = idata.varname
     retobj = IFunc()
     vn_newfunc = retobj.varname
-    _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    #_eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    _eval('[p, c, m, o_%s] = fits(%s, %s)' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
     _eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
