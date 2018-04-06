@@ -309,9 +309,10 @@ class IFunc(engintf.ObjReprJson):
             _eval("%s = %s();" % (vn, symb), nargout=0)
             parameternames = _eval('%s.Parameters;' % vn, nargout=1) # we basically just need the length
             parameternames = [p.split()[0] for p in parameternames]
-            evals =[_eval("p.%s = NaN;" % name, nargout=0) for name in parameternames]
-            _eval('%s.ParameterValues = struct2cell(p);' % vn, nargout=0)
-            _eval('clear p;', nargout=0)
+            if len(parameternames) > 0:
+                evals =[_eval("p.%s = NaN;" % name, nargout=0) for name in parameternames]
+                _eval('%s.ParameterValues = struct2cell(p);' % vn, nargout=0)
+                _eval('clear p;', nargout=0)
 
         def create_model_array(vn, shape, symb):
             if len(shape) == 1:
@@ -359,10 +360,13 @@ class IFunc(engintf.ObjReprJson):
         pass
 
     def set_user_data(self, json_obj):
+        ''' 
+        Apply guess values to parameters.
         
-        # TODO: vectorize : ignore sets to non-trivial data shape objects
-        
-        _set_ifunc_parameter_values_atomic(self.varname, json_obj)
+        However, this is currently disabled due to a ui issue
+        (repeated incomplete set_data on the undo stach will produce error messages)
+        '''
+        #_set_ifunc_parameter_values_atomic(self.varname, json_obj)
 
     def _get_datashape(self):
         ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
@@ -375,7 +379,7 @@ class IFunc(engintf.ObjReprJson):
     def guess(self, guess: dict):
         ''' applies a guess to the parameters of this instance '''
         
-        # TODO: vectorize - do not ignore vectorization as set_user_data does
+        # TODO: vectorize
         
         _set_ifunc_parameter_values_atomic(self.varname, guess)
 
@@ -434,18 +438,21 @@ class IFunc(engintf.ObjReprJson):
 def _set_ifunc_parameter_values_atomic(vn, dct):
     parameternames = _eval('%s.Parameters;' % vn)
     parameternames = [p.split(' ')[0] for p in parameternames]
-    for key in dct.keys():
-        if key not in parameternames:
-            raise Exception("undefined parameter name: %s" % key)
+    
+    # this covers all cases of missing or superfluous names in dct
+    if not set(parameternames) == set(dct.keys()):
+        raise Exception("guess: parameter name mismatch")
+    # make sure all values are defined properly
+    if None in dct.values():
+        raise Exception("guess: undefined parameter value")
+    # pick out values in the correct order
+    values = []
     for key in parameternames:
-        val = dct.get(key, None)
-        if val != None:
-            _eval('p_%s.%s = %s;' % (vn, key, val), nargout=0)
-        else:
-            _eval('p_%s.%s = NaN;' % (vn, key), nargout=0)
-    _eval('%s.ParameterValues = struct2cell(p_%s);' % (vn, vn), nargout=0)
-    _eval('clear p_%s;' % vn, nargout=0)
+        values.append(dct[key])
 
+    _eval('%s.ParameterValues = [%s];' % (vn, ' '.join( [str(float(v)) for v in values] )), nargout=0)
+    _eval('clear p_%s;' % vn, nargout=0)
+    
 def _ifregular_squeeze_cast(lst, rank=None):
     ''' returns squeezeed lst cast to np.array, if regular, optionally limited regular down to the rank'th index '''
     if type(lst) not in (list, np.array,):
