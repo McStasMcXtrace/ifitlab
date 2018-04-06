@@ -360,7 +360,7 @@ class IFunc(engintf.ObjReprJson):
         However, this is currently disabled due to a ui issue
         (repeated incomplete set_data on the undo stach will produce error messages)
         '''
-        #_set_ifunc_parameter_values_atomic(self.varname, json_obj)
+        #set_parvalues_atomic(self.varname, json_obj)
 
     def _get_datashape(self):
         ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
@@ -370,15 +370,12 @@ class IFunc(engintf.ObjReprJson):
             s = None
         return s
 
-    def guess(self, guess: dict):
+    def guess(self, guess: dict, rank:int=0):
         ''' applies a guess to the parameters of this instance '''
-        
-        # TODO: vectorize
 
-        def _set_ifunc_parameter_values_atomic(vn, dct):
+        def set_parvalues_atomic(vn, dct):
             parameternames = _eval('%s.Parameters;' % vn)
             parameternames = [p.split(' ')[0] for p in parameternames]
-
             # this covers all cases of missing or superfluous names in dct
             if not set(parameternames) == set(dct.keys()):
                 raise Exception("guess: parameter name mismatch")
@@ -389,11 +386,24 @@ class IFunc(engintf.ObjReprJson):
             values = []
             for key in parameternames:
                 values.append(dct[key])
+            # because MATLAB arrays are not arrays of handles, we have to do the triangle trick
+            _eval('tmp = %s;' % vn, nargout=0)
+            _eval('tmp.ParameterValues = [%s];' % ' '.join( [str(float(v)) for v in values] ), nargout=0)
+            _eval('%s = tmp;' % vn, nargout=0)
+            _eval('clear tmp;', nargout=0)
 
-            _eval('%s.ParameterValues = [%s];' % (vn, ' '.join( [str(float(v)) for v in values] )), nargout=0)
-            _eval('clear p_%s;' % vn, nargout=0)
-
-        _set_ifunc_parameter_values_atomic(self.varname, guess)
+        if rank<0:
+            raise Exception("rank must be a positive integer")
+        
+        guess = _ifregular_squeeze_cast(guess, rank)
+        if rank == 0:
+            set_parvalues_atomic(self.varname, guess)
+        else:
+            vnargs = (self.varname, )
+            args = ()
+            ndaargs = (guess, )
+            shape = self._get_datashape()
+            _vectorized(shape, set_parvalues_atomic, vnargs, args, ndaargs)
 
     def fixpars(self, parnames: list, rank:int=0):
 
@@ -409,14 +419,11 @@ class IFunc(engintf.ObjReprJson):
                 _eval("fix(%s, '%s');" % (vn, p), nargout=0)
             for p in dontfix:
                 _eval("munlock(%s, '%s');" % (vn, p), nargout=0)
-        
+
         if rank<0:
             raise Exception("rank must be a positive integer")
 
-        if parnames == None:
-            parnames = []
         parnames = _ifregular_squeeze_cast(parnames, rank)
-
         if rank == 0:
             fixpars_atomic(self.varname, parnames)
         else:
@@ -439,6 +446,8 @@ def _ifregular_squeeze_cast(lst, rank=None):
     reg = _is_regular_ndarray(lst, rank)
     if not reg:
         raise Exception("list not regular")
+    
+    # TODO: should lst be squeezed or not?
     #return np.squeeze(np.array(lst))
     return np.array(lst)
 
