@@ -329,31 +329,29 @@ class IFunc(engintf.ObjReprJson):
             create_ifunc(self.varname, symbol)
 
     def get_repr(self):
-        vn = self.varname
-        pkeys = _eval('%s.Parameters;' % vn, nargout=1)
-        pvals = {}
-        for key in pkeys:
-            key0 = key.split(' ')[0] # it should always be key0
-            val = _eval('%s.%s' % (vn, key0), nargout=1)
-            while type(val) == list:
-                val = val[0]
-            if type(val) != float:
-                pvals[key0] = None
-            elif math.isnan(float(val)):
-                pvals[key0] = None
-            else:
-                pvals[key0] = val
-
+        
+        datashape = self._get_datashape()
         retdct = self._get_full_repr_dict()
-        retdct['userdata'] = pvals
-        retdct['info'] = {'datashape' : self._get_datashape()}
+        retdct['info'] = {'datashape' : datashape}
+        
+        if datashape in [None, tuple()]:
+            vn = self.varname
+            pkeys = _eval('%s.Parameters;' % vn, nargout=1)
+            pvals = {}
+            for key in pkeys:
+                key0 = key.split(' ')[0] # it should always be key0
+                val = _eval('%s.%s' % (vn, key0), nargout=1)
+                while type(val) == list:
+                    val = val[0]
+                if type(val) != float:
+                    pvals[key0] = None
+                elif math.isnan(float(val)):
+                    pvals[key0] = None
+                else:
+                    pvals[key0] = val
+            retdct['userdata'] = pvals
+
         return retdct
-
-    def _get_parameter_values_dict(self):
-        pass
-
-    def _set_parameter_values(self, vals_dct):
-        pass
 
     def set_user_data(self, json_obj):
         ''' 
@@ -376,14 +374,34 @@ class IFunc(engintf.ObjReprJson):
         ''' applies a guess to the parameters of this instance '''
         
         # TODO: vectorize
-        
+
+        def _set_ifunc_parameter_values_atomic(vn, dct):
+            parameternames = _eval('%s.Parameters;' % vn)
+            parameternames = [p.split(' ')[0] for p in parameternames]
+
+            # this covers all cases of missing or superfluous names in dct
+            if not set(parameternames) == set(dct.keys()):
+                raise Exception("guess: parameter name mismatch")
+            # make sure all values are defined properly
+            if None in dct.values():
+                raise Exception("guess: undefined parameter value")
+            # pick out values in the correct order
+            values = []
+            for key in parameternames:
+                values.append(dct[key])
+
+            _eval('%s.ParameterValues = [%s];' % (vn, ' '.join( [str(float(v)) for v in values] )), nargout=0)
+            _eval('clear p_%s;' % vn, nargout=0)
+
         _set_ifunc_parameter_values_atomic(self.varname, guess)
 
-    def fixpars(self, parnames: list):
-
-        # TODO: vectorize (the below implementation is not complete)
+    def fixpars(self, parnames: list, rank:int=0):
 
         def fixpars_atomic(vn, fixpars):
+            # this hack fixes cases where fixpars_atomic is vectorized, in which case numpy can reduce
+            # fixpars from a list with one string element to a string
+            if type(fixpars) in (np.str_, str):
+                fixpars = [fixpars]
             allpars = _eval('%s.Parameters;' % vn, nargout=1)
             allpars = [p.split(' ')[0] for p in allpars]
             dontfix = [p for p in allpars if p not in fixpars]
@@ -391,63 +409,26 @@ class IFunc(engintf.ObjReprJson):
                 _eval("fix(%s, '%s');" % (vn, p), nargout=0)
             for p in dontfix:
                 _eval("munlock(%s, '%s');" % (vn, p), nargout=0)
+        
+        if rank<0:
+            raise Exception("rank must be a positive integer")
 
         if parnames == None:
             parnames = []
-        parnames = _ifregular_squeeze_cast(parnames)
-        shape = np.shape(parnames)
+        parnames = _ifregular_squeeze_cast(parnames, rank)
 
-        if len(shape) <= 1:
+        if rank == 0:
             fixpars_atomic(self.varname, parnames)
         else:
-            vnargs = self.varname
+            vnargs = (self.varname, )
             args = ()
             ndaargs = (parnames, )
             shape = self._get_datashape()
             _vectorized(shape, fixpars_atomic, vnargs, args, ndaargs)
-        
-        '''
-        * g = gauss;
-        
-        * g.Amplitude = 'fix';
-        * g.Amplitude = 'lock';
-        * fix(g, 'Amplitude');
-        * fix(g, 1); % if Amplitude is the 1st parameter
-        * fix(g, 'all'); fix all
-        * mlock(g, 'Amplitude'); % mlock == fix
-        
-        to free parameters:
-        
-        * fix(g, 'none'); % free all parameters
-        * munlock(g, 'Amplitude')
-        * munlock(g, 1)
-        * g.Amplitude = 'free'; % or 'clear' or 'unlock'
-        
-        except for direct assignment, all method calls return the modified
-        object (and if possible update the initial object itself).
-        '''
 
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
-
-def _set_ifunc_parameter_values_atomic(vn, dct):
-    parameternames = _eval('%s.Parameters;' % vn)
-    parameternames = [p.split(' ')[0] for p in parameternames]
-    
-    # this covers all cases of missing or superfluous names in dct
-    if not set(parameternames) == set(dct.keys()):
-        raise Exception("guess: parameter name mismatch")
-    # make sure all values are defined properly
-    if None in dct.values():
-        raise Exception("guess: undefined parameter value")
-    # pick out values in the correct order
-    values = []
-    for key in parameternames:
-        values.append(dct[key])
-
-    _eval('%s.ParameterValues = [%s];' % (vn, ' '.join( [str(float(v)) for v in values] )), nargout=0)
-    _eval('clear p_%s;' % vn, nargout=0)
     
 def _ifregular_squeeze_cast(lst, rank=None):
     ''' returns squeezeed lst cast to np.array, if regular, optionally limited regular down to the rank'th index '''
@@ -458,7 +439,8 @@ def _ifregular_squeeze_cast(lst, rank=None):
     reg = _is_regular_ndarray(lst, rank)
     if not reg:
         raise Exception("list not regular")
-    return np.squeeze(np.array(lst))
+    #return np.squeeze(np.array(lst))
+    return np.array(lst)
 
 def _npify_shape(shape):
     ''' eliminates any 1's from shape, such values may be given by a user or from matlab '''
