@@ -422,7 +422,7 @@ class NodeConfig:
         self.otypes = ['IFunc']
         self.static = 'false'
         self.executable = 'true'
-        self.edit = 'true'
+        self.edit = 'false'
 
     def get_repr(self):
         if self.basetype == '':
