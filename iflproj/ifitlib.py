@@ -309,10 +309,6 @@ class IFunc(engintf.ObjReprJson):
             _eval("%s = %s();" % (vn, symb), nargout=0)
             parameternames = _eval('%s.Parameters;' % vn, nargout=1) # we basically just need the length
             parameternames = [p.split()[0] for p in parameternames]
-            if len(parameternames) > 0:
-                evals =[_eval("p.%s = NaN;" % name, nargout=0) for name in parameternames]
-                _eval('%s.ParameterValues = struct2cell(p);' % vn, nargout=0)
-                _eval('clear p;', nargout=0)
 
         def create_model_array(vn, shape, symb):
             if len(shape) == 1:
