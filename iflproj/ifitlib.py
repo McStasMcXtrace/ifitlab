@@ -586,6 +586,14 @@ functions (also called "methods" in the ifit documentation
 '''
 def eval(idata: IData, ifunc: IFunc):
     logging.debug("eval: %s, %s" % (idata, ifunc))
+    
+    ds1 = idata._get_datashape()
+    ds2 = ifunc._get_datashape()
+    if ds1 != ds2:
+        raise Exception("datashape mismatch: %s vs. %s", (str(ds1), str(ds2)))
+    if ds1 != tuple() or ds2 != tuple():
+        raise Exception("vectorized version not implemented")
+    
     retobj = IData(None)
     
     _eval("%s = %s(%s);" % (retobj.varname, idata.varname, ifunc.varname), nargout=0)
@@ -593,6 +601,14 @@ def eval(idata: IData, ifunc: IFunc):
 
 def fit(idata: IData, ifunc: IFunc) -> IFunc:
     logging.debug("fit: %s, %s" % (idata, ifunc))
+    
+    ds1 = idata._get_datashape()
+    ds2 = ifunc._get_datashape()
+    if ds1 != ds2:
+        raise Exception("datashape mismatch: %s vs. %s", (str(ds1), str(ds2)))
+    if ds1 != tuple() or ds2 != tuple():
+        raise Exception("vectorized version not implemented")
+
     vn_oldfunc = ifunc.varname
     vn_data = idata.varname
     retobj = IFunc()
