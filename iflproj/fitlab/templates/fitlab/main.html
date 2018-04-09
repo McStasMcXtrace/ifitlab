@@ -138,9 +138,13 @@ setUserData = function(node) {
       .append('<tr id="'+rowid+'" class="dynamicProperty"><td><textarea rows="20" cols="64"></textarea></td></tr>');
     $("#"+rowid +" textarea")
       .val(JSON.stringify(node.userdata, null, 2))
+      .focus( () => {
+        let tarea = $("#"+rowid +" textarea");
+        if (tarea.val() == "null") tarea.val("");
+      })
       .change( () => {
         let tarea = $("#"+rowid +" textarea");
-        if (tarea.val()=="") tarea.val("null");
+        if (tarea.val() == "") tarea.val("null");
         intface.node_data(node.id, tarea.val());
       });
   }
@@ -148,16 +152,45 @@ setUserData = function(node) {
     for (let key in node.userdata)
     {
       let rowid = "row_" + node.id + key.replace(/ /g, '_'); // some key strings have whitespaces in them...
-      $("#tblUserData tbody")
-        .append('<tr id="'+rowid+'" class="dynamicProperty"><td><label/></td><td><input type="text"/></td></tr>');
-      $("#"+rowid +" input")
-        .val(node.userdata[key])
-        .change( () => {
-          node.userdata[key] = JSON.parse($("#"+rowid +" input").val());
-          intface.node_data(node.id, JSON.stringify(node.userdata));
-        });
-      $("#"+rowid +" label")
-        .html(key+': ');
+      if (node.edit) {
+        // build properties with textboxes for values
+        $("#tblUserData tbody")
+          .append('<tr id="'+rowid+'" class="dynamicProperty"><td><label/></td><td><input type="text"/></td></tr>');
+        $("#"+rowid +" input")
+          .val(JSON.stringify(node.userdata[key]))
+          .focus( () => {
+            let tarea = $("#"+rowid +" input");
+            if (tarea.val() == "null") tarea.val("");
+          })
+          .focusout( () => {
+            let tarea = $("#"+rowid +" input");
+            if (tarea.val() == "") tarea.val("null");
+          })
+          .change( () => {
+            let tarea = $("#"+rowid +" input");
+            if (tarea.val() == "") tarea.val("null");
+            try {
+              node.userdata[key] = JSON.parse(tarea.val());
+              intface.node_data(node.id, JSON.stringify(node.userdata));
+            }
+            catch(err) {
+              tarea.val("null");
+            }
+          });
+
+        $("#"+rowid +" label")
+          .html(key+': ');
+      }
+      else {
+        // build properties with labels for values
+        $("#tblUserData tbody")
+          .append('<tr id="'+rowid+'" class="dynamicProperty"> <td><label id="key_'+rowid+'"/></td> <td><label id="value_'+rowid+'"/></td> </tr>');
+        $("#key_"+rowid)
+          .html(key+': ');
+        $("#value_"+rowid)
+          .html(JSON.stringify(node.userdata[key]));
+      }
+
     }
   }
 }

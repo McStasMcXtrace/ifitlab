@@ -1165,7 +1165,7 @@ class NodeFunctionNamed extends Node {
 
 class NodeMethodAsFunction extends NodeFunctionNamed {
   static get basetype() { return "method_as_function"; }
-  get basetype() { return NodeFunctionNamed.basetype; }
+  get basetype() { return NodeMethodAsFunction.basetype; }
   _getGNType() {
     return GraphicsNodeHexagonal;
   }

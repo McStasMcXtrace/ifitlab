@@ -5,6 +5,8 @@ hierarchical graph structure.
 '''
 __author__ = "Jakob Garde"
 
+import inspect
+
 '''
 List-based parents/children data structure enabling unique parents, but multiple children, of the same order and idx.
 
@@ -340,7 +342,6 @@ class FuncNode(Node):
         super().__init__(name, exe_model=FuncNode.ExeModel())
         # default value parameters are not represented in the graph, but as a configuration option
         self.defaults = {}
-        import inspect
         sign = inspect.signature(func)
         for k in sign.parameters.keys():
             par = sign.parameters[k]
@@ -421,20 +422,31 @@ class MethodAsFunctionNode(Node):
     def __init__(self, name, methodname):
         self.methodname = methodname
         super().__init__(name, exe_model=MethodNode.ExeModel())
-
+        # default value parameters are not represented in the graph, but as a configuration option
+        self.defaults = {}
     def assign(self, obj):
-        if callable(obj):
-            self.methodname = obj;
+        if type(obj) not in (dict, ):
+            raise Exception("only do call FuncNode.assign with a dict")
+        for k in obj.keys():
+            # we have to assume that they are assigning something meaningful - otherwise call() will fail (a check could be implemented though)
+            self.defaults[k] = obj[k]
     def call(self, *args):
         slf = args[0]
         realargs = args[1:]
         method = None
         try:
             method = getattr(slf, self.methodname)
+            # the default args trick has to be applied on-the-fly, keeping in assign(dct) in mind
+            sign = inspect.signature(method)
+            for k in sign.parameters.keys():
+                par = sign.parameters[k]
+                if par.default != inspect._empty:
+                    if par._name not in self.defaults.keys():
+                        self.defaults[k] = par.default
         except:
             raise MethodNode.NoMethodOfThatNameException()
         try:
-            return method(*realargs)
+            return method(*realargs, **self.defaults)
         except Exception as e:
             raise InternalExecutionException(self.name, str(e))
 

@@ -185,7 +185,7 @@ class FlatGraph:
         - any json (incl. empty string) results in a tried inject_json call on the object, if any
         '''
         n = self.root.subnodes[id]
-        if not type(n) in [ObjNode, ObjLiteralNode, FuncNode]:
+        if not type(n) in [ObjNode, ObjLiteralNode, FuncNode, MethodAsFunctionNode]:
             _log('node_data ignored for node of type "%s"' % type(n))
             return
 
@@ -210,9 +210,9 @@ class FlatGraph:
         elif type(n) in (ObjLiteralNode,):
             n.assign(obj)
             _log('node_data assigning deserialised input to literal object node "%s"' % n.name)
-        elif type(n) in (FuncNode,):
+        elif type(n) in (FuncNode, MethodAsFunctionNode, ):
             n.assign(obj)
-            _log("node_data assigning to FuncNode %s" % n.name)
+            _log("node_data assigning to FuncNode or MethodAsFunctionNode %s" % n.name)
         else:
             try:
                 n.get_object().set_user_data(obj)
@@ -422,7 +422,7 @@ class NodeConfig:
         self.otypes = ['IFunc']
         self.static = 'false'
         self.executable = 'true'
-        self.edit = 'true'
+        self.edit = 'false'
 
     def get_repr(self):
         if self.basetype == '':

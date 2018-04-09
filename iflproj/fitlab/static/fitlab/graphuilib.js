@@ -304,10 +304,6 @@ class GraphTree {
   }
   nodeData(id, data_str) {
     let n = this._current.nodes[id];
-    if (n.edit != true) {
-      console.log("node_data operation on non-edit node: ", n.id);
-      return null;
-    }
     n.userdata = JSON.parse(data_str);
     this._updateNodeState(n);
     return true;
