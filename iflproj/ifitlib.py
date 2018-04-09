@@ -19,6 +19,8 @@ secondary presence
 __author__ = "Jakob Garde"
 
 import engintf
+from iflproj.settings import IFIT_DIR
+
 import scipy.misc
 import io
 import base64
@@ -45,7 +47,7 @@ def _eval(cmd, nargout=1):
         _cmdlog.info("%%  starting ifit cmd log session  %%")
     if not _eng:
         _eng = matlab.engine.start_matlab('-nodesktop -nosplash', async=False)
-        _eng.eval("addpath(genpath('/home/jaga/source/REPO_ifit'))")
+        _eng.eval("addpath(genpath('%s'))" % IFIT_DIR)
     _cmdlog.info(cmd)
     return _eng.eval(cmd, nargout=nargout)
 
