@@ -119,6 +119,7 @@ class IData(engintf.ObjReprJson):
         # get signal
         if ndims == 0:
             ' the trivial case, no data is present '
+            pltdct = None
         elif ndims == 1:
             xvals = _eval('%s.%s;' % (varname, axes_names[0]))
             if len(xvals)==1:
