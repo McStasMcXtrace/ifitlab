@@ -1,0 +1,2 @@
+python3 manage.py gentypes ifitlib .
+python3 manage.py collectstatic
