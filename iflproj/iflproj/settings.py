@@ -25,7 +25,7 @@ SECRET_KEY = 'e^vu3p6nhfhk5fh!+&zskh!xr_szi9bv+u(x3g$_qk%pp8m#k&'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['elearn1.fysik.dtu.dk']
+ALLOWED_HOSTS = ['elearn1.fysik.dtu.dk', '127.0.0.1']
 
 
 # Application definition
