@@ -46,7 +46,7 @@ def _eval(cmd, nargout=1):
         _cmdlog.info("")
         _cmdlog.info("%%  starting ifit cmd log session  %%")
     if not _eng:
-        _eng = matlab.engine.start_matlab('-nodesktop -nosplash', async=False)
+        _eng = matlab.engine.start_matlab('-nojvm -nodesktop -nosplash', async=False)
         _eng.eval("addpath(genpath('%s'))" % IFIT_DIR)
     _cmdlog.info(cmd)
     return _eng.eval(cmd, nargout=nargout)
@@ -600,8 +600,10 @@ def eval(idata: IData, ifunc: IFunc):
     _eval("%s = %s(%s);" % (retobj.varname, idata.varname, ifunc.varname), nargout=0)
     return retobj
 
-def fit(idata: IData, ifunc: IFunc) -> IFunc:
+def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     logging.debug("fit: %s, %s" % (idata, ifunc))
+    
+    # TODO: alter the call to 'fits' in a way that respects the current ifunc par values as a guess
     
     ds1 = idata._get_datashape()
     ds2 = ifunc._get_datashape()
@@ -614,8 +616,8 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     vn_data = idata.varname
     retobj = IFunc()
     vn_newfunc = retobj.varname
-    #_eval('[p, c, m, o_%s] = fits(%s, copyobj(%s))' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
-    _eval('[p, c, m, o_%s] = fits(%s, %s)' % (vn_newfunc, vn_data, vn_oldfunc), nargout=0)
+    _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\')' % (vn_newfunc, vn_data, vn_oldfunc, optimizer), nargout=0)
+
     _eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
     _eval('clear o_%s' % vn_newfunc, nargout=0)
     return retobj
