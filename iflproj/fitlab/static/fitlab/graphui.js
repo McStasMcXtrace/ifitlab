@@ -1719,7 +1719,7 @@ class GraphInterface {
 }
 
 class UndoRedoCommandStack {
-  constructor(maxSize=50) {
+  constructor(maxSize=5000) {
     this.synced = null; // last synced idx
     this.idx = -1; // undo stack index
     this.ur = []; // undo-redo stack

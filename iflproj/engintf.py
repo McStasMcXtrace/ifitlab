@@ -135,7 +135,7 @@ class FlatGraph:
 
     def node_add(self, x, y, id, name, label, tpe):
         n = self._create_node(id, tpe)
-        _log('created node of type: "%s", content: "%s"' % (str(type(n)), str(n.get_object())))
+        _log('created node (%s) of type: "%s", content: "%s"' % (id, str(type(n)), str(n.get_object())))
         add_subnode(self.root, n)
         # caching
         self.node_cmds_cache[id] = (x, y, id, name, label, tpe)
