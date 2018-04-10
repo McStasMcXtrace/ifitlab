@@ -614,13 +614,14 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     ds2 = ifunc._get_datashape()
     if ds1 != ds2:
         raise Exception("datashape mismatch: %s vs. %s" % (str(ds1), str(ds2)))
-    if ds1 != tuple() or ds2 != tuple():
-        raise Exception("vectorized version not implemented")
- 
-    datashape = ds1
-    retobj = IFunc(datashape)
-    if datashape not in (None, tuple(),):
-        raise Exception("vectorized use of fit not supported")
+
+    shape = ds1
+    retobj = IFunc(shape)
+    if shape not in (None, tuple(),):
+        vnargs = (idata.varname, ifunc.varname, retobj.varname, )
+        args = (optimizer, )
+        ndaargs = ()
+        _vectorized(shape, fit_atomic, vnargs, args, ndaargs)
     else:
         fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
     return retobj
