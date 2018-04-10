@@ -602,24 +602,27 @@ def eval(idata: IData, ifunc: IFunc):
 
 def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     logging.debug("fit: %s, %s" % (idata, ifunc))
-    
+
     # TODO: alter the call to 'fits' in a way that respects the current ifunc par values as a guess
-    
+
+    def fit_atomic(vn_data, vn_func, vn_outfunc, optim):
+        _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\')' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
+        _eval('%s = o_%s.model' % (vn_outfunc, vn_outfunc), nargout=0)
+        _eval('clear o_%s' % vn_outfunc, nargout=0)
+
     ds1 = idata._get_datashape()
     ds2 = ifunc._get_datashape()
     if ds1 != ds2:
         raise Exception("datashape mismatch: %s vs. %s" % (str(ds1), str(ds2)))
     if ds1 != tuple() or ds2 != tuple():
         raise Exception("vectorized version not implemented")
-
-    vn_oldfunc = ifunc.varname
-    vn_data = idata.varname
-    retobj = IFunc()
-    vn_newfunc = retobj.varname
-    _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\')' % (vn_newfunc, vn_data, vn_oldfunc, optimizer), nargout=0)
-
-    _eval('%s = o_%s.model' % (vn_newfunc, vn_newfunc), nargout=0)
-    _eval('clear o_%s' % vn_newfunc, nargout=0)
+ 
+    datashape = ds1
+    retobj = IFunc(datashape)
+    if datashape not in (None, tuple(),):
+        raise Exception("vectorized use of fit not supported")
+    else:
+        fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
     return retobj
 
 def combine(filenames:list, rank:int=0) -> IData:
