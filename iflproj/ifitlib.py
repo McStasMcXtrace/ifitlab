@@ -369,8 +369,6 @@ class IFunc(engintf.ObjReprJson):
         ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
         s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
         s = _npify_shape(s)
-        if s == tuple():
-            s = None
         return s
 
     def guess(self, guess: dict, rank:int=0):
@@ -608,7 +606,7 @@ def fit(idata: IData, ifunc: IFunc) -> IFunc:
     ds1 = idata._get_datashape()
     ds2 = ifunc._get_datashape()
     if ds1 != ds2:
-        raise Exception("datashape mismatch: %s vs. %s", (str(ds1), str(ds2)))
+        raise Exception("datashape mismatch: %s vs. %s" % (str(ds1), str(ds2)))
     if ds1 != tuple() or ds2 != tuple():
         raise Exception("vectorized version not implemented")
 
