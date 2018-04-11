@@ -128,7 +128,6 @@ class IData(engintf.ObjReprJson):
                 except:
                     pass
             xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
-            axesvals.append(xvals)
 
             signal = np.array(_eval('%s.Signal;' % varname, nargout=1)).astype(np.float)
             signal = np.reshape(signal, (1, len(signal)))[0].tolist()
@@ -138,7 +137,7 @@ class IData(engintf.ObjReprJson):
             except:
                 error = np.sqrt(signal).tolist()
 
-            pltdct = _get_plot_1D(axesvals, signal, error, xlabel='x', ylabel='y', title=self.varname)
+            pltdct = _get_plot_1D(xvals, signal, error, xlabel='x', ylabel='y', title=self.varname)
         elif ndims == 2:
             xvals = list(_eval('%s.%s;' % (varname, axes_names[0]) )[0])
             yvals = list(_eval('%s.%s;' % (varname, axes_names[1]) )[0])
@@ -160,6 +159,19 @@ class IData(engintf.ObjReprJson):
         infdct['ndims'] = "%d" % ndims
         return pltdct, infdct
 
+    def _get_axes_limits(self):
+        '''
+        returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax)
+        '''
+        plotdata = self.get_repr().get('plotdata', None)
+        if plotdata:
+            ndims = plotdata["ndims"]
+            if ndims == 1:
+                x = plotdata["x"]
+                return (np.min(x), np.max(x)), 1
+            elif ndims == 2:
+                return (plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax']), 2
+
     def _get_datashape(self):
         try:
             _eval("%s.Signal;" % self.varname, nargout=0)
@@ -172,7 +184,7 @@ class IData(engintf.ObjReprJson):
         retdct = self._get_full_repr_dict()
         # detect if we are a list or a plan iData object
         datashape = self._get_datashape()
-        
+
         if datashape in (None, tuple(),):
             pltdct, infdct = self._get_iData_repr()
         else:
@@ -217,7 +229,7 @@ def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
     p = params
     p['w'] = 326
     p['h'] = 220
-    p['x'] = axisvals[0]
+    p['x'] = axisvals
     p['y'] = signal
     p['yerr'] = yerr
     p['xlabel'] = xlabel
@@ -320,6 +332,8 @@ class IFunc(engintf.ObjReprJson):
             _eval("%s = zeros(%s, %s);" % (vn, symb, shape), nargout=0)
 
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
+        self._plotaxes = None
+        self._plotdims = None
 
         datashape = _npify_shape(datashape)
         if datashape not in [None, tuple()]:
@@ -331,16 +345,25 @@ class IFunc(engintf.ObjReprJson):
         else:
             create_ifunc(self.varname, symbol)
 
+    def _clear_plotaxes(self):
+        self._plotaxes = None
+        self._plotdims = None
+
+    def _set_plotaxes(self, axeslims, ndims):
+        self._plotaxes = axeslims
+        self._plotdims = ndims
+
     def get_repr(self):
-        
         datashape = self._get_datashape()
         retdct = self._get_full_repr_dict()
         retdct['info'] = {'datashape' : datashape}
         
         if datashape in [None, tuple()]:
+            # get parameter names and fvals
             vn = self.varname
             pkeys = _eval('%s.Parameters;' % vn, nargout=1)
             pvals = {}
+            vals = []
             for key in pkeys:
                 key0 = key.split(' ')[0] # it should always be key0
                 val = _eval('%s.%s' % (vn, key0), nargout=1)
@@ -352,7 +375,24 @@ class IFunc(engintf.ObjReprJson):
                     pvals[key0] = None
                 else:
                     pvals[key0] = val
+                    vals.append(val)
             retdct['userdata'] = pvals
+
+            # if we have plotaxes != None, get function evaluation fvals on those
+            if self._plotaxes and len(pkeys) == len(vals):
+                if self._plotdims == 1:
+                    
+                    xmin = self._plotaxes[0]
+                    xmax = self._plotaxes[1]
+                    parvalstr = ' '.join([str(v) for v in vals])
+                    fvals = _eval("feval(%s, [%s], linspace(%s, %s, 100))" % (vn, parvalstr, xmin, xmax), nargout=1)
+                    fvals = np.array(fvals[0]).tolist()
+                    xvals = np.linspace(xmin, xmax, 100).tolist()
+                    yerr = np.zeros(100).tolist()
+                    retdct['plotdata'] = _get_plot_1D(axisvals=xvals, signal=fvals, yerr=yerr, xlabel="x", ylabel="y", title="title")
+
+                elif self._plotdims == 2:
+                    pass
 
         return retdct
 
@@ -624,6 +664,9 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         _vectorized(shape, fit_atomic, vnargs, args, ndaargs)
     else:
         fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
+        # flag retobj to produce plotdata with the current idata axes
+        lims, ndims = idata._get_axes_limits()
+        retobj._set_plotaxes(lims, ndims)
     return retobj
 
 def combine(filenames:list, rank:int=0) -> IData:
