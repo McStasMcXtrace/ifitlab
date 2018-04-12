@@ -229,7 +229,7 @@ $(document).ready(() => {
       pltdata.title='';
       pltdata.w = width;
       pltdata.h = height;
-      if (pltdata.ndims == 1) plot_1d(pltdata, plotbranch);
+      if (pltdata.ndims == 1) new Plot1D(pltdata, plotbranch);
       if (pltdata.ndims == 2) plot_2d(pltdata, plotbranch);
 
       // add the @node_delete cleanup function
