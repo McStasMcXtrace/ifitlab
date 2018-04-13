@@ -208,12 +208,13 @@ $(document).ready(() => {
   $("#btnReset").click( () => { intface.reset() });
 
   // plot window handler
-  pltwhandler = new PlotWindowHandler(function(){});
+  plthandler = new PlotWindowHandler(function(){});
+
   // construct graph engine and add listeners
   intface = new GraphInterface();
   intface.addNodeRunReturnListener( (node) => {
     // clear previous subwindow elements with this id
-    let x_y = removeSubWindow(node.id);
+    let x_y = plthandler.removePlots(node.id);
 
     if (node.plotdata) {
       // create a subwindow now the coast is clear
@@ -224,11 +225,11 @@ $(document).ready(() => {
       if (x_y) { xpos=x_y[0]; ypos=x_y[1]; }
       let title = node.label + '(' + node.id + ')';
 
-      pltwhandler.newPlotwindow(xpos, ypos, node.id, node.plotdata)
+      plthandler.newPlotwindow(xpos, ypos, node.id, node.plotdata)
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {
-        pltwhandler.removePlots(id)
+        plthandler.removePlots(id)
       });
     }
 
