@@ -105,8 +105,8 @@ class PlotWindow {
       if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.plotbranch);
       if (this.ndims == 2) plot_2d(pltdata, plotbranch);
     } else {
-      if (pltdata.ndims == 1) this.plot.plotOneMore(plotdata);
-      if (pltdata.ndims == 2) throw "2D multiplot is not supported";
+      if (plotdata.ndims == 1) this.plot.plotOneMore(plotdata);
+      if (plotdata.ndims == 2) throw "2D multiplot is not supported";
     }
 
     // TODO: update window title
