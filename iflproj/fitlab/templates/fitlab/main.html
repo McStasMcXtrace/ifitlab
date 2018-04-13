@@ -207,6 +207,8 @@ $(document).ready(() => {
   $("#btnLoad").click( () => { intface.loadGraphDef() })
   $("#btnReset").click( () => { intface.reset() });
 
+  // plot window handler
+  pltwhandler = new PlotWindowHandler(function(){});
   // construct graph engine and add listeners
   intface = new GraphInterface();
   intface.addNodeRunReturnListener( (node) => {
@@ -221,20 +223,12 @@ $(document).ready(() => {
       let height = 220;
       if (x_y) { xpos=x_y[0]; ypos=x_y[1]; }
       let title = node.label + '(' + node.id + ')';
-      let subwinid_containerid = createSubWindow(node.id, title, xpos, ypos, width);
 
-      // plot into the subwindow
-      let plotbranch = d3.select('#'+subwinid_containerid[0]).append("svg");
-      let pltdata = node.plotdata;
-      pltdata.title='';
-      pltdata.w = width;
-      pltdata.h = height;
-      if (pltdata.ndims == 1) new Plot1D(pltdata, plotbranch);
-      if (pltdata.ndims == 2) plot_2d(pltdata, plotbranch);
+      pltwhandler.newPlotwindow(xpos, ypos, node.id, node.plotdata)
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {
-        if (id == node.id) $("#"+subwinid_containerid[1]).remove();
+        pltwhandler.removePlots(id)
       });
     }
 
