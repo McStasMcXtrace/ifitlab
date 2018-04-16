@@ -6,7 +6,7 @@ function removeSubWindow(wname) {
   $("#"+wname+"_container").remove();
   if (pos) return [pos.left, pos.top];
 }
-function createSubWindow(wname, title, xpos, ypos, width=330) {
+function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width=330, height=220) {
   let headerheight = 20;
   let container_id = wname + "_container";
   let container = $('<div id="ID">'.replace("ID", container_id))
@@ -30,8 +30,8 @@ function createSubWindow(wname, title, xpos, ypos, width=330) {
     })
     .appendTo('#'+container_id)
     .html(title);
-  let minmiz_id = wname + "_minmiz";
-  let minsquare = $('<div id="ID">'.replace("ID", minmiz_id))
+  let smallsquare_id = wname + "_minmiz";
+  let minsquare = $('<div id="ID">'.replace("ID", smallsquare_id))
     .css({
       position:"relative",
       left: (width-20)+"px",
@@ -50,14 +50,19 @@ function createSubWindow(wname, title, xpos, ypos, width=330) {
     .css({
       position:"relative",
       width:width+"px",
+      height:height+"px",
       "background-color":"white",
       "border-style":"dotted",
       "border-top":"none",
     })
-    .appendTo('#'+container_id);
+    .appendTo('#'+container_id)
+    .mouseup(mouseupCB);
 
-  $("#"+minmiz_id).click(() => {
-      $("#"+winbody_id).toggle(200);
+  $("#"+header_id).dblclick(() => {
+      $("#"+winbody_id).toggle();
+  });
+  $("#"+smallsquare_id).click(() => {
+      closeCB();
   });
   $("#"+container_id).draggable({
     cancel: "#"+winbody_id,
@@ -70,11 +75,12 @@ function createSubWindow(wname, title, xpos, ypos, width=330) {
 class PlotWindow {
   constructor(mouseUpCB, wname, xpos, ypos, nodeid=null, plotdata=null) {
     this.wname = wname; // the jq window handle/id or similar
-    this.mouseUpCB = () => { mouseUpCB(this) };
 
     let title = wname;
     if (nodeid) title = nodeid;
-    this.body_container = createSubWindow(wname, title, xpos, ypos)
+    let cb = function() { mouseUpCB(this); }.bind(this);
+    let close = this.close.bind(this);
+    this.body_container = createSubWindow(cb, close, wname, title, xpos, ypos);
 
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
@@ -120,6 +126,7 @@ class PlotWindow {
         pltdatas.push(plotdata);
       }
       this.plot.rePlotMany(pltdatas);
+      return true;
     }
   }
   close() {
@@ -133,37 +140,32 @@ class PlotWindow {
 }
 
 class PlotWindowHandler {
-  constructor(geIdPlotdataCB) {
+  // NOTE: the .bind(this) stuff is an emulation of the pythonic callback function style
+  constructor(getIdPlotdataCB) {
     this.idx = 0;
     this.plotWindows = [];
-
-    this.getIdPlotdataCB = geIdPlotdataCB; // expected to return node drag-from id and plotdata
+    this.getIdPlotdataCB = getIdPlotdataCB; // expected to return node drag-from id and plotdata
   }
   newPlotwindow(xpos, ypos, nodeid=null, plotdata=null) {
     let wname = "window_" + String(this.idx++);
     if (nodeid!=null &&plotdata != null) {
-      this.plotWindows.push(new PlotWindow(this._pwMouseUpCB, wname, xpos, ypos, nodeid, plotdata));
+      this.plotWindows.push(new PlotWindow(this._pwMouseUpCB.bind(this), wname, xpos, ypos, nodeid, plotdata));
     } else {
-      this.plotWindows.push(new PlotWindow(this._pwMouseUpCB, wname, xpos, ypos));
+      this.plotWindows.push(new PlotWindow(this._pwMouseUpCB.bind(this), wname, xpos, ypos));
     }
   }
   removePlots(id) {
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
-      pltw.removePlot(id);
-      if (pltw.numPlots() == 0) pltw.close();
+      let didremove = pltw.removePlot(id);
+      if (didremove && pltw.numPlots() == 0) pltw.close();
     }
   }
   getAllPlots() {
     // just returns all plots with data in them, as they are
   }
   _pwMouseUpCB(pltw) {
-    // add a plot to this window if a drag is active
     let uisays = this.getIdPlotdataCB();
-    if (uisays) {
-      let id = idPlotData.id;
-      let plotdata = idPlotData.plotdata;
-      wdw.addPlot(id, plotdata);
-    }
+    if (uisays) pltw.addPlot(uisays.id, uisays.plotdata);
   }
 }

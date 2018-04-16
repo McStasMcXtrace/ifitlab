@@ -88,6 +88,7 @@
   <button id="btnUndo">Undo</button>
   <button id="btnRedo">Redo</button>
   <button id="btnRun">Run</button>
+  <button id="btnPlot">Plot</button>
   <button id="btnSave">Save</button>
   <button id="btnLoad">Load</button>
   <button id="btnReset">Clear</button>
@@ -195,6 +196,7 @@ setUserData = function(node) {
   }
 }
 
+
 let intface = null;
 let menu = null;
 
@@ -203,12 +205,16 @@ $(document).ready(() => {
   $("#btnUndo").click( () => { intface.undo() });
   $("#btnRedo").click( () => { intface.redo() });
   $("#btnRun").click( () => { intface.runSelectedNode() });
+  $("#btnPlot").click( () => { plthandler.newPlotwindow(480, 100); });
   $("#btnSave").click( () => { intface.saveGraphDef() });
   $("#btnLoad").click( () => { intface.loadGraphDef() })
   $("#btnReset").click( () => { intface.reset() });
 
   // plot window handler
-  plthandler = new PlotWindowHandler(function(){});
+  plthandler = new PlotWindowHandler(() => {
+    let n = intface.getSelectedNode();
+    if (n) return { "id" : n.id, "plotdata" : n.plotdata, };
+  });
 
   // construct graph engine and add listeners
   intface = new GraphInterface();
