@@ -873,6 +873,7 @@ class GraphDraw {
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
       .style("cursor", "pointer")
+      .attr("class", "noselect")
       .lower();
 
     // draw nodes (by delegation & strategy)
