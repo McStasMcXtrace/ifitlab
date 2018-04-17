@@ -8,6 +8,11 @@
     stroke-dasharray: 10,6;
     pointer-events: none;
   }
+  .plotLine {
+    stroke: black;
+    stroke-dasharray: 2,3;
+    pointer-events: none;
+  }
 
   .noselect {
     -webkit-touch-callout: none; /* iOS Safari */
@@ -221,12 +226,6 @@ $(document).ready(() => {
   $("#btnLoad").click( () => { intface.loadGraphDef() })
   $("#btnReset").click( () => { intface.reset() });
 
-  // plot window handler
-  plthandler = new PlotWindowHandler(() => {
-    let n = intface.getSelectedNode();
-    if (n) return { "id" : n.id, "plotdata" : n.plotdata, };
-  });
-
   // construct graph engine and add listeners
   intface = new GraphInterface();
   intface.addNodeRunReturnListener( (node) => {
@@ -254,6 +253,18 @@ $(document).ready(() => {
       setUserData(intface.getSelectedNode());
     }
   }, null);
+
+  // lines from nodes to plotwindows handler
+  plotlines = new PlotLines(intface.draw.svg);
+  intface.addNodeMouseDownListn(plotlines.nodeMouseDown.bind(plotlines));
+  intface.draw.addDrawListener(plotlines.draw.bind(plotlines));
+  intface.draw.addUpdateListener(plotlines.update.bind(plotlines));
+
+  // plot window handler
+  plthandler = new PlotWindowHandler(() => {
+    let n = intface.getSelectedNode();
+    if (n) return { "id" : n.id, "plotdata" : n.plotdata, };
+  }, plotlines);
 
   // user data controls
   let lft = window.innerWidth - $("#divUserData").width();

@@ -668,6 +668,22 @@ class GraphDraw {
     this.paths = null;
     this.anchors = null;
     this.arrowHeads = null;
+
+    // listeners
+    this._updateListn = [];
+    this._drawListn = [];
+  }
+  addUpdateListener(listener) {
+    this._updateListn.push(listener);
+  }
+  addDrawListener(listener) {
+    this._drawListn.push(listener);
+  }
+  _callUpdateListeners() {
+    for (let i=0;i<this._updateListn.length;i++) this._updateListn[i]();
+  }
+  _callDrawListeners() {
+    for (let i=0;i<this._drawListn.length;i++) this._drawListn[i]();
   }
   recenter() {
     // unwanted, test-only explicit reference to #buttons
@@ -727,6 +743,8 @@ class GraphDraw {
 
     d.x += d3.event.dx;
     d.y += d3.event.dy;
+
+    self._callUpdateListeners();
   }
   dragstarted(d) {
     self.restartCollideSim();
@@ -819,6 +837,8 @@ class GraphDraw {
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; });
     */
+
+    self._callUpdateListeners();
   }
   static drawNodes(branch) {
     // draw anchor nodes
@@ -918,7 +938,7 @@ class GraphDraw {
         self.executeNodeCB(node);
       })
       .on("mousedown", function(d) {
-        self.nodeMouseDownCB(d.owner.id, d.x, d.y);
+        self.nodeMouseDownCB(d.owner.id, d);
       });
 
     self.nodes = GraphDraw.drawNodes(self.draggable);
@@ -950,6 +970,9 @@ class GraphDraw {
       .attr("r", 5)
       .attr("fill", "black");
     */
+
+    // call draw callbacks
+    self._callDrawListeners();
 
     // recenter everything
     self.recenter();
@@ -1255,6 +1278,7 @@ class NodeIData extends NodeObject {
   static get basetype() { return "object_idata"; }
   get basetype() { return NodeIData.basetype; }
   static get prefix() { return "id"; }
+
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf, 'IData');
   }
@@ -1305,8 +1329,9 @@ class NodeFunctional extends Node {
 // high/user-level interface to graph data and drawing
 //
 class GraphInterface {
-  constructor() {
-    //this.graphData = new GraphData();
+  constructor(plotlines) {
+    this.plotlines = plotlines;
+
     this.graphData = new GraphTree(ConnRulesBasic);
     let linkCB = this._tryCreateLink.bind(this);
     let delNodeCB = this._delNodeAndLinks.bind(this);
@@ -1404,8 +1429,7 @@ class GraphInterface {
     this.updateUi();
   }
   _nodeMouseDownCB(id, x, y) {
-    console.log("intface mousedown: ", id, x, y);
-    // TODO: implement
+    this._fireEvents(this._nodeMouseDownListn, [id, x, y]);
   }
   _fireEvents(lst, args=[]) {
     for (var i=0; i<lst.length; i++) {

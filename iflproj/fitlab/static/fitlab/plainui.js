@@ -73,10 +73,10 @@ function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width, he
   return [winbody_id, container_id];
 }
 
-
 class PlotWindow {
+  // keeps track of, draws and updates, all helper lines going from nodes to plot windows
   constructor(mouseUpCB, wname, xpos, ypos, nodeid=null, plotdata=null) {
-    this.wname = wname; // the jq window handle/id or similar
+    this.wname = wname;
 
     let title = wname;
     if (nodeid) title = nodeid;
@@ -89,7 +89,7 @@ class PlotWindow {
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
     this.ndims = null;
-    this.data = {}; // contains id: plotdata
+    this.data = {}; // { id : plotdata }
 
     if (nodeid != null && plotdata != null) {
       this.addPlot(nodeid, plotdata)
@@ -151,62 +151,101 @@ class PlotWindow {
 }
 
 class PlotLines {
-  constructor() {
-    this.lines = {} // { [nid, wid] : [x0, y0, x1, y1] }
+  constructor(svg_root) {
+    this.svg = svg_root;
+    this.lines = svg_root.append("g")
+      .lower();
 
-    this.linefrom_x = null;
-    this.linefrom_y = null;
-    this.nid = null;
-    this.lineto_x = null;
-    this.lineto_y = null;
-    // wid is not needed to be stored, and nid is cleared after us
+    this.ids = [];
+    this.coords = [];
+    this.gnodefrom = null;
+    this.nidfrom = null;
   }
-  getLineData() {
-    data = [];
-    for (nid_wid in this.lines) data.push(this.lines[nid_wid])
-    return this.data;
+  draw() {
+    if (this.coords.length == 0) return;
+    this.lines
+      .selectAll("line")
+      .data(this.coords)
+      .enter()
+      .append("line")
+      .attr("x1", function(d) { return d[0].x })
+      .attr("y1", function(d) { return d[0].y })
+      .attr("x2", function(d) { console.log(d[1].x); return d[1].x })
+      .attr("y2", function(d) { return d[1].y })
+      .classed("plotLine", true);
   }
-  setLineFrom(x, y, nid) {
+  update() {
+    this.lines
+      .selectAll("line")
+      .data(this.coords)
+      .attr("x1", function(d) { return d[0].x })
+      .attr("y1", function(d) { return d[0].y })
+      .attr("x2", function(d) { console.log(d[1].x); return d[1].x })
+      .attr("y2", function(d) { return d[1].y });
+  }
+  nodeMouseDown(id, gNode)  {
+    this.setLineFrom(id, gNode)
+    this.svg
+      .on("mouseup", function() {
+        this.clearLineFrom();
+      }.bind(this) );
+  }
+  setLineFrom(nid, gNode) {
+    console.log("setLineFrom called: ", nid)
     // x and y are pointers to a node position
-    this.linefrom_x = x;
-    this.linefrom_y = y;
-    this.nid = nid;
+    this.gnodefrom = gNode;
+    this.nidfrom = nid;
   }
   clearLineFrom() {
-    this.linefrom_x = null;
-    this.linefrom_y = null;
-    this.nid = null;
+    this.gnodefrom = null;
+    this.nidfrom = null;
   }
-  getLineFrom() {
-    return { "x" : this.linefrom_x, "y" : this.linefrom_y }
-  }
-  setLineToAndCloseData(x, y, wid) {
-    // x and y are pointers to a plotwindow position
+  setLineToAndCloseData(wid, pltw) {
+    // safeties
+    if (!this.nidfrom || !wid || !this.gnodefrom || !pltw) {
+      console.log("setLineToAndCloseData misconfigured call")
+      return;
+    }
+
     // clear and return if such a data entry already exists
-    for (nid_wid in this.lines) {
+    for (let i=0;i<this.ids.length;i++) {
+      let nid_wid = this.ids[i];
       if (nid_wid[0] == this.nid && nid_wid[1] == wid) {
         this.clearLineFrom();
         return;
       }
     }
-    this.data[ [this.nid, wid] ] = [this.linefrom_x, this.linefrom_y, this.lineto_x, this.lineto_y];
-    this.clearLineFrom()
+
+    this.ids.push([this.nidfrom, wid]);
+    this.coords.push([this.gnodefrom, pltw]);
+    this.clearLineFrom();
+
+    this.draw();
   }
-  clearLinesNid(node_id) {
-    for (nid_wid in this.lines) {
-      if (nid_wid[0] == node_id) delete this.lines[nid_wid];
+  removeLinesByNid(node_id) {
+    let node_ids = this.ids.map(e => e[0]);
+    while (node_ids.indexOf(node_id) >= 0) {
+      let idx = node_ids.indexOf(node_id);
+      this.ids.splice(idx, 1);
+      this.coords.splice(idx, 1);
+      node_ids.splice(idx, 1);
     }
   }
-  clearLinesWid(window_id) {
-    for (nid_wid in this.lines) {
-      if (nid_wid[1] == node_id) delete this.lines[nid_wid];
+  removeLinesByWid(window_id) {
+    let w_ids = this.ids.map(e => e[1]);
+    while (w_ids.indexOf(window_id) >= 0) {
+      let idx = w_ids.indexOf(window_id);
+      this.ids.splice(idx, 1);
+      this.coords.splice(idx, 1);
+      w_ids.splice(idx, 1);
     }
   }
 }
 
 class PlotWindowHandler {
   // NOTE: the .bind(this) stuff is an emulation of the pythonic callback function style
-  constructor(getIdPlotdataCB) {
+  constructor(getIdPlotdataCB, plotlines) {
+    this.plotlines = plotlines;
     this.idx = 0;
     this.plotWindows = [];
     this.getIdPlotdataCB = getIdPlotdataCB; // expected to return node drag-from id and plotdata
@@ -232,5 +271,6 @@ class PlotWindowHandler {
   _pwMouseUpCB(pltw) {
     let uisays = this.getIdPlotdataCB();
     if (uisays) pltw.addPlot(uisays.id, uisays.plotdata);
+    this.plotlines.setLineToAndCloseData(pltw.wname, pltw);
   }
 }
