@@ -29,7 +29,8 @@ function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width=330
       display:"inline-block",
     })
     .appendTo('#'+container_id)
-    .html(title);
+    .html(title)
+    .addClass("noselect");
   let smallsquare_id = wname + "_minmiz";
   let minsquare = $('<div id="ID">'.replace("ID", smallsquare_id))
     .css({
@@ -108,7 +109,7 @@ class PlotWindow {
     plotdata.h = 220;
 
     if (this.plot == null) {
-      if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.plotbranch);
+      if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.plotbranch, () => {});
       if (this.ndims == 2) plot_2d(pltdata, plotbranch);
     } else {
       if (plotdata.ndims == 1) this.plot.plotOneMore(plotdata);

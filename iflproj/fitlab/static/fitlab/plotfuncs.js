@@ -116,6 +116,7 @@ class Plot1D {
       .scale(xScale);
     var xAxisGroup = pltOrigoAnchor.append("g")
       .attr("transform", "translate(0," + y0 + ")")
+      .classed("noselect", true)
       .call(xAxis);
 
     var yScale = d3.scaleLinear()
@@ -127,6 +128,7 @@ class Plot1D {
       .scale(yScale);
     var yAxisGroup = pltOrigoAnchor.append("g")
       .attr("transform", "translate(" + x0 + ", 0)")
+      .classed("noselect", true)
       .call(yAxis);
 
     this.last_xScale = xScale;
@@ -204,7 +206,8 @@ function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
     .text(xlabel)
     .attr("dominant-baseline", "middle")
     .attr("text-anchor", "middle")
-    .style("font-size",fontSizeStr);
+    .style("font-size",fontSizeStr)
+    .classed("noselect", true);
 
   var yLabelGrp = lblGroup
     .append("text")
@@ -212,7 +215,8 @@ function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
     .attr("y", ylaby)
     .text(ylabel)
     .attr("text-anchor", "middle")
-    .style("font-size",fontSizeStr);
+    .style("font-size",fontSizeStr)
+    .classed("noselect", true);
 
   var dt = titleGrp.node().getBBox().height;
   var dl = yLabelGrp.node().getBBox().height; // height and width are confused here, due to the rotation
@@ -318,6 +322,7 @@ function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbM
     .scale(xScale);
   var xAxisGroup = anchorElement.append("g")
     .attr("transform", "translate(0," + y0 + ")")
+    .classed("noselect", true)
     .call(xAxis);
 
   var yScale = d3.scaleLinear()
@@ -329,6 +334,7 @@ function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbM
     .scale(yScale);
   var yAxisGroup = anchorElement.append("g")
     .attr("transform", "translate(" + x0 + ", 0)")
+    .classed("noselect", true)
     .call(yAxis);
 
   var pointGroup = anchorElement.append("g")
