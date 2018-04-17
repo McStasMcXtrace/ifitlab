@@ -94,6 +94,7 @@ class PlotWindow {
   }
   addPlot(nodeid, plotdata) {
     // safeties
+    if (nodeid in this.data) return;
     if (this.ndims == null) this.ndims = plotdata.ndims;
     else if (this.ndims != plotdata.ndims) return;
 
