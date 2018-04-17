@@ -6,7 +6,7 @@ function removeSubWindow(wname) {
   $("#"+wname+"_container").remove();
   if (pos) return [pos.left, pos.top];
 }
-function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width=330, height=220) {
+function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width, height) {
   let headerheight = 20;
   let container_id = wname + "_container";
   let container = $('<div id="ID">'.replace("ID", container_id))
@@ -73,6 +73,7 @@ function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width=330
   return [winbody_id, container_id];
 }
 
+
 class PlotWindow {
   constructor(mouseUpCB, wname, xpos, ypos, nodeid=null, plotdata=null) {
     this.wname = wname; // the jq window handle/id or similar
@@ -81,7 +82,9 @@ class PlotWindow {
     if (nodeid) title = nodeid;
     let cb = function() { mouseUpCB(this); }.bind(this);
     let close = this.close.bind(this);
-    this.body_container = createSubWindow(cb, close, wname, title, xpos, ypos);
+    this.width = 330;
+    this.height = 220;
+    this.body_container = createSubWindow(cb, close, wname, title, xpos, ypos, this.width, this.height);
 
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
@@ -91,6 +94,12 @@ class PlotWindow {
     if (nodeid != null && plotdata != null) {
       this.addPlot(nodeid, plotdata)
     }
+  }
+  get x() {
+    return $("#"+this.body_container[1]).position().left + this.width/2;
+  }
+  get y() {
+    return $("#"+this.body_container[1]).position().top + this.height/2;
   }
   addPlot(nodeid, plotdata) {
     // safeties
@@ -106,8 +115,8 @@ class PlotWindow {
 
     // plot
     plotdata.title='';
-    plotdata.w = 330;
-    plotdata.h = 220;
+    plotdata.w = this.width;
+    plotdata.h = this.height;
 
     if (this.plot == null) {
       if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.plotbranch, () => {});
@@ -138,6 +147,60 @@ class PlotWindow {
     let n = 0
     for (let id in this.data) n++;
     return n;
+  }
+}
+
+class PlotLines {
+  constructor() {
+    this.lines = {} // { [nid, wid] : [x0, y0, x1, y1] }
+
+    this.linefrom_x = null;
+    this.linefrom_y = null;
+    this.nid = null;
+    this.lineto_x = null;
+    this.lineto_y = null;
+    // wid is not needed to be stored, and nid is cleared after us
+  }
+  getLineData() {
+    data = [];
+    for (nid_wid in this.lines) data.push(this.lines[nid_wid])
+    return this.data;
+  }
+  setLineFrom(x, y, nid) {
+    // x and y are pointers to a node position
+    this.linefrom_x = x;
+    this.linefrom_y = y;
+    this.nid = nid;
+  }
+  clearLineFrom() {
+    this.linefrom_x = null;
+    this.linefrom_y = null;
+    this.nid = null;
+  }
+  getLineFrom() {
+    return { "x" : this.linefrom_x, "y" : this.linefrom_y }
+  }
+  setLineToAndCloseData(x, y, wid) {
+    // x and y are pointers to a plotwindow position
+    // clear and return if such a data entry already exists
+    for (nid_wid in this.lines) {
+      if (nid_wid[0] == this.nid && nid_wid[1] == wid) {
+        this.clearLineFrom();
+        return;
+      }
+    }
+    this.data[ [this.nid, wid] ] = [this.linefrom_x, this.linefrom_y, this.lineto_x, this.lineto_y];
+    this.clearLineFrom()
+  }
+  clearLinesNid(node_id) {
+    for (nid_wid in this.lines) {
+      if (nid_wid[0] == node_id) delete this.lines[nid_wid];
+    }
+  }
+  clearLinesWid(window_id) {
+    for (nid_wid in this.lines) {
+      if (nid_wid[1] == node_id) delete this.lines[nid_wid];
+    }
   }
 }
 

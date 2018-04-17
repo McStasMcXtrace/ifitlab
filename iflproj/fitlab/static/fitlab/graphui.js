@@ -573,7 +573,7 @@ class LinkDouble extends Link {
 
 // responsible for drawing, and acts as an interface
 class GraphDraw {
-  constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB) {
+  constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB, nodeMouseDownCB) {
     self = this;
 
     this.graphData = graphData; // this is needed for accessing anchors and nodes for drawing and simulations
@@ -582,6 +582,7 @@ class GraphDraw {
     this.selectNodeCB = selectNodeCB;
     this.executeNodeCB = executeNodeCB;
     this.createNodeCB = createNodeCB;
+    this.nodeMouseDownCB = nodeMouseDownCB; // this is used for PlotLines implementation, and can implicitly influence plotlines drawing
 
     this.svg = d3.select('body')
       .append('svg')
@@ -915,6 +916,9 @@ class GraphDraw {
       .on("dblclick", function() {
         let node = d3.select(this).datum();
         self.executeNodeCB(node);
+      })
+      .on("mousedown", function(d) {
+        self.nodeMouseDownCB(d.owner.id, d.x, d.y);
       });
 
     self.nodes = GraphDraw.drawNodes(self.draggable);
@@ -1309,7 +1313,8 @@ class GraphInterface {
     let selNodeCB = this._selNodeCB.bind(this);
     let exeNodeCB = this._exeNodeCB.bind(this);
     let createNodeCB = this._createNodeCB.bind(this);
-    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, createNodeCB);
+    let nodeMouseDownCB = this._nodeMouseDownCB.bind(this);
+    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, createNodeCB, nodeMouseDownCB);
     this.truth = ConnRulesBasic;
 
     // id, node dict,for high-level nodes
@@ -1327,6 +1332,7 @@ class GraphInterface {
     this._nodeCreateListn = [];
     this._nodeDeletedListn = [];
     this._nodeRunReturnListn = [];
+    this._nodeMouseDownListn = [];
 
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
     this.locked = false;
@@ -1354,6 +1360,9 @@ class GraphInterface {
   }
   addNodeSelectionListener(listener, rmfunc=null) {
     if (listener) this._nodeSelectionListn.push([listener, rmfunc]);
+  }
+  addNodeMouseDownListn(listener, rmfunc=null) {
+    if (listener) this._nodeMouseDownListn.push([listener, rmfunc]);
   }
   _selNodeCB(node) {
     let n = null;
@@ -1393,6 +1402,10 @@ class GraphInterface {
     this._fireEvents(this._nodeDeletedListn, [id]);
     this.draw.restartCollideSim();
     this.updateUi();
+  }
+  _nodeMouseDownCB(id, x, y) {
+    console.log("intface mousedown: ", id, x, y);
+    // TODO: implement
   }
   _fireEvents(lst, args=[]) {
     for (var i=0; i<lst.length; i++) {
