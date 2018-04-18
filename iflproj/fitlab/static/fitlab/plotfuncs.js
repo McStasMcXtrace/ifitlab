@@ -1,13 +1,13 @@
 class Plot1D {
-  constructor(params, svg_branch=null) {
+  constructor(params, svg_branch=null, log=false) {
     let p = params;
     this.params_lst = [params];
-    let hdl = _draw_labels(p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch);
+    this.hdl = _draw_labels(p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch);
 
-    let xmin = d3.min(p['x']);
-    let xmax = d3.max(p['x']);
-    let ymin = d3.min(p['y']);
-    let ymax = d3.max(p['y']);
+    this.xmin = d3.min(p['x']);
+    this.xmax = d3.max(p['x']);
+    this.ymin = d3.min(p['y']);
+    this.ymax = d3.max(p['y']);
 
     this.x_lst = [p['x']];
     this.y_lst = [p['y']];
@@ -17,11 +17,20 @@ class Plot1D {
     this.last_xScale = null;
     this.last_yScale = null;
 
-    this._draw_1d_axes(hdl.wplt, hdl.hplt, xmin, xmax, ymin, ymax, hdl.axisGroup,
-      (ptGroup, xScl, yScl) => {
-        this._drawPoints(xScl, yScl);
-      }
+    this.logscale = log;
+
+    this._draw_1d_axes(
+      this.hdl.wplt, this.hdl.hplt, this.xmin, this.xmax, this.ymin, this.ymax, this.hdl.axisGroup,
+      (ptGroup, xScl, yScl) => { this._drawPoints(xScl, yScl); }
     );
+  }
+  toggleLogscale() {
+    this.logscale = !this.logscale;
+    this._draw_1d_axes(
+      this.hdl.wplt, this.hdl.hplt, this.xmin, this.xmax, this.ymin, this.ymax, this.hdl.axisGroup,
+      (ptGroup, xScl, yScl) => { this._drawPoints(xScl, yScl); }
+    );
+    this.rePlotMany(this.params_lst);
   }
   rePlotMany(params_lst) {
     this.x_lst = params_lst.map(p => p['x']);
@@ -44,7 +53,13 @@ class Plot1D {
     // draw
     for (var j=0;j<this.x_lst.length;j++) {
       let x = this.x_lst[j];
-      let y = this.y_lst[j];
+      let y = null;
+      if (this.logscale==true) {
+        y = this.y_lst[j].map(y=>y+0.001);
+      }
+      else {
+        y = this.y_lst[j];
+      }
       let yErrData = this.yErrData_lst[j];
 
       // points
@@ -75,6 +90,9 @@ class Plot1D {
     }
   }
   _draw_1d_axes(w, h, xmin, xmax, ymin, ymax, pltOrigoAnchor, drawpointsCB) {
+    // clear the branch we are working on
+    pltOrigoAnchor.selectAll("*").remove();
+
     // axis span points
     let x0 = 0;
     let y0 = h;
@@ -119,9 +137,16 @@ class Plot1D {
       .classed("noselect", true)
       .call(xAxis);
 
-    var yScale = d3.scaleLinear()
-      .domain([ymin, ymax])
-      .range([y0, y1]);
+    if (this.logscale==true) {
+      var yScale = d3.scaleLog()
+        .domain([ymin+0.01, ymax])
+        .range([y0, y1])
+        .base(10);
+    } else {
+      var yScale = d3.scaleLinear()
+        .domain([ymin, ymax])
+        .range([y0, y1]);
+    }
     var yAxis = d3.axisLeft()
       .ticks(5)
       .tickFormat(d3.format(".1e"))

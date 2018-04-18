@@ -6,7 +6,7 @@ function removeSubWindow(wname) {
   $("#"+wname+"_container").remove();
   if (pos) return [pos.left, pos.top];
 }
-function createSubWindow(mouseupCB, mouseMoveCB, closeCB, wname, title, xpos, ypos, width, height) {
+function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, title, xpos, ypos, width, height) {
   let headerheight = 20;
   let container_id = wname + "_container";
   let container = $('<div id="ID">'.replace("ID", container_id))
@@ -46,6 +46,28 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, wname, title, xpos, yp
       "border-style":"solid",
     })
     .appendTo('#'+header_id);
+
+  let logbtn_id = null;
+  let logbtn = null;
+  if (logscaleCB != null) {
+    logbtn_id = wname + "_logbtn";
+    logbtn = $('<div id="ID" title="Toggle logscale">'.replace("ID", logbtn_id))
+    .css({
+      position:"relative",
+      left: (width-38)+"px",
+      top:"0px",
+      width:headerheight+"px",
+      height:headerheight+"px",
+      "margin-top":"-26px",
+      "margin-left":"-9px",
+      cursor:"pointer",
+      "background-color":"lightgray",
+      "border-style":"solid",
+    })
+    //.tooltip( )
+    .appendTo('#'+header_id);
+  }
+
   let winbody_id = wname + "_body";
   let winbody = $('<div id="ID">'.replace("ID", winbody_id))
     .css({
@@ -65,6 +87,11 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, wname, title, xpos, yp
   $("#"+smallsquare_id).click(() => {
       closeCB();
   });
+  if (logbtn_id != null) {
+    $("#"+logbtn_id).click(() => {
+      logscaleCB();
+    });
+  }
 
   var isDragging = false;
   let maybeDragging = false;
@@ -103,9 +130,10 @@ class PlotWindow {
     let mouseupCB = function() { mouseUpCB(this); }.bind(this);
     let dragCB = function() { dragWindowCB(this) }.bind(this);
     let closeCB = this.close.bind(this);
+    let logscaleCB = this._logscaleCB.bind(this);
     this.width = 330;
     this.height = 220;
-    this.body_container = createSubWindow(mouseupCB, dragCB, closeCB, wname, title, xpos, ypos, this.width, this.height);
+    this.body_container = createSubWindow(mouseupCB, dragCB, closeCB, logscaleCB, wname, title, xpos, ypos, this.width, this.height);
 
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
@@ -115,6 +143,9 @@ class PlotWindow {
     if (nodeid != null && plotdata != null) {
       this.addPlot(nodeid, plotdata)
     }
+  }
+  _logscaleCB() {
+    if (this.ndims == 1) this.plot.toggleLogscale();
   }
   get x() {
     let pos = $("#"+this.body_container[1]).position();
@@ -146,7 +177,7 @@ class PlotWindow {
     plotdata.h = this.height;
 
     if (this.plot == null) {
-      if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.plotbranch, () => {});
+      if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.plotbranch);
       if (this.ndims == 2) plot_2d(pltdata, plotbranch);
     } else {
       if (plotdata.ndims == 1) this.plot.plotOneMore(plotdata);
