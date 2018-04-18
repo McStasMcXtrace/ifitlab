@@ -6,7 +6,7 @@ function removeSubWindow(wname) {
   $("#"+wname+"_container").remove();
   if (pos) return [pos.left, pos.top];
 }
-function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width, height) {
+function createSubWindow(mouseupCB, mouseMoveCB, closeCB, wname, title, xpos, ypos, width, height) {
   let headerheight = 20;
   let container_id = wname + "_container";
   let container = $('<div id="ID">'.replace("ID", container_id))
@@ -65,9 +65,28 @@ function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width, he
   $("#"+smallsquare_id).click(() => {
       closeCB();
   });
-  $("#"+container_id).draggable({
+
+  var isDragging = false;
+  let maybeDragging = false;
+  $("#"+container_id)
+  .draggable({
     cancel: "#"+winbody_id,
     containment: "body",
+  })
+  .mousedown(function() {
+    isDragging = false;
+    maybeDragging = true;
+  })
+  .mousemove(() => {
+    if (maybeDragging && isDragging) mouseMoveCB(); else isDragging = true;
+  })
+  .mouseup(function() {
+    maybeDragging = false;
+    var wasDragging = isDragging;
+    isDragging = false;
+    if (!wasDragging) {
+        $("#throbble").toggle();
+    }
   });
 
   return [winbody_id, container_id];
@@ -75,16 +94,18 @@ function createSubWindow(mouseupCB, closeCB, wname, title, xpos, ypos, width, he
 
 class PlotWindow {
   // keeps track of, draws and updates, all helper lines going from nodes to plot windows
-  constructor(mouseUpCB, wname, xpos, ypos, nodeid=null, plotdata=null) {
+  constructor(mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos, nodeid=null, plotdata=null) {
     this.wname = wname;
+    this._closeOuterCB = closeOuterCB;
 
     let title = wname;
     if (nodeid) title = nodeid;
-    let cb = function() { mouseUpCB(this); }.bind(this);
-    let close = this.close.bind(this);
+    let mouseupCB = function() { mouseUpCB(this); }.bind(this);
+    let dragCB = function() { dragWindowCB(this) }.bind(this);
+    let closeCB = this.close.bind(this);
     this.width = 330;
     this.height = 220;
-    this.body_container = createSubWindow(cb, close, wname, title, xpos, ypos, this.width, this.height);
+    this.body_container = createSubWindow(mouseupCB, dragCB, closeCB, wname, title, xpos, ypos, this.width, this.height);
 
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
@@ -96,13 +117,19 @@ class PlotWindow {
     }
   }
   get x() {
-    return $("#"+this.body_container[1]).position().left + this.width/2;
+    let pos = $("#"+this.body_container[1]).position();
+    if (pos) return pos.left + this.width/2;
   }
   get y() {
-    return $("#"+this.body_container[1]).position().top + this.height/2;
+    let pos = $("#"+this.body_container[1]).position();
+    if (pos) return pos.top + this.height/2;
   }
   addPlot(nodeid, plotdata) {
     // safeties
+    if (!plotdata || !nodeid) {
+      console.log("empty addPlot requested");
+      return;
+    }
     if (nodeid in this.data) return;
     if (this.ndims == null) this.ndims = plotdata.ndims;
     else if (this.ndims != plotdata.ndims) return;
@@ -142,6 +169,7 @@ class PlotWindow {
   }
   close() {
     removeSubWindow(this.wname);
+    this._closeOuterCB(this);
   }
   numPlots() {
     let n = 0
@@ -162,6 +190,7 @@ class PlotLines {
     this.nidfrom = null;
   }
   draw() {
+    this.lines.selectAll("line").remove();
     if (this.coords.length == 0) return;
     this.lines
       .selectAll("line")
@@ -170,7 +199,7 @@ class PlotLines {
       .append("line")
       .attr("x1", function(d) { return d[0].x })
       .attr("y1", function(d) { return d[0].y })
-      .attr("x2", function(d) { console.log(d[1].x); return d[1].x })
+      .attr("x2", function(d) { return d[1].x })
       .attr("y2", function(d) { return d[1].y })
       .classed("plotLine", true);
   }
@@ -180,21 +209,16 @@ class PlotLines {
       .data(this.coords)
       .attr("x1", function(d) { return d[0].x })
       .attr("y1", function(d) { return d[0].y })
-      .attr("x2", function(d) { console.log(d[1].x); return d[1].x })
+      .attr("x2", function(d) { return d[1].x })
       .attr("y2", function(d) { return d[1].y });
   }
-  nodeMouseDown(id, gNode)  {
-    this.setLineFrom(id, gNode)
+  dragFromNode(id, gNode)  {
+    this.gnodefrom = gNode;
+    this.nidfrom = id;
     this.svg
       .on("mouseup", function() {
         this.clearLineFrom();
       }.bind(this) );
-  }
-  setLineFrom(nid, gNode) {
-    console.log("setLineFrom called: ", nid)
-    // x and y are pointers to a node position
-    this.gnodefrom = gNode;
-    this.nidfrom = nid;
   }
   clearLineFrom() {
     this.gnodefrom = null;
@@ -203,7 +227,7 @@ class PlotLines {
   setLineToAndCloseData(wid, pltw) {
     // safeties
     if (!this.nidfrom || !wid || !this.gnodefrom || !pltw) {
-      console.log("setLineToAndCloseData misconfigured call")
+      console.log("new plotline skipped");
       return;
     }
 
@@ -244,18 +268,33 @@ class PlotLines {
 
 class PlotWindowHandler {
   // NOTE: the .bind(this) stuff is an emulation of the pythonic callback function style
-  constructor(getIdPlotdataCB, plotlines) {
+  constructor(plotlines) {
     this.plotlines = plotlines;
     this.idx = 0;
     this.plotWindows = [];
-    this.getIdPlotdataCB = getIdPlotdataCB; // expected to return node drag-from id and plotdata
+
+    // used for drag-and-drop plotting
+    this.tmpPlotdata = null;
+    this.tmpNodeid = null;
   }
-  newPlotwindow(xpos, ypos, nodeid=null, plotdata=null) {
+  newPlotwindow(xpos, ypos, nodeid=null, plotdata=null, gNode=null) {
     let wname = "window_" + String(this.idx++);
-    if (nodeid!=null &&plotdata != null) {
-      this.plotWindows.push(new PlotWindow(this._pwMouseUpCB.bind(this), wname, xpos, ypos, nodeid, plotdata));
+    if (nodeid != null && plotdata != null) {
+      let pltw = new PlotWindow(
+        this._pwMouseUpCB.bind(this),
+        this._pwDragCB.bind(this),
+        this._closePltWindowCleanup.bind(this),
+        wname, xpos, ypos, nodeid, plotdata);
+      this.plotWindows.push(pltw);
+      if (gNode != null) {
+        this.plotlines.dragFromNode(nodeid, gNode);
+        this.plotlines.setLineToAndCloseData(pltw.wname, pltw);
+      }
     } else {
-      this.plotWindows.push(new PlotWindow(this._pwMouseUpCB.bind(this), wname, xpos, ypos));
+      this.plotWindows.push(new PlotWindow(
+        this._pwMouseUpCB.bind(this),
+        this._closePltWindowCleanup.bind(this),
+        wname, xpos, ypos));
     }
   }
   removePlots(id) {
@@ -268,9 +307,20 @@ class PlotWindowHandler {
   getAllPlots() {
     // just returns all plots with data in them, as they are
   }
+  nodeMouseDown(nid, gNode, plotdata) {
+    this.tmpPlotdata = plotdata;
+    this.tmpNodeid = nid;
+    this.plotlines.dragFromNode(nid, gNode);
+  }
+  _closePltWindowCleanup(pltw) {
+    this.plotlines.removeLinesByWid(pltw.wname);
+    this.plotlines.draw();
+  }
+  _pwDragCB(pltw) {
+    this.plotlines.update();
+  }
   _pwMouseUpCB(pltw) {
-    let uisays = this.getIdPlotdataCB();
-    if (uisays) pltw.addPlot(uisays.id, uisays.plotdata);
+    pltw.addPlot(this.tmpNodeid, this.tmpPlotdata);
     this.plotlines.setLineToAndCloseData(pltw.wname, pltw);
   }
 }

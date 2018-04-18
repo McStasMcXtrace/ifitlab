@@ -1429,7 +1429,8 @@ class GraphInterface {
     this.updateUi();
   }
   _nodeMouseDownCB(id, x, y) {
-    this._fireEvents(this._nodeMouseDownListn, [id, x, y]);
+    let n = this.graphData.getNode(id);
+    this._fireEvents(this._nodeMouseDownListn, [id, n.gNode, n.plotdata]);
   }
   _fireEvents(lst, args=[]) {
     for (var i=0; i<lst.length; i++) {

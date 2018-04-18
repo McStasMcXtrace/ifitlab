@@ -241,7 +241,7 @@ $(document).ready(() => {
       if (x_y) { xpos=x_y[0]; ypos=x_y[1]; }
       let title = node.label + '(' + node.id + ')';
 
-      plthandler.newPlotwindow(xpos, ypos, node.id, node.plotdata)
+      plthandler.newPlotwindow(xpos, ypos, node.id, node.plotdata, node.gNode)
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {
@@ -256,15 +256,12 @@ $(document).ready(() => {
 
   // lines from nodes to plotwindows handler
   plotlines = new PlotLines(intface.draw.svg);
-  intface.addNodeMouseDownListn(plotlines.nodeMouseDown.bind(plotlines));
   intface.draw.addDrawListener(plotlines.draw.bind(plotlines));
   intface.draw.addUpdateListener(plotlines.update.bind(plotlines));
 
   // plot window handler
-  plthandler = new PlotWindowHandler(() => {
-    let n = intface.getSelectedNode();
-    if (n) return { "id" : n.id, "plotdata" : n.plotdata, };
-  }, plotlines);
+  plthandler = new PlotWindowHandler(plotlines);
+  intface.addNodeMouseDownListn(plthandler.nodeMouseDown.bind(plthandler));
 
   // user data controls
   let lft = window.innerWidth - $("#divUserData").width();
