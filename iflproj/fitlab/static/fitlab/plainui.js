@@ -303,6 +303,7 @@ class PlotWindowHandler {
       let didremove = pltw.removePlot(id);
       if (didremove && pltw.numPlots() == 0) pltw.close();
     }
+    this.plotlines.removeLinesByNid(id);
   }
   getAllPlots() {
     // just returns all plots with data in them, as they are
