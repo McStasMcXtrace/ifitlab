@@ -293,6 +293,7 @@ class PlotWindowHandler {
     } else {
       this.plotWindows.push(new PlotWindow(
         this._pwMouseUpCB.bind(this),
+        this._pwDragCB.bind(this),
         this._closePltWindowCleanup.bind(this),
         wname, xpos, ypos));
     }
