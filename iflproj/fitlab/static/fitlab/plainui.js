@@ -52,6 +52,27 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, tit
       "border-style":"solid",
     })
     .appendTo('#'+header_id);
+  let closebtn_tooltip = null
+  closebtn
+    .mouseover(() => {
+      closebtn_tooltip = $('<div>close</div>')
+        .css({
+          position:"absolute",
+          top:"-30px",
+          left:"-20px",
+          width:"50px",
+          height:"20px",
+          "padding-left":"5px",
+          "z-index":"666",
+          "background-color":"white",
+          "border-width":"1px",
+          "border-style":"solid",
+        })
+        .appendTo(closebtn)
+    })
+    .mouseout(() => {
+      if (closebtn_tooltip) closebtn_tooltip.remove();
+    });
 
   // log toggle button
   let logbtn_id = null;
@@ -75,6 +96,27 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, tit
     //.tooltip( )
     .appendTo('#'+header_id);
   }
+  let logbtn_tooltip = null
+  logbtn
+    .mouseover(() => {
+      logbtn_tooltip = $('<div>log</div>')
+        .css({
+          position:"absolute",
+          top:"-30px",
+          left:"-20px",
+          width:"40px",
+          height:"20px",
+          "padding-left":"10px",
+          "z-index":"666",
+          "background-color":"lightgray",
+          "border-width":"1px",
+          "border-style":"solid",
+        })
+        .appendTo(logbtn)
+    })
+    .mouseout(() => {
+      if (logbtn_tooltip) logbtn_tooltip.remove();
+    });
 
   // window body area
   let winbody_id = wname + "_body";
