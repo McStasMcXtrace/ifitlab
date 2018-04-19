@@ -16,6 +16,8 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, tit
       top:ypos+"px",
     })
     .appendTo('body');
+
+  // header
   let header_id = wname + "_header";
   let header = $('<div id="ID">'.replace("ID", header_id))
     .css({
@@ -25,28 +27,33 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, tit
       cursor:"grab",
       "background-color":"#8888a0",
       "border-style":"solid",
+      "border-width":"1px",
       "border-color":"gray",
       display:"inline-block",
     })
     .appendTo('#'+container_id)
     .html(title)
     .addClass("noselect");
-  let smallsquare_id = wname + "_minmiz";
-  let minsquare = $('<div id="ID">'.replace("ID", smallsquare_id))
+
+  // close button
+  let closebtn_id = wname + "_minmiz";
+  let closebtn = $('<div id="ID">'.replace("ID", closebtn_id))
     .css({
       position:"relative",
       left: (width-20)+"px",
       top:"0px",
       width:headerheight+"px",
       height:headerheight+"px",
-      "margin-top":"-22px",
-      "margin-left":"-3px",
+      "margin-top":"-20px",
+      "margin-left":"-1px",
       cursor:"pointer",
       "background-color":"white",
+      "border-width":"1px",
       "border-style":"solid",
     })
     .appendTo('#'+header_id);
 
+  // log toggle button
   let logbtn_id = null;
   let logbtn = null;
   if (logscaleCB != null) {
@@ -54,20 +61,22 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, tit
     logbtn = $('<div id="ID" title="Toggle logscale">'.replace("ID", logbtn_id))
     .css({
       position:"relative",
-      left: (width-38)+"px",
+      left: (width-40)+"px",
       top:"0px",
       width:headerheight+"px",
       height:headerheight+"px",
-      "margin-top":"-26px",
-      "margin-left":"-9px",
+      "margin-top":"-22px",
+      "margin-left":"-2px",
       cursor:"pointer",
       "background-color":"lightgray",
+      "border-width":"1px",
       "border-style":"solid",
     })
     //.tooltip( )
     .appendTo('#'+header_id);
   }
 
+  // window body area
   let winbody_id = wname + "_body";
   let winbody = $('<div id="ID">'.replace("ID", winbody_id))
     .css({
@@ -75,7 +84,8 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, tit
       width:width+"px",
       height:height+"px",
       "background-color":"white",
-      "border-style":"dotted",
+      "border-style":"solid",
+      "border-width":"1px",
       "border-top":"none",
     })
     .appendTo('#'+container_id)
@@ -84,7 +94,7 @@ function createSubWindow(mouseupCB, mouseMoveCB, closeCB, logscaleCB, wname, tit
   $("#"+header_id).dblclick(() => {
       $("#"+winbody_id).toggle();
   });
-  $("#"+smallsquare_id).click(() => {
+  $("#"+closebtn_id).click(() => {
       closeCB();
   });
   if (logbtn_id != null) {
