@@ -157,15 +157,15 @@ class PlotWindow {
     let header_id = wname + "_header";
     let header = $('<div id="ID">'.replace("ID", header_id))
       .css({
-        position:"relative",
-        width:width+"px",
-        height:headerheight+"px",
-        cursor:"grab",
-        "background-color":"#8888a0",
-        "border-style":"solid",
-        "border-width":"1px",
-        "border-color":"gray",
-        display:"inline-block",
+        position : "relative",
+        width : width+"px",
+        height : headerheight+"px",
+        cursor : "grab",
+        "background-color" : "#9C9CDE",
+        "border-style" : "solid",
+        "border-width" : "1px",
+        "border-color" : "gray",
+        display : "inline-block",
       })
       .appendTo('#'+container_id)
       .html(title)
@@ -175,11 +175,11 @@ class PlotWindow {
     let closebtn_id = wname + "_minmiz";
     let closebtn = $('<div id="ID">'.replace("ID", closebtn_id))
       .css({
-        position:"relative",
-        left: (width-20)+"px",
-        top:"0px",
-        width:headerheight+"px",
-        height:headerheight+"px",
+        position : "relative",
+        left : (width-20)+"px",
+        top : "0px",
+        width : headerheight+"px",
+        height : headerheight+"px",
         "margin-top":"-20px",
         "margin-left":"-1px",
         cursor:"pointer",
