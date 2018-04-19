@@ -381,6 +381,7 @@ function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbM
     .scale(cbScale);
   var cbAxisGroup = anchorElement.append("g")
     .attr("transform", "translate(" + (x1 + w_cb - w_cbimg - w_cbticks) + ", 0)")
+    .classed("noselect", true)
     .call(cbyAxis);
   var cb = cbAxisGroup.append("svg:image")
     .attr('width', w_cbimg)

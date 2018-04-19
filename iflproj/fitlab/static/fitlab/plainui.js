@@ -40,13 +40,25 @@ class PlotWindow {
     this._removeSubWindow();
     this._createSubWindow(left, top, w, h);
 
+    this.plotbranch = null;
+    this.plot = null;
     if (this.ndims == 1) {
       let params_lst = this.plot.params_lst;
-      //this.plotbranch.selectAll("*").remove();
-      this.plotbranch = null;
-      this.plot = null;
       for (let nid in this.data) {
         this.addPlot(nid, this.data[nid], true);
+      }
+    }
+    else if (this.ndims == 2) {
+      let cnt = 0;
+      let nid = null;
+      for (let id in this.data) {
+        cnt++;
+        nid = id;
+      }
+      if (cnt == 1) {
+        this.addPlot(nid, this.data[nid], true);
+      } else {
+        throw "PlotWindow: more than one 2d plot is present, misconfigured"
       }
     }
   }
@@ -80,12 +92,21 @@ class PlotWindow {
   addPlot(nodeid, plotdata, override=false) {
     // safeties
     if (!plotdata || !nodeid) {
-      console.log("empty addPlot requested");
-      return;
+      return false;
     }
-    if (nodeid in this.data && !override) return;
-    if (this.ndims == null) this.ndims = plotdata.ndims;
-    else if (this.ndims != plotdata.ndims) return;
+    if (nodeid in this.data && !override) {
+      return false;
+    }
+    if (this.ndims == null) {
+      this.ndims = plotdata.ndims;
+    }
+    else if (this.ndims != plotdata.ndims) {
+      return false;
+    }
+    if (this.plot != null && plotdata.ndims == 2) {
+       console.log("PlotWindow: 2D multiplot is not supported");
+      return false
+    }
 
     // init
     if (this.plotbranch == null) {
@@ -109,6 +130,8 @@ class PlotWindow {
     }
 
     // TODO: update window title
+
+    return true;
   }
   removePlot(nodeid) {
     delete this.data[nodeid];
@@ -495,7 +518,8 @@ class PlotWindowHandler {
     this.plotlines.update();
   }
   _pwMouseUpCB(pltw) {
-    pltw.addPlot(this.tmpNodeid, this.tmpPlotdata);
-    this.plotlines.setLineToAndCloseData(pltw.wname, pltw);
+    if (pltw.addPlot(this.tmpNodeid, this.tmpPlotdata)) {
+      this.plotlines.setLineToAndCloseData(pltw.wname, pltw);
+    }
   }
 }
