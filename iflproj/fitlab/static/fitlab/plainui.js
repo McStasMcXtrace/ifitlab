@@ -205,7 +205,7 @@ class PlotWindow {
         "border-color" : "gray",
         display : "inline-block",
       })
-      .appendTo('#'+container_id)
+      .appendTo(container)
       .html(title)
       .addClass("noselect");
 
@@ -213,19 +213,17 @@ class PlotWindow {
     let closebtn_id = wname + "_minmiz";
     let closebtn = $('<div id="ID">'.replace("ID", closebtn_id))
       .css({
-        position : "relative",
+        position : "absolute",
         left : (width-20)+"px",
         top : "0px",
         width : headerheight+"px",
         height : headerheight+"px",
-        "margin-top":"-20px",
-        "margin-left":"-1px",
         cursor:"pointer",
         "background-color":"white",
         "border-width":"1px",
         "border-style":"solid",
       })
-      .appendTo('#'+header_id);
+      .appendTo(container);
     let closebtn_tooltip = null
     closebtn
       .mouseover(() => {
@@ -254,19 +252,17 @@ class PlotWindow {
     logbtn_id = wname + "_logbtn";
     logbtn = $('<div id="ID" title="Toggle logscale">'.replace("ID", logbtn_id))
     .css({
-      position:"relative",
+      position:"absolute",
       left: (width-40)+"px",
       top:"0px",
       width:headerheight+"px",
       height:headerheight+"px",
-      "margin-top":"-22px",
-      "margin-left":"-2px",
       cursor:"pointer",
       "background-color":"lightgray",
       "border-width":"1px",
       "border-style":"solid",
     })
-    .appendTo('#'+header_id);
+    .appendTo(container);
     let logbtn_tooltip = null
     logbtn
       .mouseover(() => {
@@ -296,20 +292,18 @@ class PlotWindow {
     resizebtn_id = wname + "_resizebtn";
     resizebtn = $('<div id="ID" title="Toggle logscale">'.replace("ID", resizebtn_id))
     .css({
-      position:"relative",
+      position:"absolute",
       left: (width-60)+"px",
       top:"0px",
       width:headerheight+"px",
       height:headerheight+"px",
-      "margin-top":"-22px",
-      "margin-left":"-2px",
       cursor:"pointer",
       "background-color":"gray",
       "border-width":"1px",
       "border-style":"solid",
     })
     //.tooltip( )
-    .appendTo('#'+header_id);
+    .appendTo(container);
     let resizebtn_tooltip = null
     resizebtn
       .mouseover(() => {
