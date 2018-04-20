@@ -129,9 +129,24 @@ class PlotWindow {
       if (plotdata.ndims == 2) throw "2D multiplot is not supported";
     }
 
-    // TODO: update window title
+    // update window title
+    let ids = [];
+    for (let nid in this.data) {
+      ids.push(nid)
+    }
+    let title = ids[0];
+    for (let i=0;i<ids.length-1;i++) {
+      title = title + ", " + ids[i+1];
+    }
+    this._setWindowTitle("(" + title + ")");
 
+    // signal caller proceed
     return true;
+  }
+  _setWindowTitle(title) {
+    $("#"+this.wname+"_header")
+      .html(title);
+    this.title = title;
   }
   removePlot(nodeid) {
     delete this.data[nodeid];
