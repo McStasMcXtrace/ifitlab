@@ -35,6 +35,8 @@ class Plot1D {
     this.rePlotMany(this.params_lst);
   }
   rePlotMany(params_lst) {
+    this.params_lst = params_lst;
+    
     this.x_lst = params_lst.map(p => p['x']);
     this.y_lst = params_lst.map(p => p['y']);
     let yErr_lst = params_lst.map(p => p['yerr']);
