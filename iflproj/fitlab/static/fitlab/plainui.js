@@ -16,6 +16,7 @@ class PlotWindow {
 
     this.large = false;
     this.sizes = [330, 220, 900, 600];
+    this._removeSubWindow();
     this._createSubWindow(xpos, ypos, this.sizes[0], this.sizes[1]);
 
     this.plotbranch = null;
@@ -37,16 +38,30 @@ class PlotWindow {
     let top = this.top + prev_h/2 - h/2;
     left = Math.max(left, 0);
     top = Math.max(top, 0);
+
     this._removeSubWindow();
     this._createSubWindow(left, top, w, h);
 
     this.plotbranch = null;
     this.plot = null;
     if (this.ndims == 1) {
-      let params_lst = this.plot.params_lst;
-      for (let nid in this.data) {
-        this.addPlot(nid, this.data[nid], true);
+      let data = [];
+      for (let id in this.data) {
+        data.push(this.data[id]);
       }
+
+      data[0].title='';
+      data[0].w = this.w;
+      data[0].h = this.h;
+
+      // this made a difference
+      this.plotbranch = d3.select('#'+this.body_container[0])
+        .selectAll("svg")
+        .remove();
+      this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
+      this.plot = new Plot1D(data[0], this.wname, this.plotbranch);
+
+      this.plot.rePlotMany(data);
     }
     else if (this.ndims == 2) {
       let cnt = 0;
@@ -58,7 +73,7 @@ class PlotWindow {
       if (cnt == 1) {
         this.addPlot(nid, this.data[nid], true);
       } else {
-        throw "PlotWindow: more than one 2d plot is present, misconfigured"
+        throw "PlotWindow: more than one 2d plot is present, misconfigured";
       }
     }
   }
@@ -122,7 +137,7 @@ class PlotWindow {
     plotdata.h = this.h;
 
     if (this.plot == null) {
-      if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.plotbranch);
+      if (this.ndims == 1) { this.plot = new Plot1D(plotdata, this.wname, this.plotbranch); }
       if (this.ndims == 2) plot_2d(plotdata, this.plotbranch);
     } else {
       if (plotdata.ndims == 1) this.plot.plotOneMore(plotdata);
@@ -149,6 +164,8 @@ class PlotWindow {
     this.title = title;
   }
   removePlot(nodeid) {
+    if (this.data[nodeid] == undefined) return false;
+
     delete this.data[nodeid];
     if (this.ndims == 1) {
       let pltdatas = [];
@@ -159,13 +176,17 @@ class PlotWindow {
       this.plot.rePlotMany(pltdatas);
       return true;
     }
+    else if (this.ndims == 2) {
+      console.log("remove from 2d plot not supported");
+    }
   }
   close() {
     this._removeSubWindow();
+    this.body_container = null;
     this._closeOuterCB(this);
   }
   numPlots() {
-    let n = 0
+    let n = 0;
     for (let id in this.data) n++;
     return n;
   }
@@ -185,9 +206,9 @@ class PlotWindow {
     let container_id = wname + "_container";
     let container = $('<div id="ID">'.replace("ID", container_id))
       .css({
-        position:"absolute",
-        left:xpos+"px",
-        top:ypos+"px",
+        position : "absolute",
+        left : xpos+"px",
+        top : ypos+"px",
       })
       .appendTo('body');
 
@@ -302,7 +323,6 @@ class PlotWindow {
       "border-width":"1px",
       "border-style":"solid",
     })
-    //.tooltip( )
     .appendTo(container);
     let resizebtn_tooltip = null
     resizebtn
@@ -354,7 +374,6 @@ class PlotWindow {
     $("#"+resizebtn_id).click(() => {
       sizeCB();
     });
-
 
     var isDragging = false;
     let maybeDragging = false;
@@ -520,6 +539,7 @@ class PlotWindowHandler {
     this.plotlines.dragFromNode(nid, gNode);
   }
   _closePltWindowCleanup(pltw) {
+    remove(this.plotWindows, pltw);
     this.plotlines.removeLinesByWid(pltw.wname);
     this.plotlines.draw();
   }
