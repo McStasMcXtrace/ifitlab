@@ -1,8 +1,10 @@
 class Plot1D {
-  constructor(params, svg_branch=null, log=false) {
+  constructor(params, wname, svg_branch=null, log=false) {
     let p = params;
     this.params_lst = [params];
+    this.wname = wname;
     this.hdl = _draw_labels(p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch);
+
 
     this.xmin = d3.min(p['x']);
     this.xmax = d3.max(p['x']);
@@ -47,8 +49,7 @@ class Plot1D {
   }
   _drawPoints(xScl, yScl) {
     //const colors = d3.scaleOrdinal().range(d3.schemeCategory20);
-    this.pointGroup.selectAll("path").remove();
-    this.pointGroup.selectAll("line").remove();
+    this.pointGroup.selectAll("*").remove();
 
     // draw
     for (var j=0;j<this.x_lst.length;j++) {
@@ -89,9 +90,9 @@ class Plot1D {
         .attr("fill", "none");
     }
   }
-  _draw_1d_axes(w, h, xmin, xmax, ymin, ymax, pltOrigoAnchor, drawpointsCB) {
+  _draw_1d_axes(w, h, xmin, xmax, ymin, ymax, axisGroup, drawpointsCB) {
     // clear the branch we are working on
-    pltOrigoAnchor.selectAll("*").remove();
+    axisGroup.selectAll("*").remove();
 
     // axis span points
     let x0 = 0;
@@ -111,15 +112,15 @@ class Plot1D {
       this.last_xScale = new_xScale;
       this.last_yScale = new_yScale;
     });
-    var view = pltOrigoAnchor.append("rect")
+    var view = axisGroup.append("rect")
       .attr("width", w)
       .attr("height", h)
       .attr("style", "cursor: move; fill: none; pointer-events: all;")
       .call(zoom);
 
     // clip
-    var clip = pltOrigoAnchor.append("clipPath")
-      .attr("id", "viewClip")
+    var clip = axisGroup.append("clipPath")
+      .attr("id", "viewClip_"+this.wname)
       .append("rect")
       .attr("width", w)
       .attr("height", h);
@@ -132,7 +133,7 @@ class Plot1D {
       .ticks(5)
       .tickFormat(d3.format(".1e"))
       .scale(xScale);
-    var xAxisGroup = pltOrigoAnchor.append("g")
+    var xAxisGroup = axisGroup.append("g")
       .attr("transform", "translate(0," + y0 + ")")
       .classed("noselect", true)
       .call(xAxis);
@@ -151,19 +152,17 @@ class Plot1D {
       .ticks(5)
       .tickFormat(d3.format(".1e"))
       .scale(yScale);
-    var yAxisGroup = pltOrigoAnchor.append("g")
+    var yAxisGroup = axisGroup.append("g")
       .attr("transform", "translate(" + x0 + ", 0)")
       .classed("noselect", true)
       .call(yAxis);
 
     this.last_xScale = xScale;
     this.last_yScale = yScale;
-    this.pointGroup = pltOrigoAnchor.append("g")
-      .attr("clip-path", "url(#viewClip)");
+    this.pointGroup = axisGroup.append("g")
+      .attr("clip-path", "url(#viewClip_"+this.wname+")");
 
     // draw on initial zoom
-    //let yErrData_lst = _makeErrorBarsData(x_lst, y_lst, yerr_lst);
-    //var points = _drawPonts_1D(pointGroup, xScale, yScale, x_lst, y_lst, yErrData_lst);
     this._drawPoints(xScale, yScale);
   }
 }
@@ -189,7 +188,7 @@ function plot_2d(params, svg_branch=null) {
 
 // private
 function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
-  if (!svg_branch) svg_branch = d3.select("body").append("svg");
+  if (!svg_branch) throw "proper svg_branch required";
 
   // positioning
   var margin = 5;
@@ -266,8 +265,7 @@ function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
 
   var axisGroup = lblGroup
     .append("g")
-    .attr("transform", "translate(" + xplt +"," + yplt + ")")
-    .append("g");
+    .attr("transform", "translate(" + xplt +"," + yplt + ")");
 
   return { wplt: wplt, hplt: hplt, axisGroup: axisGroup };
 }
