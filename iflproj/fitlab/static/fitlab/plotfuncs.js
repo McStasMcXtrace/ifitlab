@@ -14,6 +14,7 @@ class Plot1D {
     this.x_lst = [p['x']];
     this.y_lst = [p['y']];
     this.yErrData_lst = _makeErrorBarsData([p['x']], [p['y']], [p['yerr']]);
+    this.colours = [params.colour];
 
     this.pointGroup = null;
     this.last_xScale = null;
@@ -36,11 +37,12 @@ class Plot1D {
   }
   rePlotMany(params_lst) {
     this.params_lst = params_lst;
-    
+
     this.x_lst = params_lst.map(p => p['x']);
     this.y_lst = params_lst.map(p => p['y']);
     let yErr_lst = params_lst.map(p => p['yerr']);
     this.yErrData_lst = _makeErrorBarsData(this.x_lst, this.y_lst, yErr_lst);
+    this.colours = params_lst.map(p=>p.colour);
 
     this._drawPoints(this.last_xScale, this.last_yScale);
   }
@@ -72,8 +74,8 @@ class Plot1D {
           .y( function(d, i) { return yScl(y[i]); })
           (x) // since we use the function-wide scoped x, y directly, this just causes index generation
         )
-        //.attr("stroke", function(d, i) { return colors(i); })
-        .attr("stroke", "black")
+        //.attr("stroke", "black")
+        .attr("stroke", function(d, i) { return this.colours[j]; }.bind(this))
         .attr("stroke-width", "1px")
         .attr("fill", "none");
 
@@ -86,8 +88,8 @@ class Plot1D {
         .attr("y1", function (d) { return yScl(d.p1[1]); })
         .attr("x2", function (d) { return xScl(d.p2[0]); })
         .attr("y2", function (d) { return yScl(d.p2[1]); })
-        //.attr("stroke", function(d, i) { return colors(i); })
-        .attr("stroke", "black")
+        //.attr("stroke", "black")
+        .attr("stroke", function(d, i) { return this.colours[j]; }.bind(this))
         .attr("stroke-width", "1px")
         .attr("fill", "none");
     }

@@ -410,6 +410,7 @@ class PlotLines {
 
     this.ids = [];
     this.coords = [];
+    this.colours = [];
     this.gnodefrom = null;
     this.nidfrom = null;
   }
@@ -425,7 +426,8 @@ class PlotLines {
       .attr("y1", function(d) { return d[0].y })
       .attr("x2", function(d) { return d[1].x })
       .attr("y2", function(d) { return d[1].y })
-      .classed("plotLine", true);
+      .classed("plotLine", true)
+      .attr("stroke", function(d,i) { return this.colours[i]; }.bind(this));
   }
   update() {
     this.lines
@@ -466,6 +468,7 @@ class PlotLines {
 
     this.ids.push([this.nidfrom, wid]);
     this.coords.push([this.gnodefrom, pltw]);
+    this.colours.push(this.gnodefrom.colour);
     this.clearLineFrom();
 
     this.draw();
@@ -476,6 +479,7 @@ class PlotLines {
       let idx = node_ids.indexOf(node_id);
       this.ids.splice(idx, 1);
       this.coords.splice(idx, 1);
+      this.colours.splice(idx, 1);
       node_ids.splice(idx, 1);
     }
   }
@@ -485,6 +489,7 @@ class PlotLines {
       let idx = w_ids.indexOf(window_id);
       this.ids.splice(idx, 1);
       this.coords.splice(idx, 1);
+      this.colours.splice(idx, 1);
       w_ids.splice(idx, 1);
     }
   }

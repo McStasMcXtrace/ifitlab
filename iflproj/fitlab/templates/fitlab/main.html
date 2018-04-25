@@ -9,7 +9,7 @@
     pointer-events: none;
   }
   .plotLine {
-    stroke: black;
+    stroke-width: 3px;
     stroke-dasharray: 2,3;
     pointer-events: none;
   }
@@ -233,7 +233,9 @@ $(document).ready(() => {
     let x_y = plthandler.removePlots(node.id);
 
     if (node.plotdata) {
-      // create a subwindow now the coast is clear
+      node.plotdata.colour = node.gNode.colour;
+
+      // create a new subwindow
       let xpos = node.gNode.x + 150;
       let ypos = node.gNode.y - 100;
       let width = 330;
