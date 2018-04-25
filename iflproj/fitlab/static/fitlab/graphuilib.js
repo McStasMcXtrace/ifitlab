@@ -3,9 +3,14 @@
 *
 * Written by Jakob Garde 2018.
 */
+// some hex colours
+// use e.g. : .style("fill", function(d) { return colours(i); })
+const colours = d3.scaleOrdinal().range(d3.schemeCategory20);
+
 class NodeTypeHelper {
   constructor() {
     this.idxs = {};
+    this.colourPickedIdx = 0;
   }
   static _nodeClasses() {
     return [
@@ -56,6 +61,8 @@ class NodeTypeHelper {
       typeconf.label, // get rid of
       typeconf,
     );
+    n.gNode.colour = colours(this.colourPickedIdx++);
+
     // TODO: move this into the Node constructor
     if (typeconf.data) {
       n.userdata = typeconf.data;

@@ -18,9 +18,6 @@ const distance = 20;
 const arrowHeadLength = 12;
 const arrowHeadAngle = 25;
 
-// some debug colours
-const color = d3.scaleOrdinal().range(d3.schemeCategory20);
-
 //
 // convenience functions
 //
@@ -113,6 +110,8 @@ class GraphicsNode {
     // graphics switch on this property, which is updated externally according to some rule
     this.state = NodeState.DISCONNECTED;
     this.active = false;
+
+    this.colour = "";
   }
   setAnchors(anchors) {
     if (this.anchors) throw "anchors only intended to be set once";
@@ -131,6 +130,7 @@ class GraphicsNode {
   draw(branch, i) {
     return branch
       .attr('stroke', "black")
+      //.style("fill", function() { return this.colour; }.bind(this))
       .classed(getNodeStateClass(this.state), true)
   }
   // hooks for higher level nodes
