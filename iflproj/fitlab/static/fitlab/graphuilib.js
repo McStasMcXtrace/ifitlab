@@ -128,7 +128,6 @@ class GraphTree {
     if (!n) return null;
     return n;
   }
-
   // graphdraw interface (low-level) - return lists of graphics-level objects
   getLinkObjs() {
     return this._viewLinks;
@@ -164,14 +163,9 @@ class GraphTree {
     }
     let g = null;
     for (let i=0;i<nodes.length;i++) {
-      // TODO: use instead:
-      // let anchors = g.anchors.concat(g.centerAnchor);
-      // this._viewAnchors.push(anchors)
       g = nodes[i].gNode;
-      this._viewAnchors.push(g.centerAnchor);
-      for (let j=0;j<g.anchors.length;j++) {
-        this._viewAnchors.push(g.anchors[j]);
-      }
+      let anchors = g.anchors.concat(g.centerAnchor);
+      this._viewAnchors = this._viewAnchors.concat(anchors);
     }
   }
   getAnchorsAndForceLinks(id) {

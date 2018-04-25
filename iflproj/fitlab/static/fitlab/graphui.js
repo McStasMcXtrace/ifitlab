@@ -11,7 +11,7 @@ const anchorRadius = 6;
 
 const extensionLength = 40;
 const anchSpace = 40;
-const pathChargeStrength = -50;
+const pathChargeStrength = -10;
 const pathLinkStrength = 1;
 const distance = 20;
 
@@ -717,7 +717,6 @@ class GraphDraw {
     let anchors = null;
     let forcelinks = null;
     if (!id) {
-      console.log("!id is true");
       anchors = self.graphData.getAnchors();
       forcelinks = self.graphData.getForceLinks();
     }
