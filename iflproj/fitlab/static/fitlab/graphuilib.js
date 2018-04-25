@@ -1,7 +1,7 @@
 /*
+* A nodespeak compatible graph ui using d3.js for drawing and force layouts.
 *
-*
-*
+* Written by Jakob Garde 2018.
 */
 class NodeTypeHelper {
   constructor() {
@@ -144,12 +144,14 @@ class GraphTree {
     this._updateAnchors();
     return this._viewForceLinks;
   }
-  // should be private
-  _updateAnchors(maybe=false) {
+  _updateAnchors() {
+    let links = this._viewLinks;
+    let nodes = this._viewNodes;
+
     this._viewAnchors = [];
     this._viewForceLinks = [];
-    for (let j=0;j<this._viewLinks.length;j++) {
-      let lanchs = this._viewLinks[j].getAnchors();
+    for (let j=0;j<links.length;j++) {
+      let lanchs = links[j].getAnchors();
       let fl = null;
 
       for (let i=0;i<lanchs.length;i++) {
@@ -161,19 +163,46 @@ class GraphTree {
       }
     }
     let g = null;
-    for (let i=0;i<this._viewNodes.length;i++) {
-      g = this._viewNodes[i].gNode;
+    for (let i=0;i<nodes.length;i++) {
+      // TODO: use instead:
+      // let anchors = g.anchors.concat(g.centerAnchor);
+      // this._viewAnchors.push(anchors)
+      g = nodes[i].gNode;
       this._viewAnchors.push(g.centerAnchor);
       for (let j=0;j<g.anchors.length;j++) {
         this._viewAnchors.push(g.anchors[j]);
       }
     }
   }
+  getAnchorsAndForceLinks(id) {
+    // get anchors and forcelinks associated with a certain node
+    let n = this._current.nodes[id];
+    if (!n) return [[], []];
+
+    let anchors = n.gNode.anchors.concat(n.gNode.centerAnchor);
+    let forcelinks = [];
+
+    let links = this._viewLinks.filter(l=>l.d1.owner.owner.id==id || l.d2.owner.owner.id==id);
+    for (let j=0;j<links.length;j++) {
+      let lanchs = links[j].getAnchors();
+      let fl = null;
+
+      for (let i=0;i<lanchs.length;i++) {
+        anchors.push(lanchs[i]);
+        if (i > 0) {
+          fl = { 'source' : lanchs[i-1], 'target' : lanchs[i], 'index' : null }
+          forcelinks.push(fl);
+        }
+      }
+    }
+    return [anchors, forcelinks];
+  }
 
   // **************************
   // ui and graphdraw interface
   // **************************
   recalcPathAnchorsAroundNodeObj(g) {
+    // called before anchors are used, triggers link.recalcPathAnchors
     let id = g.owner.id;
     let lks = [];
     for (let id2 in this._current.links[id]) {

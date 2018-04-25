@@ -713,13 +713,24 @@ class GraphDraw {
     self.distanceSim.stop();
     self.distanceSim.alpha(1).restart();
   }
-  resetPathSim() {
+  resetAndRestartPathSim(id) {
+    let anchors = null;
+    let forcelinks = null;
+    if (!id) {
+      console.log("!id is true");
+      anchors = self.graphData.getAnchors();
+      forcelinks = self.graphData.getForceLinks();
+    }
+    else {
+      let a_f = self.graphData.getAnchorsAndForceLinks(id)
+      anchors = a_f[0];
+      forcelinks = a_f[1];
+    }
+
     self.pathSim.stop();
-    self.pathSim.nodes(self.graphData.getAnchors());
-    self.pathSim.force("link").links(self.graphData.getForceLinks());
-  }
-  restartPathSim() {
-    // run the pathsim manually to avoid the animation
+    self.pathSim.nodes(anchors);
+    self.pathSim.force("link").links(forcelinks);
+
     self.pathSim.alpha(1);
     for (var i=0; i < 300; i++) {
       self.pathSim.tick();
@@ -754,11 +765,8 @@ class GraphDraw {
 
     // restart post-drag relevant layout sims
     self.restartChargeSim();
-    self.resetPathSim();
-    self.restartPathSim();
+    self.resetAndRestartPathSim(d.owner.id);
     self.recenter();
-
-    self.drawAll();
   }
   anchorMouseDown(d) {
     self.dragAnchor = d;
@@ -799,7 +807,7 @@ class GraphDraw {
     self.dragAnchor = null;
 
     // the s == d case triggers the node drawn to disappear, so redraw
-    self.drawAll();
+    //self.drawAll();
   }
   showTooltip(x, y, tip) {
     if (tip == '') return;
@@ -1447,9 +1455,8 @@ class GraphInterface {
   _tryCreateLink(s, d) {
     if (this.truth.canConnect(s, d)) {
       this.link_add(s.owner.owner.id, s.idx, d.owner.owner.id, d.idx);
-
-      this.draw.resetPathSim();
-      this.draw.restartPathSim();
+      this.draw.resetAndRestartPathSim(s.owner.owner.id);
+      this.draw.resetAndRestartPathSim(d.owner.owner.id);
       this.updateUi()
     }
   }
