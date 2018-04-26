@@ -1907,6 +1907,7 @@ class NodeTypeMenu {
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
       .attr("transform", "translate(0, -45)" )
+      .classed("noselect", true)
       .lower();
 
     // draw nodes (by delegation & strategy)

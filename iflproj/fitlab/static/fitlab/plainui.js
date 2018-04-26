@@ -260,6 +260,7 @@ class PlotWindow {
             "background-color":"white",
             "border-width":"1px",
             "border-style":"solid",
+            "user-select":"none",
           })
           .appendTo(closebtn)
       })
@@ -299,6 +300,7 @@ class PlotWindow {
             "background-color":"lightgray",
             "border-width":"1px",
             "border-style":"solid",
+            "user-select":"none",
           })
           .appendTo(logbtn)
       })
@@ -339,13 +341,13 @@ class PlotWindow {
             "background-color":"gray",
             "border-width":"1px",
             "border-style":"solid",
+            "user-select":"none",
           })
           .appendTo(resizebtn)
       })
       .mouseout(() => {
         if (resizebtn_tooltip) resizebtn_tooltip.remove();
       });
-
 
     // window body area
     let winbody_id = wname + "_body";
@@ -527,16 +529,30 @@ class PlotWindowHandler {
         wname, xpos, ypos));
     }
   }
-  removePlots(id) {
+  removePlots(id, closeEmpty=true) {
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
       let didremove = pltw.removePlot(id);
-      if (didremove && pltw.numPlots() == 0) pltw.close();
+      if (didremove && pltw.numPlots() == 0 && closeEmpty) pltw.close();
     }
     this.plotlines.removeLinesByNid(id);
   }
   getAllPlots() {
     // just returns all plots with data in them, as they are
+  }
+  rePlot(id, gNode, plotdata) {
+    this.plotlines.removeLinesByNid(id);
+    for (let i=0;i<this.plotWindows.length;i++) {
+      let pltw = this.plotWindows[i];
+      let didremove = pltw.removePlot(id);
+      if (didremove) {
+        pltw.addPlot(id, plotdata);
+
+        this.plotlines.dragFromNode(id, gNode);
+        this.plotlines.setLineToAndCloseData(pltw.wname, pltw);
+        this.plotlines.draw();
+      }
+    }
   }
   nodeMouseDown(nid, gNode, plotdata) {
     this.tmpPlotdata = plotdata;
