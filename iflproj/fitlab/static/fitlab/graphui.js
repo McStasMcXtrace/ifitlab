@@ -921,7 +921,7 @@ class GraphDraw {
       .enter()
       .append("g")
       .call( d3.drag()
-        .filter( function() { return d3.event.button == 2 && !d3.event.ctrlKey; })
+        .filter( function() { return d3.event.button == 0 && !d3.event.ctrlKey; })
         .on("start", self.dragstarted)
         .on("drag", self.dragged)
         .on("end", self.dragended)
