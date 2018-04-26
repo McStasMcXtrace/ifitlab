@@ -22,6 +22,14 @@
           -ms-user-select: none; /* Internet Explorer/Edge */
               user-select: none; /* Non-prefixed version */
   }
+  .select {
+    -webkit-touch-callout: auto; /* iOS Safari */
+      -webkit-user-select: auto; /* Safari */
+       -khtml-user-select: auto; /* Konqueror HTML */
+         -moz-user-select: auto; /* Firefox */
+          -ms-user-select: auto; /* Internet Explorer/Edge */
+              user-select: auto; /* Non-prefixed version */
+  }
 
   /* node states */
   .disconnected {
@@ -111,7 +119,7 @@
 <div id="graph_menu_2" style="position:absolute;left:101px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_3" style="position:absolute;left:0px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 
-<div id="divUserData" style="position:absolute;"><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
+<div id="divUserData" style="position:absolute;" class=select><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
   <table id="tblUserData" style="width:460px;">
     <tr><td colspan=2><input type="text" id="tbxNodeLabel" style="width:440px;"/></td></tr>
     <tr><td colspan=2><input type="text" id="tbxColour" style="width:440px;"/></td></tr>
@@ -135,9 +143,11 @@ clearUserDataPanel = function() {
   $("#tbxNodeLabel").val("");
   $("#lgndNodeIdNameTypeEtc").html("userdata");
   $(".dynamicProperty").remove();
+  $("#divUserData").hide();
 }
 setUserData = function(node) {
   clearUserDataPanel();
+  $("#divUserData").show();
 
   if (!node) return;
   $("#tbxNodeLabel").val(node.label);
@@ -206,9 +216,23 @@ setUserData = function(node) {
       }
 
     }
+    // copy to clipboard button
+    if (node.userdata) {
+      $("#tblUserData tbody")
+        .append('<tr><td colspan=2><button class="dynamicProperty">copy to clipboard</button></td></tr>');
+      $("#tblUserData tbody button")
+        .click(()=>{
+          const el = document.createElement('textarea');
+          el.value = JSON.stringify(node.userdata, null, 2);
+          document.body.appendChild(el);
+          el.select();
+          document.execCommand('copy');
+          document.body.removeChild(el);
+        });
+    }
+
   }
 }
-
 
 let intface = null;
 let menu = null;
@@ -224,6 +248,7 @@ $(document).ready(() => {
   $("#btnSave").click( () => { intface.saveGraphDef() });
   $("#btnLoad").click( () => { intface.loadGraphDef() })
   $("#btnReset").click( () => { intface.reset() });
+  clearUserDataPanel();
 
   // construct graph engine and add listeners
   intface = new GraphInterface();
@@ -300,6 +325,8 @@ $(document).ready(() => {
   // why is this needed to get rid of the "self.draggable is null" error message?
   intface.updateUi();
   intface.loadGraphDef(); // this also updates the ui...
+
+  $("body").addClass("noselect");
 });
 </script>
 </html>
