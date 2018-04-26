@@ -168,7 +168,9 @@ setUserData = function(node) {
       })
       .change( () => {
         let tarea = $("#"+rowid +" textarea");
-        if (tarea.val() == "") tarea.val("null");
+        let val = tarea.val()
+        if (val == "" || !val.replace(/\s/g, '').length) tarea.val("null");
+        else if (['[', '{', '"'].indexOf(val[0]) == -1) tarea.val('"'+val+'"');
         intface.node_data(node.id, tarea.val());
       });
   }

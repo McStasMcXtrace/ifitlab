@@ -1272,6 +1272,10 @@ class NodeObjectLiteral extends Node {
       this.gNode.label = "null";
     }
   }
+  isActive() {
+    let val = this.obj != null && this.userdata != null;
+    return val;
+  }
   get label() {
     return this.gNode.label;
   }
