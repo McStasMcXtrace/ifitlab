@@ -6,7 +6,7 @@
 // some hex colours
 // use e.g. : .style("fill", function(d) { return colours(i); })
 //const colours = d3.scaleOrdinal().range(d3.schemeCategory20);
-const morecls = ["#117864", "#943126", "#196f3d", "#a04000", "#633974", "#1a5276", "#5f6a6a", "#212f3c", "#9a7d0a"];
+const morecls = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ff00", "#00ffff", "#ffffff", "#ddddff", "#9a7d0a"];
 const colours = d3.scaleOrdinal().range(morecls);
 
 class NodeTypeHelper {
