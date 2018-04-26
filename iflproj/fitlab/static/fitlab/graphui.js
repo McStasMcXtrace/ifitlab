@@ -1257,7 +1257,7 @@ class NodeObjectLiteral extends Node {
   }
   isConnected(connectivity) {
     if (connectivity.length > 0) {
-      return conn[0];
+      return connectivity[0];
     }
   }
   onUserDataChange(userdata) {

@@ -395,7 +395,7 @@ class NodeConfig:
         self.type = 'literal'
         self.address = '.'.join([branch, 'literal'])
         self.basetype = 'object_literal'
-        self.data = {}
+        self.data = None
         self.static = 'false'
         self.executable = 'false'
         self.edit = 'true'
