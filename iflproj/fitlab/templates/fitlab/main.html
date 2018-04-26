@@ -219,10 +219,9 @@ setUserData = function(node) {
     // copy to clipboard button
     if (node.userdata) {
       // determine whether the "copy to clipboard" button should be visible...
+      if (node.edit) return;
       let cnt = 0;
       for (let key in node.userdata) {
-        let val = node.userdata[key];
-        if (val && val.edit) return;
         cnt++;
       }
       if (cnt == 0) return;
