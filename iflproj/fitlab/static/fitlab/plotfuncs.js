@@ -1,5 +1,5 @@
 class Plot1D {
-  constructor(params, wname, svg_branch=null, log=false) {
+  constructor(params, wname, svg_branch=null, logscale=false) {
     let p = params;
     this.params_lst = [params];
     this.wname = wname;
@@ -20,7 +20,7 @@ class Plot1D {
     this.last_xScale = null;
     this.last_yScale = null;
 
-    this.logscale = log;
+    this.logscale = logscale;
 
     this._draw_1d_axes(
       this.hdl.wplt, this.hdl.hplt, this.xmin, this.xmax, this.ymin, this.ymax, this.hdl.axisGroup,

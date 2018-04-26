@@ -43,8 +43,10 @@ class PlotWindow {
     this._createSubWindow(left, top, w, h);
 
     this.plotbranch = null;
-    this.plot = null;
     if (this.ndims == 1) {
+      let logscale = this.plot.logscale;
+      this.plot = null;
+
       let data = [];
       for (let id in this.data) {
         data.push(this.data[id]);
@@ -59,11 +61,13 @@ class PlotWindow {
         .selectAll("svg")
         .remove();
       this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
-      this.plot = new Plot1D(data[0], this.wname, this.plotbranch);
+      this.plot = new Plot1D(data[0], this.wname, this.plotbranch, logscale);
 
       this.plot.rePlotMany(data);
     }
     else if (this.ndims == 2) {
+      this.plot = null;
+
       let cnt = 0;
       let nid = null;
       for (let id in this.data) {
