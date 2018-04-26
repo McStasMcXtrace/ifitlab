@@ -119,10 +119,10 @@
 <div id="graph_menu_2" style="position:absolute;left:101px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_3" style="position:absolute;left:0px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 
-<div id="divUserData" style="position:absolute;" class=select><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
+<div id="divUserData" style="position:absolute;cursor:pointer;background-color:white;top:40px;" class=select><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
   <table id="tblUserData" style="width:460px;">
-    <tr><td colspan=2><input type="text" id="tbxNodeLabel" style="width:440px;"/></td></tr>
-    <tr><td colspan=2><input type="text" id="tbxColour" style="width:440px;"/></td></tr>
+    <tr><td><label>Label:</label></td><td><input type="text" id="tbxNodeLabel" style="width:380px;"/></td></tr>
+    <tr><td><label>Colour:</label></td><td><input type="text" id="tbxColour" style="width:380px;"/></td></tr>
   </table>
 </fieldset></div>
 
@@ -159,7 +159,7 @@ setUserData = function(node) {
   if (node.basetype == "object_literal") {
     let rowid = "row_42"; // some key strings have whitespaces in them...
     $("#tblUserData tbody")
-      .append('<tr id="'+rowid+'" class="dynamicProperty"><td><textarea rows="20" cols="64"></textarea></td></tr>');
+      .append('<tr id="'+rowid+'" class="dynamicProperty"><td colspan=2><textarea rows="20" cols="64"></textarea></td></tr>');
     $("#"+rowid +" textarea")
       .val(JSON.stringify(node.userdata, null, 2))
       .focus( () => {
@@ -218,6 +218,15 @@ setUserData = function(node) {
     }
     // copy to clipboard button
     if (node.userdata) {
+      // determine whether the "copy to clipboard" button should be visible...
+      let cnt = 0;
+      for (let key in node.userdata) {
+        let val = node.userdata[key];
+        if (val && val.edit) return;
+        cnt++;
+      }
+      if (cnt == 0) return;
+
       $("#tblUserData tbody")
         .append('<tr><td colspan=2><button class="dynamicProperty">copy to clipboard</button></td></tr>');
       $("#tblUserData tbody button")
