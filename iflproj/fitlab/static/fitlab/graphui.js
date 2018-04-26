@@ -3,7 +3,6 @@
 *
 * Written by Jakob Garde 2017-2018.
 */
-
 const width = 790;
 const height = 700;
 const nodeRadius = 30;

@@ -60,7 +60,10 @@ class Plot1D {
       let x = this.x_lst[j];
       let y = null;
       if (this.logscale==true) {
-        y = this.y_lst[j].map(y=>y+0.001);
+        y = this.y_lst[j].map(function(y0) {
+          if (y0<=0) return 0.1;
+          return y0;
+        });
       }
       else {
         y = this.y_lst[j];
@@ -143,8 +146,9 @@ class Plot1D {
       .call(xAxis);
 
     if (this.logscale==true) {
+      if (ymin <= 0) ymin=0.1;
       var yScale = d3.scaleLog()
-        .domain([ymin+0.01, ymax])
+        .domain([ymin, ymax])
         .range([y0, y1])
         .base(10);
     } else {
