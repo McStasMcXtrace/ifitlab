@@ -152,7 +152,7 @@ setUserData = function(node) {
   if (!node) return;
   $("#tbxNodeLabel").val(node.label);
   $("#tbxColour").val(node.gNode.colour);
-  $("#lgndNodeIdNameTypeEtc").html("id: "+node.id+"; type: "+node.type+"("+node.basetype+")");
+  $("#lgndNodeIdNameTypeEtc").html(node.id+" - "+node.type+"");
 
   // Why does "literal" node type get special treatment?
   // Because, it is currently the only way we have of entering actual JSON data into the graph environment...
