@@ -314,7 +314,7 @@ class GraphTree {
       // object found
       l = l1[0];
     }
-    catch {
+    catch (e) {
       throw "internal link data inconsistency";
     }
 
