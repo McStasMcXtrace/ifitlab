@@ -336,7 +336,9 @@ class IFunc(engintf.ObjReprJson):
                     fvals = np.array(fvals[0]).tolist()
                     xvals = np.linspace(xmin, xmax, 100).tolist()
                     yerr = np.zeros(100).tolist()
-                    retdct['plotdata'] = _get_plot_1D(axisvals=xvals, signal=fvals, yerr=yerr, xlabel="x", ylabel="y", title="title")
+                    xlabel = _eval("xlabel(%s" % vn)
+                    ylabel = _eval("ylabel(%s" % vn)
+                    retdct['plotdata'] = _get_plot_1D(axisvals=xvals, signal=fvals, yerr=yerr, xlabel=xlabel, ylabel=ylabel, title="title")
 
                 elif self._plotdims == 2:
                     pass
@@ -573,6 +575,10 @@ def _get_iData_repr(idata_symb):
     axesvals = []
     pltdct = {}
 
+    # Get axis labels
+    xlabel = _eval('xlabel(%s)' % idata_symb)
+    ylabel = _eval('ylabel(%s)' % idata_symb)
+    
     # get signal
     if ndims == 0:
         ' the trivial case, no data is present '
@@ -594,7 +600,7 @@ def _get_iData_repr(idata_symb):
         except:
             error = np.sqrt(signal).tolist()
 
-        pltdct = _get_plot_1D(xvals, signal, error, xlabel='x', ylabel='y', title=idata_symb)
+        pltdct = _get_plot_1D(xvals, signal, error, xlabel=xlabel, ylabel=xlabel, title=idata_symb)
     elif ndims == 2:
         xvals = list(_eval('%s.%s;' % (idata_symb, axes_names[0]) )[0])
         yvals = list(_eval('%s.%s;' % (idata_symb, axes_names[1]) )[0])
@@ -604,7 +610,7 @@ def _get_iData_repr(idata_symb):
         signal = np.array(_eval('%s.Signal;' % idata_symb, nargout=1)).astype(np.float).tolist()
         error = np.array(_eval('%s.Error;' % idata_symb, nargout=1)).astype(np.float).tolist()
         
-        pltdct = _get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=idata_symb)
+        pltdct = _get_plot_2D(axesvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
     else:
         for i in range(ndims):
             ivals = list(_eval('%s.%s' % (idata_symb, axes_names[i]) )[0])
