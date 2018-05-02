@@ -336,8 +336,8 @@ class IFunc(engintf.ObjReprJson):
                     fvals = np.array(fvals[0]).tolist()
                     xvals = np.linspace(xmin, xmax, 100).tolist()
                     yerr = np.zeros(100).tolist()
-                    xlabel = _eval("xlabel(%s" % vn)
-                    ylabel = _eval("ylabel(%s" % vn)
+                    xlabel = _eval("xlabel(%s)" % vn, nargout=1)
+                    ylabel = _eval("ylabel(%s)" % vn, nargout=1)
                     retdct['plotdata'] = _get_plot_1D(axisvals=xvals, signal=fvals, yerr=yerr, xlabel=xlabel, ylabel=ylabel, title="title")
 
                 elif self._plotdims == 2:
@@ -576,8 +576,8 @@ def _get_iData_repr(idata_symb):
     pltdct = {}
 
     # Get axis labels
-    xlabel = _eval('xlabel(%s)' % idata_symb)
-    ylabel = _eval('ylabel(%s)' % idata_symb)
+    xlabel = _eval('xlabel(%s)' % idata_symb, nargout=1)
+    ylabel = _eval('ylabel(%s)' % idata_symb, nargout=1)
     
     # get signal
     if ndims == 0:
