@@ -3,12 +3,6 @@
 *
 * Written by Jakob Garde 2018.
 */
-// some hex colours
-// use e.g. : .style("fill", function(d) { return colours(i); })
-//const colours = d3.scaleOrdinal().range(d3.schemeCategory20);
-const morecls = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ff00", "#00ffff", "#ffffff", "#ddddff", "#9a7d0a"];
-const colours = d3.scaleOrdinal().range(morecls);
-
 class NodeTypeHelper {
   constructor() {
     this.idxs = {};
@@ -64,7 +58,6 @@ class NodeTypeHelper {
       typeconf.label, // get rid of
       typeconf,
     );
-    n.gNode.colour = colours(this.colourPickedIdx++);
 
     // TODO: move this into the Node constructor
     if (typeconf.data) {

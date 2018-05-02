@@ -106,59 +106,6 @@ class IData(engintf.ObjReprJson):
         else:
             create_idata(self.varname, url)
 
-    def _get_iData_repr(self):
-        varname = self.varname
-        ndims = int(_eval('ndims(%s)' % varname))
-        axes_names = _eval('%s.Axes' % varname, nargout=1) # NOTE: len(axes_names) == ndims
-        if not ndims == len(axes_names):
-            # TODO: handle this case in which ifit has not found any axes in the data
-            raise Exception("could not find axes")
-        axesvals = []
-        pltdct = {}
-
-        # get signal
-        if ndims == 0:
-            ' the trivial case, no data is present '
-            pltdct = None
-        elif ndims == 1:
-            xvals = _eval('%s.%s;' % (varname, axes_names[0]))
-            if len(xvals)==1:
-                try:
-                    xvals = xvals[0]
-                except:
-                    pass
-            xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
-
-            signal = np.array(_eval('%s.Signal;' % varname, nargout=1)).astype(np.float)
-            signal = np.reshape(signal, (1, len(signal)))[0].tolist()
-            try:
-                error = np.array(_eval('%s.Error;' % varname, nargout=1)).astype(np.float)
-                error = np.reshape(error, (1, len(error)))[0].tolist()
-            except:
-                error = np.sqrt(signal).tolist()
-
-            pltdct = _get_plot_1D(xvals, signal, error, xlabel='x', ylabel='y', title=self.varname)
-        elif ndims == 2:
-            xvals = list(_eval('%s.%s;' % (varname, axes_names[0]) )[0])
-            yvals = list(_eval('%s.%s;' % (varname, axes_names[1]) )[0])
-            axesvals.append(xvals)
-            axesvals.append(yvals)
-
-            signal = np.array(_eval('%s.Signal;' % varname, nargout=1)).astype(np.float).tolist()
-            error = np.array(_eval('%s.Error;' % varname, nargout=1)).astype(np.float).tolist()
-            
-            pltdct = _get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=self.varname)
-        else:
-            for i in range(ndims):
-                ivals = list(_eval('%s.%s' % (varname, axes_names[i]) )[0])
-                axesvals.append(ivals)
-            signal = list(_eval('%s.Signal;' % varname)[0])
-            error = list(_eval('%s.Error;' % varname)[0])
-        
-        infdct = {'datashape' : None}
-        infdct['ndims'] = "%d" % ndims
-        return pltdct, infdct
-
     def _get_axes_limits(self):
         '''
         returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax)
@@ -186,7 +133,7 @@ class IData(engintf.ObjReprJson):
         datashape = self._get_datashape()
 
         if datashape in (None, tuple(),):
-            pltdct, infdct = self._get_iData_repr()
+            pltdct, infdct = _get_iData_repr(self.varname)
         else:
             pltdct = None
             infdct = {'datashape' : datashape, 'ndims' : None} # ndims refers to (individual) data dimensionality
@@ -394,7 +341,7 @@ class IFunc(engintf.ObjReprJson):
                 elif self._plotdims == 2:
                     pass
 
-        return retdct
+                return retdct
 
     def set_user_data(self, json_obj):
         ''' 
@@ -541,6 +488,7 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
     deterined by the user and matched in vnargs, args and ndaargs in that order.
     
     shape: iteration specification
+
     atomic_func: atomic function taking naiive arguments
     vnargs: varname args, the matlab-side vector variable names
     args: vector scalars, the same for all indices
@@ -553,7 +501,7 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
     '''
     it = np.ndindex(shape)
     for ndindex in it:
-        indices = [i+1 for i in ndindex]
+        indices = [i+1 for i in ndindex] # convert to matlab indexing
         indices = str(indices).replace("[","(").replace("]",")")
         
         symbols = tuple("%s%s" % (vn, indices) for vn in vnargs)
@@ -561,6 +509,112 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
         elements = tuple(a.take(ndindex)[0] for a in ndaargs)
         atomic_func(*symbols, *constants, *elements)
 
+
+class PlotIter(engintf.ObjReprJson):
+    ''' extract plotdata at index in vectorized idata '''
+    def __init__(self, data:IData, pltiter):
+        # TODO: extract userdata.next_idx as pltiter.nxt_idx
+        
+        shape = data._get_datashape()
+        if shape in (tuple(), None, ):
+            raise Exception("PlotIter requires iterable IData instance")
+        
+        # determine indices - init or derive from input
+        it = np.ndindex(shape)
+        midx = None
+        if pltiter:
+            cycle = False
+            while True:
+                try:
+                    midx = it.next()
+                    if midx == pltiter.nxt_idx:
+                        break
+                except StopIteration:
+                    if cycle:
+                        raise Exception("invalid index")
+                    it = np.ndindex(shape)
+                    self.nxt_idx = it.next()
+                    cycle = True
+        else:
+            midx = it.next()
+
+        self.idx = midx;
+        try:
+            self.nxt_idx = it.next()
+        except StopIteration:
+            it = np.ndindex(shape)
+            self.nxt_idx = it.next()
+
+        # determine idata symbol
+        indices = [i+1 for i in self.idx] # convert to matlab indexing
+        indices = str(indices).replace("[","(").replace("]",")")
+        self.symb = "%s%s" % (data.varname, indices)
+        
+    def get_repr(self):
+        retdct = self._get_full_repr_dict()
+        pltdct, infdct = _get_iData_repr(self.symb)
+
+        retdct['info'] = infdct
+        retdct['userdata'] = {
+                'idx' : self.idx,
+                'next_idx' : self.nxt_idx
+            }
+        retdct['plotdata'] = pltdct
+
+        return retdct
+
+
+def _get_iData_repr(idata_symb):
+    ndims = int(_eval('ndims(%s)' % idata_symb))
+    axes_names = _eval('%s.Axes' % idata_symb, nargout=1) # NOTE: len(axes_names) == ndims
+    if not ndims == len(axes_names):
+        # TODO: handle this case in which ifit has not found any axes in the data
+        raise Exception("could not find axes")
+    axesvals = []
+    pltdct = {}
+
+    # get signal
+    if ndims == 0:
+        ' the trivial case, no data is present '
+        pltdct = None
+    elif ndims == 1:
+        xvals = _eval('%s.%s;' % (idata_symb, axes_names[0]))
+        if len(xvals)==1:
+            try:
+                xvals = xvals[0]
+            except:
+                pass
+        xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
+
+        signal = np.array(_eval('%s.Signal;' % idata_symb, nargout=1)).astype(np.float)
+        signal = np.reshape(signal, (1, len(signal)))[0].tolist()
+        try:
+            error = np.array(_eval('%s.Error;' % idata_symb, nargout=1)).astype(np.float)
+            error = np.reshape(error, (1, len(error)))[0].tolist()
+        except:
+            error = np.sqrt(signal).tolist()
+
+        pltdct = _get_plot_1D(xvals, signal, error, xlabel='x', ylabel='y', title=idata_symb)
+    elif ndims == 2:
+        xvals = list(_eval('%s.%s;' % (idata_symb, axes_names[0]) )[0])
+        yvals = list(_eval('%s.%s;' % (idata_symb, axes_names[1]) )[0])
+        axesvals.append(xvals)
+        axesvals.append(yvals)
+
+        signal = np.array(_eval('%s.Signal;' % idata_symb, nargout=1)).astype(np.float).tolist()
+        error = np.array(_eval('%s.Error;' % idata_symb, nargout=1)).astype(np.float).tolist()
+        
+        pltdct = _get_plot_2D(axesvals, signal, error, xlabel='monx', ylabel='mony', title=idata_symb)
+    else:
+        for i in range(ndims):
+            ivals = list(_eval('%s.%s' % (idata_symb, axes_names[i]) )[0])
+            axesvals.append(ivals)
+        signal = list(_eval('%s.Signal;' % idata_symb)[0])
+        error = list(_eval('%s.Error;' % idata_symb)[0])
+    
+    infdct = {'datashape' : None}
+    infdct['ndims'] = "%d" % ndims
+    return pltdct, infdct
 
 '''
 constructor functions for various models, easy-gen substitutes for class constructors
@@ -578,6 +632,8 @@ def Lin(datashape:list=None) -> IFunc:
 '''
 ifunc combination functions / operators
 '''
+
+''' (temp disabled)
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("add: %s, %s" % (ifunc_a, ifunc_b))
     vn1 = ifunc_a.varname
@@ -621,6 +677,7 @@ def trapz(ifunc: IFunc) -> IFunc:
     vn_new = obj.varname
     _eval('%s = trapz(%s)' % (vn_new, vn_old))
     return obj
+'''
 
 '''
 functions (also called "methods" in the ifit documentation

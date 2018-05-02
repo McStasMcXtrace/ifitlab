@@ -33,7 +33,6 @@
 
   /* node states */
   .disconnected {
-    stroke: black;
     stroke-dasharray: 10,6;
     fill-opacity: 1;
     stroke-opacity: 1;
@@ -41,21 +40,18 @@
     cursor: pointer;
   }
   .passive {
-    stroke: black;
     fill-opacity: 1;
     stroke-opacity: 1;
     fill: lightgray;
     cursor: pointer;
   }
   .active {
-    stroke: black;
     fill: white;
     /*opacity: .5;*/
     stroke-opacity: 1;
     cursor: pointer;
   }
   .running {
-    stroke: black;
     fill: #009423;
     opacity: .8;
     cursor: pointer;
@@ -68,7 +64,6 @@
 
   /* connected to the "active" property on GraphicsNode */
   .selected {
-    stroke: black;
     stroke-width: 2px;
   }
   .visible {
@@ -121,6 +116,7 @@
 
 <div id="divUserData" style="position:absolute;cursor:pointer;background-color:white;top:40px;" class=select><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
   <table id="tblUserData" style="width:460px;">
+    <tr><td colspan=2><label id="lblNodeInfo"></label></td></tr>
     <tr><td><label>Label:</label></td><td><input type="text" id="tbxNodeLabel" style="width:380px;"/></td></tr>
     <tr><td><label>Colour:</label></td><td><input type="text" id="tbxColour" style="width:380px;"/></td></tr>
   </table>
@@ -150,6 +146,7 @@ setUserData = function(node) {
   $("#divUserData").show();
 
   if (!node) return;
+  if (node.info) $("#lblNodeInfo").text("Info: " + JSON.stringify(node.info));
   $("#tbxNodeLabel").val(node.label);
   $("#tbxColour").val(node.gNode.colour);
   $("#lgndNodeIdNameTypeEtc").html(node.id+" - "+node.type+"");
@@ -249,6 +246,11 @@ let menu = null;
 let plthandler = null;
 let plotlines = null;
 
+const morecls = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ff00", "#00ffff", "#ffffff", "#ddddff", "#9a7d0a"];
+const nicecols = ["#117864", "#943126", "#196f3d", "#a04000", "#633974", "#1a5276", "#5f6a6a", "#212f3c", "#9a7d0a"];
+const cols = d3.scaleOrdinal().range(morecols);
+let iclr = 0;
+
 $(document).ready(() => {
   // set up events
   $("#btnUndo").click( () => { intface.undo() });
@@ -267,6 +269,7 @@ $(document).ready(() => {
     let x_y = plthandler.removePlots(node.id);
 
     if (node.plotdata) {
+      node.gNode.colour = cols(iclr++);
       node.plotdata.colour = node.gNode.colour;
 
       // create a new subwindow
@@ -275,8 +278,12 @@ $(document).ready(() => {
       let width = 330;
       let height = 220;
       if (x_y) { xpos=x_y[0]; ypos=x_y[1]; }
-      let title = node.label + '(' + node.id + ')';
 
+
+      let title = node.label + '(' + node.id + ')';
+      if (node.info.wtitle) {
+        let title = title ': ' + node.info.wtitle;
+      }
       plthandler.newPlotwindow(xpos, ypos, node.id, node.plotdata, node.gNode)
 
       // add the @node_delete cleanup function
@@ -285,9 +292,10 @@ $(document).ready(() => {
       });
     }
 
-    if (node.userdata) {
-      setUserData(intface.getSelectedNode());
+    if (node.id = intface.getSelectedNode().id) {
+      setUserData(node);
     }
+
   }, null);
 
   // lines from nodes to plotwindows handler

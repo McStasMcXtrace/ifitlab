@@ -110,7 +110,7 @@ class GraphicsNode {
     this.state = NodeState.DISCONNECTED;
     this.active = false;
 
-    this.colour = "";
+    this.colour = "black";
   }
   setAnchors(anchors) {
     if (this.anchors) throw "anchors only intended to be set once";
@@ -128,8 +128,7 @@ class GraphicsNode {
   }
   draw(branch, i) {
     return branch
-      .attr('stroke', "black")
-      //.style("fill", function() { return this.colour; }.bind(this))
+      .attr('stroke', ()=>{ return this.colour; })
       .classed(getNodeStateClass(this.state), true)
   }
   // hooks for higher level nodes
@@ -168,13 +167,11 @@ class GraphicsNodeCircularPad extends GraphicsNode {
     branch
       .append('circle')
       .attr('r', 0.85*this.r)
-      .attr('stroke', "black")
       .attr('fill', "none")
       .lower()
     branch
       .append('circle')
       .attr('r', this.r)
-      .attr('stroke', "black")
       .lower()
     return branch;
   }
