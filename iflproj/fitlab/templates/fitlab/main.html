@@ -248,7 +248,7 @@ let plotlines = null;
 
 const morecls = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ff00", "#00ffff", "#ffffff", "#ddddff", "#9a7d0a"];
 const nicecols = ["#117864", "#943126", "#196f3d", "#a04000", "#633974", "#1a5276", "#5f6a6a", "#212f3c", "#9a7d0a"];
-const cols = d3.scaleOrdinal().range(morecols);
+const cols = d3.scaleOrdinal().range(morecls);
 let iclr = 0;
 
 $(document).ready(() => {
@@ -282,7 +282,7 @@ $(document).ready(() => {
 
       let title = node.label + '(' + node.id + ')';
       if (node.info.wtitle) {
-        let title = title ': ' + node.info.wtitle;
+        let title = title + ': ' + node.info.wtitle;
       }
       plthandler.newPlotwindow(xpos, ypos, node.id, node.plotdata, node.gNode)
 
