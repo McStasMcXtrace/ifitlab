@@ -345,7 +345,7 @@ class IFunc(engintf.ObjReprJson):
                 elif self._plotdims == 2:
                     pass
 
-                return retdct
+            return retdct
 
     def set_user_data(self, json_obj):
         ''' 
