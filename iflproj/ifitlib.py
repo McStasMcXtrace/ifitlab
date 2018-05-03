@@ -428,15 +428,33 @@ class IFunc(engintf.ObjReprJson):
     def __exit__(self, exc_type, exc_value, traceback):
         cmd = "clear %s;" % self.varname
         _eval(cmd)
-    
-def _ifregular_squeeze_cast(lst, rank=None):
-    ''' returns squeezeed lst cast to np.array, if regular, optionally limited regular down to the rank'th index '''
+
+def _lowest_level_irr_squeezecast(lst):
+    # coule be e.g. a string
     if type(lst) not in (list, np.array,):
         return lst
+    # list with single non-list element
     if len(np.shape(lst))==1 and len(lst) == 1:
         return np.array(lst)
-    reg = _is_regular_ndarray(lst, rank)
-    if not reg:
+    depth = _max_depth(lst)
+    # if depth==1 then lst must be regular (depth==0 was ruled out above)
+    if depth > 1:
+        if not _is_regular_ndarray(lst, depth-1):
+            raise Exception("list is not regular down to maxdepth-1")
+    # TODO: should lst be squeezed or not?
+    #return np.squeeze(np.array(lst))
+    return np.array(lst), depth-1
+
+def _ifregular_squeeze_cast(lst, rank=None):
+    ''' returns squeezeed lst cast to np.array, if regular, optionally limited regular down to the rank'th index '''
+    # coule be e.g. a string
+    if type(lst) not in (list, np.array,):
+        return lst
+    # list with single non-list element
+    if len(np.shape(lst))==1 and len(lst) == 1:
+        return np.array(lst)
+    isreg = _is_regular_ndarray(lst, rank)
+    if not isreg:
         raise Exception("list not regular")
     
     # TODO: should lst be squeezed or not?
@@ -448,6 +466,20 @@ def _npify_shape(shape):
     if shape == None:
         return np.shape(shape)
     return tuple(s for s in shape if s>1)
+
+def _max_depth(lst):
+    def _depth_rec(l, d, m):
+        if m[0] < d:
+            m[0] = d
+        for i in range(len(l)):
+            nxt = l[i]
+            if type(nxt) in (list, np.ndarray):
+                _depth_rec(nxt, d+1, m)
+    if type(lst) not in (list, np.array,):
+        return 0
+    maxdepth = [0]
+    _depth_rec(lst, 1, maxdepth)
+    return maxdepth[0]
 
 def _is_regular_ndarray(lst, rank:int=None):
     '''
@@ -559,7 +591,6 @@ class PlotIter(engintf.ObjReprJson):
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         pltdct, infdct = _get_iData_repr(self.symb)
-        
 
         def m21D(shape, midx):
             dims = len(shape)
@@ -590,7 +621,7 @@ class PlotIter(engintf.ObjReprJson):
         retdct['plotdata'] = pltdct
 
         return retdct
-    
+
     def set_user_data(self, json_obj):
         idx = json_obj.get("idx", None)
         if tuple(idx) != self.idx:
@@ -751,7 +782,7 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         retobj._set_plotaxes(lims, ndims)
     return retobj
 
-def combine(filenames:list, rank:int=0) -> IData:
+def combine(filenames:list) -> IData:
     ''' a data reduce / merges which is vectorized explicitly for rank>0'''
     logging.debug("combine")
 
@@ -767,8 +798,8 @@ def combine(filenames:list, rank:int=0) -> IData:
         shape = str(list(shape)).replace("[","").replace("]","")
         _eval("%s = zeros(iData, %s);" % (vn, shape), nargout=0)
 
-    filenames = _ifregular_squeeze_cast(filenames, rank)
-
+    filenames, rank = _lowest_level_irr_squeezecast(filenames)
+    
     retobj = None
     if rank == 0:
         retobj = IData(url=None)
