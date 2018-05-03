@@ -86,7 +86,9 @@ class GraphSession:
         return m.group(1)
 
     def update_and_execute(self, runid, syncset):
-        self.graph.graph_update(syncset)
+        json_obj = self.graph.graph_update(syncset)
+        if json_obj:
+            return json_obj
         json_obj = self.graph.execute_node(runid)
         return json_obj
 

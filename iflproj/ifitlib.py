@@ -513,14 +513,16 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
 class PlotIter(engintf.ObjReprJson):
     ''' extract plotdata at index in vectorized idata '''
     def __init__(self, data:IData, pltiter):
-        # TODO: extract userdata.next_idx as pltiter.nxt_idx
-        
-        shape = data._get_datashape()
-        if shape in (tuple(), None, ):
+        '''
+        IData object "data" must be vectorized. PlotIter instance "pltiter" can be None
+        or a previous instance derived from the same IData object.
+        '''
+        self.shape = data._get_datashape()
+        if self.shape in (tuple(), None, ):
             raise Exception("PlotIter requires iterable IData instance")
         
         # determine indices - init or derive from input
-        it = np.ndindex(shape)
+        it = np.ndindex(self.shape)
         midx = None
         if pltiter:
             cycle = False
@@ -532,7 +534,7 @@ class PlotIter(engintf.ObjReprJson):
                 except StopIteration:
                     if cycle:
                         raise Exception("invalid index")
-                    it = np.ndindex(shape)
+                    it = np.ndindex(self.shape)
                     self.nxt_idx = it.next()
                     cycle = True
         else:
@@ -542,7 +544,7 @@ class PlotIter(engintf.ObjReprJson):
         try:
             self.nxt_idx = it.next()
         except StopIteration:
-            it = np.ndindex(shape)
+            it = np.ndindex(self.shape)
             self.nxt_idx = it.next()
 
         # determine idata symbol
@@ -553,16 +555,45 @@ class PlotIter(engintf.ObjReprJson):
     def get_repr(self):
         retdct = self._get_full_repr_dict()
         pltdct, infdct = _get_iData_repr(self.symb)
+        
+
+        def m21D(shape, midx):
+            dims = len(shape)
+            F = []
+            N = shape
+            I = midx
+            for i in range(0, dims): # up to but not including dims
+                factor = 1
+                for j in range(i+1, dims): # up to, but not including, dims
+                    factor = factor*N[j]
+                F.append(factor)
+                # now we can sum using "factor"
+            idx = 0
+            for i in range(0, dims):
+                idx = idx + F[i]*I[i]
+            return idx
+
+        oned_idx = m21D(self.shape, self.idx)
+        import functools
+        oned_size = functools.reduce(lambda d1,d2: d1*d2, self.shape)
 
         retdct['info'] = infdct
+        retdct['info']['wtitle'] = "%d of %d" % (oned_idx+1, oned_size)
         retdct['userdata'] = {
                 'idx' : self.idx,
-                'next_idx' : self.nxt_idx
+                'nxt_idx' : self.nxt_idx
             }
         retdct['plotdata'] = pltdct
 
         return retdct
-
+    
+    def set_user_data(self, json_obj):
+        idx = json_obj.get("idx", None)
+        if tuple(idx) != self.idx:
+            raise Exception("PlotIter: changing idx not possible, please use nxt_idx.")
+        nxt_idx = json_obj.get("nxt_idx", None)
+        if nxt_idx:
+            self.nxt_idx = tuple(nxt_idx)
 
 def _get_iData_repr(idata_symb):
     ndims = int(_eval('ndims(%s)' % idata_symb))

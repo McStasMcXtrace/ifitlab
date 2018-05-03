@@ -220,6 +220,7 @@ class FlatGraph:
             except Exception as e:
                 # set_user_data does not have to be implemented
                 _log('node_data failed to set data "%s" on node "%s" (%s)' % (data_str, n.name, str(e)))
+                raise e
 
     def graph_update(self, redo_lsts):
         ''' takes an undo-redo list and sequentially modifies the server-side graph '''
@@ -231,6 +232,7 @@ class FlatGraph:
                 getattr(self, cmd)(*args)
             except Exception as e:
                 _log('graph update failed: "%s"' % redo)
+                return {'error' : {'message' : "Graph update exc.: %s" % str(e)}}
 
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''

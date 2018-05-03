@@ -3,9 +3,10 @@
 //
 class PlotWindow {
   // keeps track of, draws and updates, all helper lines going from nodes to plot windows
-  constructor(mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos, nodeid=null, plotdata=null) {
+  constructor(mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos, titleadd=null, nodeid=null, plotdata=null) {
     this.wname = wname;
     this.title = wname; if (nodeid) this.title = nodeid;
+    this.titleadd = titleadd;
     this._closeOuterCB = closeOuterCB;
 
     this.mouseupCB = function() { mouseUpCB(this); }.bind(this);
@@ -163,6 +164,7 @@ class PlotWindow {
     return true;
   }
   _setWindowTitle(title) {
+    if (this.titleadd) title = title + ": " + this.titleadd;
     $("#"+this.wname+"_header")
       .html(title);
     this.title = title;
@@ -512,14 +514,14 @@ class PlotWindowHandler {
     this.tmpPlotdata = null;
     this.tmpNodeid = null;
   }
-  newPlotwindow(xpos, ypos, nodeid=null, plotdata=null, gNode=null) {
+  newPlotwindow(xpos, ypos, titleadd=null, nodeid=null, plotdata=null, gNode=null) {
     let wname = "window_" + String(this.idx++);
     if (nodeid != null && plotdata != null) {
       let pltw = new PlotWindow(
         this._pwMouseUpCB.bind(this),
         this._pwDragCB.bind(this),
         this._closePltWindowCleanup.bind(this),
-        wname, xpos, ypos, nodeid, plotdata);
+        wname, xpos, ypos, titleadd, nodeid, plotdata);
       this.plotWindows.push(pltw);
       if (gNode != null) {
         this.plotlines.dragFromNode(nodeid, gNode);
