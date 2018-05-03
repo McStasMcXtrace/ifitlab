@@ -29,7 +29,6 @@ import math
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
-import json
 
 _eng = None
 _cmdlog = None
@@ -345,7 +344,7 @@ class IFunc(engintf.ObjReprJson):
                 elif self._plotdims == 2:
                     pass
 
-            return retdct
+        return retdct
 
     def set_user_data(self, json_obj):
         ''' 
@@ -362,7 +361,7 @@ class IFunc(engintf.ObjReprJson):
         s = _npify_shape(s)
         return s
 
-    def guess(self, guess: dict, rank:int=0):
+    def guess(self, guess: dict):
         ''' applies a guess to the parameters of this instance '''
 
         def set_parvalues_atomic(vn, dct):
@@ -384,9 +383,9 @@ class IFunc(engintf.ObjReprJson):
             _eval('%s = tmp;' % vn, nargout=0)
             _eval('clear tmp;', nargout=0)
 
-        if rank<0:
-            raise Exception("rank must be a positive integer")
-        
+        shape = self._get_datashape()
+        rank = len(shape)
+
         guess = _ifregular_squeeze_cast(guess, rank)
         if rank == 0:
             set_parvalues_atomic(self.varname, guess)
@@ -394,10 +393,9 @@ class IFunc(engintf.ObjReprJson):
             vnargs = (self.varname, )
             args = ()
             ndaargs = (guess, )
-            shape = self._get_datashape()
             _vectorized(shape, set_parvalues_atomic, vnargs, args, ndaargs)
 
-    def fixpars(self, parnames: list, rank:int=0):
+    def fixpars(self, parnames: list):
 
         def fixpars_atomic(vn, fixpars):
             # this hack fixes cases where fixpars_atomic is vectorized, in which case numpy can reduce
@@ -412,8 +410,8 @@ class IFunc(engintf.ObjReprJson):
             for p in dontfix:
                 _eval("munlock(%s, '%s');" % (vn, p), nargout=0)
 
-        if rank<0:
-            raise Exception("rank must be a positive integer")
+        shape = self._get_datashape()
+        rank = len(shape)
 
         parnames = _ifregular_squeeze_cast(parnames, rank)
         if rank == 0:
@@ -422,7 +420,6 @@ class IFunc(engintf.ObjReprJson):
             vnargs = (self.varname, )
             args = ()
             ndaargs = (parnames, )
-            shape = self._get_datashape()
             _vectorized(shape, fixpars_atomic, vnargs, args, ndaargs)
 
     def __exit__(self, exc_type, exc_value, traceback):

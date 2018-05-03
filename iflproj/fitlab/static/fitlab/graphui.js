@@ -1303,7 +1303,7 @@ class NodeIData extends NodeObject {
 class NodeIFunc extends NodeObject {
   static get basetype() { return "object_ifunc"; }
   get basetype() { return NodeIFunc.basetype; }
-  static get prefix() { return "id"; }
+  static get prefix() { return "if"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf, 'IFunc');
   }
