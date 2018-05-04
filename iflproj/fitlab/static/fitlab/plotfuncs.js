@@ -138,7 +138,7 @@ class Plot1D {
       .range([x0, x1]);
     var xAxis = d3.axisBottom()
       .ticks(5)
-      .tickFormat(d3.format(".1e"))
+      .tickFormat(d3.format(".2e"))
       .scale(xScale);
     var xAxisGroup = axisGroup.append("g")
       .attr("transform", "translate(0," + y0 + ")")
@@ -158,7 +158,7 @@ class Plot1D {
     }
     var yAxis = d3.axisLeft()
       .ticks(5)
-      .tickFormat(d3.format(".1e"))
+      .tickFormat(d3.format(".2e"))
       .scale(yScale);
     var yAxisGroup = axisGroup.append("g")
       .attr("transform", "translate(" + x0 + ", 0)")
@@ -349,7 +349,7 @@ function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbM
     .range([x0, x1]);
   var xAxis = d3.axisBottom()
     .ticks(5)
-    .tickFormat(d3.format(".1e"))
+    .tickFormat(d3.format(".2e"))
     .scale(xScale);
   var xAxisGroup = anchorElement.append("g")
     .attr("transform", "translate(0," + y0 + ")")
@@ -361,7 +361,7 @@ function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbM
     .range([y0, y1]);
   var yAxis = d3.axisLeft()
     .ticks(5)
-    .tickFormat(d3.format(".1e"))
+    .tickFormat(d3.format(".2e"))
     .scale(yScale);
   var yAxisGroup = anchorElement.append("g")
     .attr("transform", "translate(" + x0 + ", 0)")
@@ -383,7 +383,7 @@ function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbM
     .range([y0, y1]);
   var cbyAxis = d3.axisRight()
     .ticks(5)
-    .tickFormat(d3.format(".1e"))
+    .tickFormat(d3.format(".2e"))
     .scale(cbScale);
   var cbAxisGroup = anchorElement.append("g")
     .attr("transform", "translate(" + (x1 + w_cb - w_cbimg - w_cbticks) + ", 0)")
