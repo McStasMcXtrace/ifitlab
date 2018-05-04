@@ -653,10 +653,10 @@ def _get_iData_repr(idata_symb):
                 pass
         xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
 
-        signal = np.array(_eval('%s.Signal;' % idata_symb, nargout=1)).astype(np.float)
+        signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
         signal = np.reshape(signal, (1, len(signal)))[0].tolist()
         try:
-            error = np.array(_eval('%s.Error;' % idata_symb, nargout=1)).astype(np.float)
+            error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
             error = np.reshape(error, (1, len(error)))[0].tolist()
         except:
             error = np.sqrt(signal).tolist()
@@ -668,8 +668,8 @@ def _get_iData_repr(idata_symb):
         axesvals.append(xvals)
         axesvals.append(yvals)
 
-        signal = np.array(_eval('%s.Signal;' % idata_symb, nargout=1)).astype(np.float).tolist()
-        error = np.array(_eval('%s.Error;' % idata_symb, nargout=1)).astype(np.float).tolist()
+        signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float).tolist()
+        error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float).tolist()
         
         pltdct = _get_plot_2D(axesvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
     else:
