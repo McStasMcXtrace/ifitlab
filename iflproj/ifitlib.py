@@ -502,7 +502,7 @@ def _is_regular_ndarray(lst, rank:int=None):
             if type(nxt) in (list, np.ndarray) and rank > 1:
                 if not len0:
                     len0 = len(nxt)
-                _is_regular_rec(nxt, rank-1)
+                _is_regular_rec_ranked(nxt, rank-1)
                 if len(nxt) != len0:
                     raise Exception("array not regular")
     try:
@@ -548,7 +548,7 @@ class PlotIter(engintf.ObjReprJson):
     def __init__(self, data:IData, pltiter):
         '''
         IData object "data" must be vectorized. PlotIter instance "pltiter" can be None
-        or a previous instance derived from the same IData object.
+        or a PlotIter instance derived from the same data/IData object.
         '''
         self.shape = data._get_datashape()
         if self.shape in (tuple(), None, ):
