@@ -536,12 +536,17 @@ class PlotWindowHandler {
     }
   }
   removePlots(id, closeEmpty=true) {
+    let x_y = null
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
       let didremove = pltw.removePlot(id);
-      if (didremove && pltw.numPlots() == 0 && closeEmpty) pltw.close();
+      if (didremove && pltw.numPlots() == 0 && closeEmpty) {
+        x_y = [pltw.left, pltw.top];
+        pltw.close();
+      }
     }
     this.plotlines.removeLinesByNid(id);
+    return x_y;
   }
   getAllPlots() {
     // just returns all plots with data in them, as they are

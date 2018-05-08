@@ -269,7 +269,7 @@ $(document).ready(() => {
   intface.addNodeRunReturnListener( (node) => {
     // clear previous subwindow elements with this id
     let x_y = plthandler.removePlots(node.id);
-
+    
     if (node.plotdata) {
       node.gNode.colour = cols(iclr++);
       node.plotdata.colour = node.gNode.colour;
