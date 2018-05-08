@@ -225,8 +225,10 @@ setUserData = function(node) {
       }
       if (cnt == 0) return;
 
+      $("#copy_tc_btn")
+        .remove();
       $("#tblUserData tbody")
-        .append('<tr><td colspan=2><button class="dynamicProperty">copy to clipboard</button></td></tr>');
+        .append('<tr id="copy_tc_btn"><td colspan=2><button class="dynamicProperty">copy to clipboard</button></td></tr>');
       $("#tblUserData tbody button")
         .click(()=>{
           const el = document.createElement('textarea');
