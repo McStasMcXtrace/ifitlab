@@ -168,6 +168,75 @@ class IData(engintf.ObjReprJson):
         else:
             rmint_atomic(self.varname, min, max)
 
+def _get_iData_repr(idata_symb):
+    ndims = int(_eval('ndims(%s)' % idata_symb))
+    axes_names = _eval('%s.Axes' % idata_symb, nargout=1) # NOTE: len(axes_names) == ndims
+    if not ndims == len(axes_names):
+        # TODO: handle this case in which ifit has not found any axes in the data
+        raise Exception("could not find axes")
+    axesvals = []
+    pltdct = {}
+
+    # Get axis labels
+    xlabel = _eval('xlabel(%s)' % idata_symb, nargout=1)
+    ylabel = _eval('ylabel(%s)' % idata_symb, nargout=1)
+    
+    # get signal
+    if ndims == 0:
+        ' the trivial case, no data is present '
+        pltdct = None
+    elif ndims == 1:
+        xvals = _eval('%s.%s;' % (idata_symb, axes_names[0]))
+        if len(xvals)==1:
+            try:
+                xvals = xvals[0]
+            except:
+                pass
+        xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
+
+        signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
+        signal = np.reshape(signal, (1, len(signal)))[0].tolist()
+        
+        try:
+            error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
+            error = np.reshape(error, (1, len(error)))[0].tolist()
+        except:
+            error = np.sqrt(signal).tolist()
+
+        # get rid of nan
+        cnt = 0
+        while len(signal) > cnt:
+            if math.isnan(signal[cnt]):
+                try:
+                    del xvals[cnt]
+                    del signal[cnt]
+                    del error[cnt]
+                except Exception as e:
+                    print(2)
+            else:
+                cnt = cnt + 1
+        
+        pltdct = _get_plot_1D(xvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
+    elif ndims == 2:
+        xvals = list(_eval('%s.%s;' % (idata_symb, axes_names[0]) )[0])
+        yvals = list(_eval('%s.%s;' % (idata_symb, axes_names[1]) )[0])
+        axesvals.append(xvals)
+        axesvals.append(yvals)
+
+        signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float).tolist()
+        error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float).tolist()
+        
+        pltdct = _get_plot_2D(axesvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
+    else:
+        for i in range(ndims):
+            ivals = list(_eval('%s.%s' % (idata_symb, axes_names[i]) )[0])
+            axesvals.append(ivals)
+        signal = list(_eval('%s.Signal;' % idata_symb)[0])
+        error = list(_eval('%s.Error;' % idata_symb)[0])
+    
+    infdct = {'datashape' : None}
+    infdct['ndims'] = "%d" % ndims
+    return pltdct, infdct
 
 def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
     ''' returns the dict required by the svg 1d plotting function '''
@@ -539,7 +608,8 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
         
         symbols = tuple("%s%s" % (vn, indices) for vn in vnargs)
         constants = args
-        elements = tuple(a.take(ndindex)[0] for a in ndaargs)
+        elements = tuple(eval("a%s" % str(list(ndindex))) for a in ndaargs) # this is not pretty, but it works
+        
         atomic_func(*symbols, *constants, *elements)
 
 
@@ -627,61 +697,6 @@ class PlotIter(engintf.ObjReprJson):
         if nxt_idx:
             self.nxt_idx = tuple(nxt_idx)
 
-def _get_iData_repr(idata_symb):
-    ndims = int(_eval('ndims(%s)' % idata_symb))
-    axes_names = _eval('%s.Axes' % idata_symb, nargout=1) # NOTE: len(axes_names) == ndims
-    if not ndims == len(axes_names):
-        # TODO: handle this case in which ifit has not found any axes in the data
-        raise Exception("could not find axes")
-    axesvals = []
-    pltdct = {}
-
-    # Get axis labels
-    xlabel = _eval('xlabel(%s)' % idata_symb, nargout=1)
-    ylabel = _eval('ylabel(%s)' % idata_symb, nargout=1)
-    
-    # get signal
-    if ndims == 0:
-        ' the trivial case, no data is present '
-        pltdct = None
-    elif ndims == 1:
-        xvals = _eval('%s.%s;' % (idata_symb, axes_names[0]))
-        if len(xvals)==1:
-            try:
-                xvals = xvals[0]
-            except:
-                pass
-        xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
-
-        signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
-        signal = np.reshape(signal, (1, len(signal)))[0].tolist()
-        try:
-            error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
-            error = np.reshape(error, (1, len(error)))[0].tolist()
-        except:
-            error = np.sqrt(signal).tolist()
-
-        pltdct = _get_plot_1D(xvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
-    elif ndims == 2:
-        xvals = list(_eval('%s.%s;' % (idata_symb, axes_names[0]) )[0])
-        yvals = list(_eval('%s.%s;' % (idata_symb, axes_names[1]) )[0])
-        axesvals.append(xvals)
-        axesvals.append(yvals)
-
-        signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float).tolist()
-        error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float).tolist()
-        
-        pltdct = _get_plot_2D(axesvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
-    else:
-        for i in range(ndims):
-            ivals = list(_eval('%s.%s' % (idata_symb, axes_names[i]) )[0])
-            axesvals.append(ivals)
-        signal = list(_eval('%s.Signal;' % idata_symb)[0])
-        error = list(_eval('%s.Error;' % idata_symb)[0])
-    
-    infdct = {'datashape' : None}
-    infdct['ndims'] = "%d" % ndims
-    return pltdct, infdct
 
 '''
 constructor functions for various models, easy-gen substitutes for class constructors
@@ -786,8 +801,7 @@ def combine(filenames:list) -> IData:
     def combine_atomic(vn, fns):
         if type(fns) not in (np.ndarray, list, ):
             raise Exception("combine: file names input must be an ndarray");
-        for i in range(len(fns)):
-            _eval("%s = combine(%s);" % (vn, " iData(\'" + "\'), iData(\'".join(fns) + "\') "), nargout=0)
+        _eval("%s = combine(%s);" % (vn, " iData(\'" + "\'), iData(\'".join(fns) + "\') "), nargout=0)
 
     def create_idata_array(vn, shape):
         if len(shape) == 1:
