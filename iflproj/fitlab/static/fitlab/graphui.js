@@ -1582,7 +1582,15 @@ class GraphInterface {
     simpleajax('/ifl/ajax_run_node', post_data,
       function(msg) {
         selfref.lock = false;
-        let retobj = JSON.parse(msg);
+
+        let retobj = null;
+        try {
+          retobj = JSON.parse(msg);
+        }
+        catch(error) {
+          console.log("JSON.parse error on string: ", msg);
+          throw error
+        }
 
         // fail section
         let fail = retobj['error']
