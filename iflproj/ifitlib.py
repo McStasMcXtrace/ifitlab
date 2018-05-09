@@ -81,7 +81,9 @@ class IData(engintf.ObjReprJson):
         datashape = _npify_shape(datashape)
         if type(url) != str and not _is_regular_ndarray(url):
             raise Exception("url must be a string or regular ndarray/nested list")
-        if str(np.shape(url)) != str(datashape):
+        if datashape in (tuple(), None,):
+            datashape = np.shape(url)
+        elif str(np.shape(url)) != str(datashape):
             raise Exception("data shape mismatch, shape(url) == %s, datashape == %s" % (str(np.shape(url)), str(datashape)))
         self.url = url
         
