@@ -183,7 +183,7 @@ class PlotWindow {
       return true;
     }
     else if (this.ndims == 2) {
-      console.log("remove from 2d plot not supported");
+      return true;
     }
   }
   close() {
