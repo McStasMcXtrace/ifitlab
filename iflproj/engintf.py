@@ -391,7 +391,7 @@ class NodeConfig:
         self.basetype = 'object'
         self.static = 'false'
         self.executable = 'true'
-        self.edit = 'false'
+        self.edit = 'true'
 
     def make_literal(self, branch):
         self.type = 'literal'
