@@ -1499,12 +1499,10 @@ class GraphInterface {
     }
   }
   reset() {
-    //this.graphData = new GraphData();
-    this.graphData = new GraphTree(ConnRulesBasic);
-    this.draw.graphData = this.graphData;
-    this.nodes = {};
-    this.idxs = {};
-    this.undoredo = new UndoRedoCommandStack();
+    let lst = this.graphData.getGraphicsNodeObjs();
+    for (var i=0;i<lst.length;i++) {
+      this._delNodeAndLinks(lst[i]);
+    }
     this.updateUi();
   }
   updateUi() {
