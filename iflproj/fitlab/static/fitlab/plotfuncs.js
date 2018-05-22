@@ -311,9 +311,9 @@ function _makeErrorBarsData(x_lst, y_lst, yErr_lst) {
 
 function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbMin, cbMax, anchorElement) {
   // colorbar width
-  var w_cb = 70; // this is the total width of space, image and ticks
+  var w_cb = 85; // this is the total width of space, image and ticks
   var w_cbimg = 15;
-  var w_cbticks = 30;
+  var w_cbticks = 45;
 
   // axes lengths
   var wi = w - w_cb;
