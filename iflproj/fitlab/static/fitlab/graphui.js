@@ -1030,6 +1030,19 @@ class ConnRulesBasic {
     let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
     return ans;
   }
+  static couldConnect(a1, a2) {
+    // could a1 and a2 be connected if a2 was unoccupied?
+    //  a2 input anchor, a1 output
+    let t1 = a2.i_o;
+    let t2 = !a1.i_o;
+    // both anchors must be of the same type
+    let t6 = a1.type == a2.type;
+    let t7 = a1.type == '' || a2.type == '';
+    let t8 = a1.type == 'obj' || a2.type == 'obj';
+
+    let ans = ( t1 && t2 ) && (t6 || t7 || t8);
+    return ans;
+  }
   static _nodeBaseClasses() {
     return [
       NodeObject,
@@ -1452,11 +1465,29 @@ class GraphInterface {
     }
   }
   _tryCreateLink(s, d) {
-    if (this.truth.canConnect(s, d)) {
+    let createLink = function() {
       this.link_add(s.owner.owner.id, s.idx, d.owner.owner.id, d.idx);
       this.draw.resetAndRestartPathSim(s.owner.owner.id);
       this.draw.resetAndRestartPathSim(d.owner.owner.id);
-      this.updateUi()
+      this.updateUi();
+    }.bind(this);
+
+    if (this.truth.canConnect(s, d)) {
+      createLink();
+    }
+    else if (this.truth.couldConnect(s, d)) {
+      // override existing link to d, if it could be connected by s
+      let id = d.owner.owner.id;
+      let lks = this.graphData.getLinks(id);
+      let entry = null;
+      for (let i=0;i<lks.length;i++) {
+        entry = lks[i];
+        if (entry[2] == id && entry[1] == s.idx && entry[3] == d.idx) {
+          this.graphData.linkRm(entry[0], entry[1], entry[2], entry[3])
+          createLink();
+          return;
+        }
+      }
     }
   }
   // used by high-level node constructors, those taking only a node conf
