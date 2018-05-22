@@ -60,7 +60,7 @@ class Plot1D {
       let x = this.x_lst[j];
 
       let y = null;
-      let ymin = Math.min(this.y_lst[j]);
+      let ymin = Math.min.apply(null, this.y_lst[j].filter((y0)=>{return y0>0}));
       if (this.logscale==true) {
         y = this.y_lst[j].map(function(y0) {
           if (y0<=0) return ymin/10;
@@ -294,19 +294,18 @@ function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
 
 // generates error bar vertical line coordinates from x, y and yErr, NOTE: inner loop over yErr, allowing it to be empty
 function _makeErrorBarsData(x_lst, y_lst, yErr_lst) {
-  // WARNING HAX
   let dataErr_lst = [];
   for (var j=0;j<yErr_lst.length;j++) {
     var dataErr = [];
     let x = x_lst[j];
     let y = y_lst[j];
     let yErr = yErr_lst[j];
-
+    // ignore "strange" error bars
     for (var i=0; i < yErr.length; i++) {
-      if (yErr[i] != 0)
-      dataErr.push({ "p1": [x[i], y[i]-yErr[i]], "p2" : [x[i], y[i]+yErr[i]] });
+      if (yErr[i] > 0 && yErr[i] < Math.abs(y[i])) {
+        dataErr.push({ "p1": [x[i], y[i]-yErr[i]], "p2" : [x[i], y[i]+yErr[i]] });
+      }
     }
-
     dataErr_lst.push(dataErr);
   }
   return dataErr_lst;
