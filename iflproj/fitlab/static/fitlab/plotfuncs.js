@@ -58,16 +58,19 @@ class Plot1D {
     // draw
     for (var j=0;j<this.x_lst.length;j++) {
       let x = this.x_lst[j];
+
       let y = null;
+      let ymin = Math.min(this.y_lst[j]);
       if (this.logscale==true) {
         y = this.y_lst[j].map(function(y0) {
-          if (y0<=0) return 0.1;
+          if (y0<=0) return ymin/10;
           return y0;
         });
       }
       else {
         y = this.y_lst[j];
       }
+
       let yErrData = this.yErrData_lst[j];
 
       // points
