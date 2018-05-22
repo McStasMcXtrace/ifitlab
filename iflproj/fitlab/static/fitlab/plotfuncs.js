@@ -5,7 +5,6 @@ class Plot1D {
     this.wname = wname;
     this.hdl = _draw_labels(p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch);
 
-
     this.xmin = d3.min(p['x']);
     this.xmax = d3.max(p['x']);
     this.ymin = d3.min(p['y']);
@@ -51,11 +50,11 @@ class Plot1D {
     this.rePlotMany(this.params_lst);
     // TODO: do something about his so we don't have to replot everything every time...
   }
-  _drawPoints(xScl, yScl) {
+  _drawPoints(xScl, yScl, data_line_style=false) {
     //const colors = d3.scaleOrdinal().range(d3.schemeCategory20);
     this.pointGroup.selectAll("*").remove();
 
-    // draw
+    // draw each data set
     for (var j=0;j<this.x_lst.length;j++) {
       let x = this.x_lst[j];
 
@@ -70,20 +69,33 @@ class Plot1D {
       else {
         y = this.y_lst[j];
       }
-
       let yErrData = this.yErrData_lst[j];
 
-      // points
-      this.pointGroup.append("path")
+      let style_as_data = (this.params_lst[j]["style_as_data"] == true);
+      if (style_as_data) {
+        // data as point annotations / symbols
+        this.pointGroup.selectAll("path")
+          .data(x)
+          .enter()
+          .append('path')
+          .attr("d", d3.symbol()
+            .size(20)
+            .type(d3.symbolCircle))
+          .attr("transform", function(d, i) { return 'translate('+xScl(x[i])+','+yScl(y[i])+')'; })
+          .attr("fill", function(d, i) { return this.colours[j]; }.bind(this));
+      }
+      else {
+        // data as lines
+        this.pointGroup.append("path")
           .attr("d", d3.line()
-          .x( function(d, i) { return xScl(x[i]); })
-          .y( function(d, i) { return yScl(y[i]); })
-          (x) // since we use the function-wide scoped x, y directly, this just causes index generation
-        )
-        //.attr("stroke", "black")
-        .attr("stroke", function(d, i) { return this.colours[j]; }.bind(this))
-        .attr("stroke-width", "1px")
-        .attr("fill", "none");
+            .x( function(d, i) { return xScl(x[i]); })
+            .y( function(d, i) { return yScl(y[i]); })
+            (x) // since we use the function-wide scoped x, y directly, this just causes index generation
+          )
+          .attr("stroke", function(d, i) { return this.colours[j]; }.bind(this))
+          .attr("stroke-width", "1px")
+          .attr("fill", "none");
+      }
 
       // error bars
       this.pointGroup.selectAll("line")

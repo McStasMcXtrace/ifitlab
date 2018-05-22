@@ -218,7 +218,7 @@ def _get_iData_repr(idata_symb):
             else:
                 cnt = cnt + 1
         
-        pltdct = _get_plot_1D(xvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
+        pltdct = _get_plot_1D(xvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb, style_as_data=True)
     elif ndims == 2:
         xvals = list(_eval('%s.%s;' % (idata_symb, axes_names[0]) )[0])
         yvals = list(_eval('%s.%s;' % (idata_symb, axes_names[1]) )[0])
@@ -240,7 +240,7 @@ def _get_iData_repr(idata_symb):
     infdct['ndims'] = "%d" % ndims
     return pltdct, infdct
 
-def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
+def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title, style_as_data=False):
     ''' returns the dict required by the svg 1d plotting function '''
     params = {}
     p = params
@@ -253,6 +253,7 @@ def _get_plot_1D(axisvals, signal, yerr, xlabel, ylabel, title):
     p['ylabel'] = ylabel
     p['title'] = title
     p['ndims'] = 1
+    p['style_as_data'] = style_as_data # should the style "data" (as opposed to "model") be used when plotting?
     return params
 
 def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
