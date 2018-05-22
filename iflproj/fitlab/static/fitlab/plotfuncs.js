@@ -1,3 +1,13 @@
+function nzmin(lst) {
+  let mval = lst[0];
+  let val = null;
+  for (var i=1;i<lst.length;i++)  {
+    val = lst[i];
+    if (val > 0 && val < mval) mval = val;
+  }
+  return mval;
+}
+
 class Plot1D {
   constructor(params, wname, svg_branch=null, logscale=false) {
     let p = params;
@@ -7,8 +17,8 @@ class Plot1D {
 
     this.xmin = d3.min(p['x']);
     this.xmax = d3.max(p['x']);
-    this.ymin = d3.min(p['y']);
-    this.ymax = d3.max(p['y']);
+    this.ymin = nzmin(p['y']);
+    this.ymax = d3.max(p['y'])*1.05;
 
     this.x_lst = [p['x']];
     this.y_lst = [p['y']];
@@ -280,7 +290,7 @@ function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
   var dl = yLabelGrp.node().getBBox().height; // height and width are confused here, due to the rotation
   var db = xLabelGrp.node().getBBox().height;
 
-  var wplt = wlab - 3.3*dl;
+  var wplt = wlab - 3.75*dl;
   var hplt = hlab - (1.3*dt + 2.1*db);
   var xplt = 4.0*dl;
   var yplt = dt + 0.3*dl;
@@ -288,8 +298,8 @@ function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
   var titx = wlab/2;
   var tity = 0;//dt/2;
   var xlabx = wplt/2 + xplt;
-  var xlaby = hlab - db/2;
-  var ylabx = dl/2;
+  var xlaby = hlab - 2;
+  var ylabx = dl/2 + 2;
   var ylaby = yplt + hplt/2;
 
   // position labels based on what was drawn
