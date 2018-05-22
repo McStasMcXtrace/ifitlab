@@ -176,9 +176,20 @@ class Plot1D {
 }
 
 // plot 2d
-function plot_2d(params, svg_branch=null) {
+function plot_2d(params, svg_branch=null, log=false) {
   var p = params
   let hdl = _draw_labels(p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch);
+
+  let data = p['img2dData'];
+  let cb = p['imgColorbar'];
+  let cbmin = p['cbMin'];
+  let cbmax = p['cbMax'];
+  if (log==true) {
+    data = p['img2dDataLog'];
+    cb = p['imgColorbarLog'];
+    cbmin = p['cbMinLog'];
+    cbmax = p['cbMaxLog'];
+  }
 
   _plot_2d_data(
     hdl.wplt,
@@ -187,10 +198,10 @@ function plot_2d(params, svg_branch=null) {
     p['xmax'],
     p['ymin'],
     p['ymax'],
-    p['img2dData'],
-    p['imgColorbar'],
-    p['cbMin'],
-    p['cbMax'],
+    data,
+    cb,
+    cbmin,
+    cbmax,
     hdl.axisGroup);
 }
 

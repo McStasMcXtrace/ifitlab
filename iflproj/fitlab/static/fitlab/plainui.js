@@ -25,6 +25,8 @@ class PlotWindow {
     this.ndims = null;
     this.data = {}; // { id : plotdata }
 
+    this.logscale = false;
+
     if (nodeid != null && plotdata != null) {
       this.addPlot(nodeid, plotdata)
     }
@@ -57,11 +59,7 @@ class PlotWindow {
       data[0].w = this.w;
       data[0].h = this.h;
 
-      // this made a difference
-      this.plotbranch = d3.select('#'+this.body_container[0])
-        .selectAll("svg")
-        .remove();
-      this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
+      this._resetPlotBranch();
       this.plot = new Plot1D(data[0], this.wname, this.plotbranch, logscale);
 
       this.plot.rePlotMany(data);
@@ -82,8 +80,23 @@ class PlotWindow {
       }
     }
   }
+  _resetPlotBranch() {
+    this.plotbranch = d3.select('#'+this.body_container[0])
+      .selectAll("svg")
+      .remove();
+    this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
+  }
   _logscaleCB() {
-    if (this.ndims == 1) this.plot.toggleLogscale();
+    this.logscale = !this.logscale;
+    if (this.ndims == 1) {
+      this.plot.toggleLogscale();
+    }
+    else if (this.ndims == 2) {
+      this.plot = null;
+      this._resetPlotBranch();
+      let id = Object.keys(this.data)[0];
+      this.addPlot(id, this.data[id], true);
+    }
   }
   get w() {
     if (this.large) return this.sizes[2]
@@ -143,7 +156,7 @@ class PlotWindow {
 
     if (this.plot == null) {
       if (this.ndims == 1) { this.plot = new Plot1D(plotdata, this.wname, this.plotbranch); }
-      if (this.ndims == 2) plot_2d(plotdata, this.plotbranch);
+      if (this.ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
     } else {
       if (plotdata.ndims == 1) this.plot.plotOneMore(plotdata);
       if (plotdata.ndims == 2) throw "2D multiplot is not supported";

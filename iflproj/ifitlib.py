@@ -269,34 +269,66 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     
     dims = np.shape(signal)
     
+    # the colour map
+    cm = np.array([[0,0,143,255], [0,0,159,255], [0,0,175,255], [0,0,191,255], [0,0,207,255], [0,0,223,255], [0,0,239,255], [0,0,255,255], [0,16,255,255], [0,32,255,255], [0,48,255,255], [0,64,255,255], [0,80,255,255], [0,96,255,255], [0,112,255,255], [0,128,255,255], [0,143,255,255], [0,159,255,255], [0,175,255,255], [0,191,255,255], [0,207,255,255], [0,223,255,255], [0,239,255,255], [0,255,255,255], [16,255,239,255], [32,255,223,255], [48,55,207,255], [64,255,191,255], [80,255,175,255], [96,255,159,255], [112,255,143,255], [128,255,128,255], [143,255,112,255], [159,255,96,255], [175,255,80,255], [191,255,64,255], [207,255,48,255], [223,255,32,255], [239,255,16,255], [255,255,0,255], [255,239,0,255], [255,223,0,255], [255,207,0,255], [255,191,0,255], [255,175,0,255], [255,159,0,255], [255,143,0,255], [255,128,0,255], [255, 112,0, 255], [255,96,0, 255], [255,80,0, 255], [255,64,0, 255], [255,48,0, 255], [255,32,0, 255], [255,16,0, 255], [255,0,0, 255], [239,0,0, 255], [223,0,0, 255], [207,0,0, 255], [191,0,0, 255], [175,0,0, 255], [159,0,0, 255], [143,0,0, 255], [128,0,0, 255]], dtype=np.ubyte)
+    
     # create the 2d data as a png given our colormap
     img = np.zeros((dims[0], dims[1], 4))
     maxval = np.max(signal)
-    cm = np.array([[0,0,143,255], [0,0,159,255], [0,0,175,255], [0,0,191,255], [0,0,207,255], [0,0,223,255], [0,0,239,255], [0,0,255,255], [0,16,255,255], [0,32,255,255], [0,48,255,255], [0,64,255,255], [0,80,255,255], [0,96,255,255], [0,112,255,255], [0,128,255,255], [0,143,255,255], [0,159,255,255], [0,175,255,255], [0,191,255,255], [0,207,255,255], [0,223,255,255], [0,239,255,255], [0,255,255,255], [16,255,239,255], [32,255,223,255], [48,55,207,255], [64,255,191,255], [80,255,175,255], [96,255,159,255], [112,255,143,255], [128,255,128,255], [143,255,112,255], [159,255,96,255], [175,255,80,255], [191,255,64,255], [207,255,48,255], [223,255,32,255], [239,255,16,255], [255,255,0,255], [255,239,0,255], [255,223,0,255], [255,207,0,255], [255,191,0,255], [255,175,0,255], [255,159,0,255], [255,143,0,255], [255,128,0,255], [255, 112,0, 255], [255,96,0, 255], [255,80,0, 255], [255,64,0, 255], [255,48,0, 255], [255,32,0, 255], [255,16,0, 255], [255,0,0, 255], [239,0,0, 255], [223,0,0, 255], [207,0,0, 255], [191,0,0, 255], [175,0,0, 255], [159,0,0, 255], [143,0,0, 255], [128,0,0, 255]], dtype=np.ubyte)
     for i in range(dims[0]):
         for j in range(dims[1]):
-            color = lookup(cm, signal[i][j]/maxval)
-            img[i,j,:] = color
-
+            img[i,j,:] = lookup(cm, signal[i][j]/maxval)
     # encode png as base64 string
     image = scipy.misc.toimage(img)
     output = io.BytesIO()
     image.save(output, format="png")
-    contents = output.getvalue()
+    encoded_2d_data = str(base64.b64encode(output.getvalue())).lstrip('b').strip("\'")
     output.close()
-    encoded_2d_data = str(base64.b64encode(contents)).lstrip('b').strip("\'")
-
+    
+    # create log data as another png
+    img_log = np.zeros((dims[0], dims[1], 4))
+    minval = 1e19
+    for row in signal:
+        for val in row:
+            if val > 0 and val < minval:
+                minval = val
+    minval_log = np.log10(minval/10)
+    signal_log = np.ma.log10(signal).filled(minval_log) # masked array filling in zeros (zero must be mask false...)
+    maxval_log = np.max(signal_log)
+    for i in range(dims[0]):
+        for j in range(dims[1]):
+            try:
+                img_log[i,j,:] = lookup(cm, (signal_log[i][j] - minval_log)/(maxval_log - minval_log))
+            except Exception as e:
+                print(e)
+    # encode png as base64 string
+    image_log= scipy.misc.toimage(img_log)
+    output = io.BytesIO()
+    image_log.save(output, format="png")
+    encoded_2d_data_log = str(base64.b64encode(output.getvalue())).lstrip('b').strip("\'")
+    output.close()
+    
     # color bar
-    img = np.zeros((256, 1, 4))
+    tmpimg = np.zeros((256, 1, 4))
     for i in range(256):
         color = lookup(cm, i/255)
-        img[255-i, 0] = color
-    cb_img = scipy.misc.toimage(img)
+        tmpimg[255-i, 0] = color
+    cb_img = scipy.misc.toimage(tmpimg)
     output = io.BytesIO()
     cb_img.save(output, format='png')
-    contents = output.getvalue()
+    encoded_cb = str(base64.b64encode(output.getvalue())).lstrip('b').strip("\'")
     output.close()
-    encoded_cb = str(base64.b64encode(contents)).lstrip('b').strip("\'")
+    
+    # log color bar
+    tmpimg = np.zeros((256, 1, 4))
+    for i in range(256):
+        color = lookup(cm, i/255)
+        tmpimg[255-i, 0] = color
+    cb_img_log = scipy.misc.toimage(tmpimg)
+    output = io.BytesIO()
+    cb_img_log.save(output, format='png')
+    encoded_cb_log = str(base64.b64encode(output.getvalue())).lstrip('b').strip("\'")
+    output.close()
 
     x = axisvals[0]
     y = axisvals[1]
@@ -307,6 +339,8 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
 
     cb_min = np.min(signal)
     cb_max = np.max(signal)
+    cb_min_log = np.min(signal_log)
+    cb_max_log = np.max(signal_log)
 
     params = {}
     p = params
@@ -321,8 +355,14 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     p['img2dData'] = encoded_2d_data
     p['imgColorbar'] = encoded_cb
 
+    p['img2dDataLog'] = encoded_2d_data_log
+    p['imgColorbarLog'] = encoded_cb_log
+
     p['cbMin'] = cb_min
     p['cbMax'] = cb_max
+    
+    p['cbMinLog'] = cb_min_log
+    p['cbMaxLog'] = cb_max_log
 
     p['xlabel'] = xlabel
     p['ylabel'] = ylabel
