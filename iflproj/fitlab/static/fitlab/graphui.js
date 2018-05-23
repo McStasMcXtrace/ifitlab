@@ -1483,7 +1483,7 @@ class GraphInterface {
       for (let i=0;i<lks.length;i++) {
         entry = lks[i];
         if (entry[2] == id && entry[1] == s.idx && entry[3] == d.idx) {
-          this.graphData.linkRm(entry[0], entry[1], entry[2], entry[3])
+          this.link_rm(entry[0], entry[1], entry[2], entry[3])
           createLink();
           return;
         }
