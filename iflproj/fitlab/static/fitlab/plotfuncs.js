@@ -323,13 +323,13 @@ function _makeErrorBarsData(x_lst, y_lst, yErr_lst) {
     let y = y_lst[j];
     let yErr = yErr_lst[j];
 
-    let bin = (x[1]-x[0])/1.5;
+    let bin = x[1]-x[0];
     // ignore any "strange" error bars
     for (var i=0; i < yErr.length; i++) {
       if (yErr[i] > 0 && yErr[i] < Math.abs(y[i])) {
         dataErr.push({ "p1": [x[i], y[i]-yErr[i]], "p2" : [x[i], y[i]+yErr[i]] });
-        dataErr.push({ "p1": [x[i]-bin, y[i]-yErr[i]], "p2" : [x[i]+bin, y[i]-yErr[i]] });
-        dataErr.push({ "p1": [x[i]-bin, y[i]+yErr[i]], "p2" : [x[i]+bin, y[i]+yErr[i]] });
+        dataErr.push({ "p1": [x[i]-bin/3, y[i]-yErr[i]], "p2" : [x[i]+bin/3, y[i]-yErr[i]] });
+        dataErr.push({ "p1": [x[i]-bin/3, y[i]+yErr[i]], "p2" : [x[i]+bin/3, y[i]+yErr[i]] });
       }
     }
     dataErr_lst.push(dataErr);
