@@ -96,6 +96,9 @@ class GraphSession:
         return json_obj
 
     def reset(self):
+        if (self.graph):
+            self.graph.shutdown()
+        
         text = self._loadNodeTypesJsFile()
         tree = engintf.TreeJsonAddr(json.loads(text))
 
