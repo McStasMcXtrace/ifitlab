@@ -66,8 +66,11 @@ def ajax_save_graph_def(request):
     existing.delete()
     gd = GraphDef(graphdef_json=s, username=username)
     gd.save()
+
     return HttpResponse("graphdef saved")
 
+
+# single-threaded approach
 graphsessions = {}
 def get_graph_session(key):
     if not graphsessions.get(key):

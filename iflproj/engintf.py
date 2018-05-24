@@ -103,6 +103,17 @@ class ObjReprJson:
     def set_user_data(self, json_obj):
         pass
 
+class MiddleWare:
+    ''' graph return obj registration and finalize (abstracted from use case: clear Matlab variables @ session end) '''
+    class WasAlreadyFinalizedException(Exception): pass
+    def __init__(self):
+        self.was_finalized = False
+    def register(self, obj):
+        pass
+    def finalize(self):
+        if self.was_finalized:
+            raise(MiddleWare.WasAlreadyFinalizedException)
+        self.was_finalized = True
 
 '''
 Id- and type based graph manipulation interface.
@@ -116,6 +127,12 @@ class FlatGraph:
         self.pmodule = pmodule
         self.node_cmds_cache = {}
         self.dslinks_cache = {} # ds = downstream
+
+        self._middleware = None
+        load_mw = getattr(pmodule, "_load_middleware")
+        if load_mw:
+            self._middleware = load_mw()
+
     def _create_node(self, id, tpe_addr):
         conf = self.tpe_tree.retrieve(tpe_addr)
         n = None
@@ -243,6 +260,8 @@ class FlatGraph:
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
             
+            self._middleware.register(obj)
+            
             retobj = {'update':{}}
             update_lst = [id]
             if type(n) in (MethodAsFunctionNode, ):
@@ -294,6 +313,10 @@ class FlatGraph:
             except:
                 pass # not all nodes have outgoing links...
         return gdef
+
+    def shutdown(self):
+        ''' kind of a destructor - should be called when this graph session is no longer required '''
+        self._middleware.finalize()
 
 basetypes = {
     'object' : ObjNode,

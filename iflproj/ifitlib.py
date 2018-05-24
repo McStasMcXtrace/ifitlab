@@ -7,7 +7,7 @@ its name - e.g. _get_plot_1D - will be omitted.
 2) any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
 whereby its constructor node will output that type name
 
-Notes on class features:
+Module loader / node generator features:
 1) inherit all classes from ObjReprJson
 2) implement get_repr and set_user_data to interact with low-level data. Extend or use _get_full_repr_dict only.
 3) implement non_polymorphic_typename (annotated with @staticmethod) if you want to overload 
@@ -15,6 +15,7 @@ the node type of the resulting constructor node
 4) any parameter with a default value will not give rise to a node anchor, but rathe a configurable value on the
 actual node in the gui. Use this for function configuration options that are better suited for this minor or 
 secondary presence
+5) A function "_load_middleware" may be implemented. It must return an object subclassed from engintf.MiddeWare.
 '''
 __author__ = "Jakob Garde"
 
@@ -60,6 +61,19 @@ def _get_idata_prefix():
     global _idataidx
     _idataidx += 1
     return 'idata%d' % (_idataidx)
+
+class _VarnameMiddleware(engintf.MiddleWare):
+    ''' handles registration of varnames for clearing when finalize() is called '''
+    def __init__(self):
+        self.varnames = []
+    def register(self, obj):
+        if type(obj) in (IData, IFunc, ):
+            self.varnames.append(obj.varname)
+    def finalize(self):
+        for vn in self.varnames:
+            _eval("clear %s;" % vn, nargout=0)
+def _load_middleware():
+    return _VarnameMiddleware()
 
 class IData(engintf.ObjReprJson):
     def __init__(self, url, datashape=None):
@@ -143,9 +157,6 @@ class IData(engintf.ObjReprJson):
         retdct['info'] = infdct
 
         return retdct
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        _eval("clear %s;" % self.varname)
 
     def rmint(self, min, max):
         ''' removes intervals from idata objects 
@@ -533,10 +544,6 @@ class IFunc(engintf.ObjReprJson):
             args = ()
             ndaargs = (parnames, )
             _vectorized(shape, fixpars_atomic, vnargs, args, ndaargs)
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        cmd = "clear %s;" % self.varname
-        _eval(cmd)
 
 def _lowest_level_irr_squeezecast(lst):
     # coule be e.g. a string
