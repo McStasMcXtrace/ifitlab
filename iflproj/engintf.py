@@ -112,7 +112,7 @@ class MiddleWare:
         pass
     def finalize(self):
         if self.was_finalized:
-            raise(MiddleWare.WasAlreadyFinalizedException)
+            raise MiddleWare.WasAlreadyFinalizedException()
         self.was_finalized = True
 
 '''

@@ -2,9 +2,12 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.contrib.auth import authenticate, login, logout
 
+from .models import GraphUiRequest, GraphReply
+
 import json
 import re
 import importlib
+import time
 
 import engintf
 from fitlab.models import GraphDef
@@ -30,24 +33,58 @@ def index(request):
     return render(request, "fitlab/main.html")
 
 def ajax_run_node(request):
-    ''' ajax target function for "run node" action '''
+    #''' ajax target function for "run node" action '''
+    s = request.POST.get('json_str')
+    if not s:
+        return HttpResponse("ajax request FAIL");
+    print("received command: %s" % s)
+    
+    # get the command data
+    obj = json.loads(s)
+    runid = obj['run_id']
+    sync = obj['sync']
+
+    # pass it on
+    username = request.session['username']
+    graphsession = get_graph_session(username)
+    json_obj = graphsession.update_and_execute(runid, sync)
+
+    # return the data
+    return HttpResponse(json.dumps(json_obj))
+
+'''
+def ajax_run_node(request):
     s = request.POST.get('json_str')
     if not s:
         return HttpResponse("ajax request FAIL");
     print("received command: %s" % s)
 
-    # get the command data
-    obj = json.loads(s)
-    runid = obj['run_id']
-    syncset = obj['sync']
-
-    # pass it on
     username = request.session['username']
-    graphsession = get_graph_session(username)
-    json_obj = graphsession.update_and_execute(runid, syncset)
+    syncset = request.POST.get('json_str')
+    greq = GraphUiRequest(username, syncset)
+    greq.save()
+    reply_json = _poll_db_for_reply(username, greq.id)
+    if reply_json:
+        return HttpResponse(reply_json)
+    else:
+        return HttpResponse("ajax request db poll timed out")
+'''
 
-    # return the data
-    return HttpResponse(json.dumps(json_obj))
+def _poll_db_for_reply(username, requid, timeout=0):
+    ''' polling the db is used as a process sync mechanism '''
+    t = time.time()
+    while True:
+        lst = GraphReply.objects.filter(username__is=username, requid__is=requid)
+        if len(lst) == 1:
+            answer = lst[0].reply_json
+            lst[0].delete()
+            return answer
+        if len(lst) > 1:
+            raise Exception("more than one reply for single request - multi-processing issue detected")
+        time.sleep(0.3)
+        elapsed = time.time() - t
+        if elapsed > timeout and timeout > 0:
+            return None
 
 def ajax_load_graph_def(request):
     ''' can we load a graph def from the db? '''
