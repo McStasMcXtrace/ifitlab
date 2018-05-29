@@ -32,8 +32,9 @@ def index(request):
 
     return render(request, "fitlab/main.html")
 
+'''
 def ajax_run_node(request):
-    #''' ajax target function for "run node" action '''
+    ### ajax target function for "run node" action
     s = request.POST.get('json_str')
     if not s:
         return HttpResponse("ajax request FAIL");
@@ -53,6 +54,7 @@ def ajax_run_node(request):
     return HttpResponse(json.dumps(json_obj))
 
 '''
+
 def ajax_run_node(request):
     s = request.POST.get('json_str')
     if not s:
@@ -61,20 +63,32 @@ def ajax_run_node(request):
 
     username = request.session['username']
     syncset = request.POST.get('json_str')
-    greq = GraphUiRequest(username, syncset)
+    greq = GraphUiRequest(username=username, syncset=syncset)
     greq.save()
-    reply_json = _poll_db_for_reply(username, greq.id)
+    reqid = greq.id
+    
+    # emulate worker action
+    graphsession = get_graph_session(username)
+    # fetch (will be executed by username-tagged thread in turn or in parallel)
+    sync_obj = json.loads(greq.syncset)
+    # execute and finalize reply
+    json_obj = graphsession.update_and_execute(sync_obj['run_id'], sync_obj['sync'])
+    grep = GraphReply(username=greq.username, reqid=greq.id, reply_json=json.dumps(json_obj))
+    grep.save()
+    greq.delete()
+    
+    # back to main
+    reply_json = _poll_db_for_reply(username, reqid)
     if reply_json:
         return HttpResponse(reply_json)
     else:
         return HttpResponse("ajax request db poll timed out")
-'''
 
-def _poll_db_for_reply(username, requid, timeout=0):
+def _poll_db_for_reply(username, requid, timeout=30):
     ''' polling the db is used as a process sync mechanism '''
     t = time.time()
     while True:
-        lst = GraphReply.objects.filter(username__is=username, requid__is=requid)
+        lst = GraphReply.objects.filter(username=username, reqid=requid)
         if len(lst) == 1:
             answer = lst[0].reply_json
             lst[0].delete()
