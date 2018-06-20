@@ -27,6 +27,7 @@ import io
 import base64
 import matlab.engine
 import math
+import re
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
@@ -390,7 +391,28 @@ class IFunc(engintf.ObjReprJson):
         logging.debug("%s.__init__" % str(type(self)))
 
         def create_ifunc(vn, symb):
-            _eval("%s = %s();" % (vn, symb), nargout=0)
+            def is_known_ifit_builtin(modelname):
+                ''' see: http://ifit.mccode.org/Models.html '''
+                return modelname in ("allometric", "bigauss", "bilorz", "bose", "dho", "dirac", "doseresp", "expon", 
+                                     "expstretched", "gauss", "green", "heaviside", "langevin", "laplace", "lognormal", 
+                                     "lorz", "ngauss", "nlorz", "pareto", "poisson", "pseudovoigt", "quadline", "sigmoid",
+                                     "sine", "sinedamp", "strline", "triangl", "tophat", "twoexp", "voigt", "gauss2d", 
+                                     "lorz2d", "plane2d", "pseudovoigt2d", "quad2d", "gaussnd", "sf_hard_spheres", "rietveld",
+                                     "sqw_sine3d", "sqw_spinw", "sqw_vaks", "sqw_cubic_monoatomic", "sqw_phonons",
+                                     "sqw_linquad", "sqw_acoustopt")
+            def canbe_ifit_expression(expr):
+                ''' p(1)... notation, see ifit docs '''
+                m = re.match('[0-9a-zA-Z\.\-\+\*\/\(\)\^]+', expr)
+                if m and len(m.group()) == len(expr):
+                    return True
+            
+            if is_known_ifit_builtin(symb):
+                _eval("%s = %s();" % (vn, symb), nargout=0)
+            elif canbe_ifit_expression(symb):
+                _eval("%s = iFunc('%s');" % (vn, symb), nargout=0)
+            else:
+                raise Exception('unrecognized ifit expression: "%s"' % symb)
+            
             parameternames = _eval('%s.Parameters;' % vn, nargout=1) # we basically just need the length
             parameternames = [p.split()[0] for p in parameternames]
 
@@ -399,6 +421,9 @@ class IFunc(engintf.ObjReprJson):
                 shape = (shape[0], 1)
             shape = str(list(shape)).replace("[","").replace("]","")
             _eval("%s = zeros(%s, %s);" % (vn, symb, shape), nargout=0)
+
+        if symbol == None or symbol == "":
+            symbol = "iFunc"
 
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
         self._plotaxes = None
@@ -765,15 +790,19 @@ def Lin(datashape:list=None) -> IFunc:
 ifunc combination functions / operators
 '''
 
-''' (temp disabled)
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    logging.debug("add: %s, %s" % (ifunc_a, ifunc_b))
+    ''' adds two IFunc objects into a new fitting function, and returns this '''
+    raise Exception("not implemented")
+    
     vn1 = ifunc_a.varname
     vn2 = ifunc_b.varname
     obj = IFunc()
     vn_new = obj.varname
     _eval('%s = %s + %s;' % (vn_new, vn1, vn2))
     return obj
+
+''' (temp disabled)
+
 
 def subtr(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     logging.debug("subtr: %s, %s" % (ifunc_a, ifunc_b))
@@ -816,6 +845,7 @@ functions (also called "methods" in the ifit documentation
 '''
 
 def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
+    ''' fits ifunc to idata and returns a fitted IFunc object, with plot information matching the axes of idata '''
     logging.debug("fit: %s, %s" % (idata, ifunc))
 
     # TODO: alter the call to 'fits' in a way that respects the current ifunc par values as a guess
@@ -845,7 +875,7 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     return retobj
 
 def combine(filenames:list) -> IData:
-    ''' a data reduce / merges which is vectorized explicitly for rank>0'''
+    ''' a data reduce / merge handled by iFit'''
     logging.debug("combine")
 
     def combine_atomic(vn, fns):
@@ -878,5 +908,25 @@ def combine(filenames:list) -> IData:
         raise Exception("combine: rank must be in Z_0")
     
     return retobj
+
+def decompose(fitfunc: IFunc, typefunc: IFunc, idx=0) -> IFunc:
+    '''
+    Extract parameter values and axis information from fitfunc, given the parameters in typefunc, 
+    returning an IFunc object of that configuration.
+    
+    fitfunc:    object to extract parameter values and axes from
+    typefunc:   object whose parameter names and type is extracted from 
+                fitfunc, and used for the output func, respectfully
+    idx:        If fitfunc has more matcheds for some parameters in 
+                typefunc, an index is required to indicate which ones to copy
+    '''
+    raise Exception("not implemented")
+
+    # checks: 
+    
+    # fitfunc must have an axis set by someone
+    # idx must be >=0
+    # for idx > 0, throw "index out of range" errors
+    # for idx == 0 but no matching parameter names, throw a "parameters not found" error message
 
 
