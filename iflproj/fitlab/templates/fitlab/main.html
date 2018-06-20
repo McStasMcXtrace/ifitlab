@@ -101,7 +101,7 @@
 
 <body>
 
-<div id="buttons" style="position:absolute;margin:auto;">h:help
+<div id="buttons" style="position:absolute;margin:auto;">help:h
   <button id="btnUndo">Undo</button>
   <button id="btnRedo">Redo</button>
   <button id="btnRun">Run</button>
@@ -356,7 +356,7 @@ $(document).ready(() => {
   $("body").addClass("noselect");
 
   // an ad-hoc popup help window, shown @ keypress: h
-  let dialogdiv = '<div id="dialog" title="How to use iFitLab nodes using the mouse"><ul><li><b>create</b>: click template node, click work-area</li><li><b>delete</b>: ctr-click node</li><li><b>select</b>: click a node</li><li><b>move</b>: mouse-drag node</li><li><b>connect</b>: mouse-drag anchors (even if a link exists)</li><li><b>run</b>: double-click node</li></ul></div>';
+  let dialogdiv = '<div id="dialog" title="How to use iFitLab:"><ul><li><b>create</b>: click template node, click work-area</li><li><b>delete</b>: ctr-click node</li><li><b>select</b>: click a node</li><li><b>move</b>: mouse-drag node</li><li><b>connect</b>: mouse-drag anchors (even if a link exists)</li><li><b>run</b>: double-click node</li></ul></div>';
   let dlg = null;
   $("body").keypress( function(event) {
     if (event.key == "h" && !dlg)
