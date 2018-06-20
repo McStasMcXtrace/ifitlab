@@ -166,8 +166,14 @@ setUserData = function(node) {
       .change( () => {
         let tarea = $("#"+rowid +" textarea");
         let val = tarea.val()
-        if (val == "" || !val.replace(/\s/g, '').length) tarea.val("null");
-        else if (['[', '{', '"'].indexOf(val[0]) == -1) tarea.val('"'+val+'"');
+        // empty || all whitespace : set to null
+        if (val == "" || val.replace(/\s/g, '').length == 0) {
+          tarea.val("null");
+        }
+        // not likely a json structure || not all digits : encase in dquotes
+        else if (['[', '{', '"'].indexOf(val[0]) == -1 && isNaN(val) ) {
+          tarea.val('"'+val+'"');
+        }
         intface.node_data(node.id, tarea.val());
       });
   }
@@ -269,7 +275,7 @@ $(document).ready(() => {
   intface.addNodeRunReturnListener( (node) => {
     // clear previous subwindow elements with this id
     let x_y = plthandler.removePlots(node.id);
-    
+
     if (node.plotdata) {
       node.gNode.colour = cols(iclr++);
       node.plotdata.colour = node.gNode.colour;
@@ -280,7 +286,6 @@ $(document).ready(() => {
       let width = 330;
       let height = 220;
       if (x_y) { xpos=x_y[0]; ypos=x_y[1]; }
-
 
       //let titleadd = node.label + '(' + node.id + ')';
       let titleadd = null;
