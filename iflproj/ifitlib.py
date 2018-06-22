@@ -31,6 +31,7 @@ import re
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
+import functools
 
 _eng = None
 _cmdlog = None
@@ -435,50 +436,20 @@ class IFunc(engintf.ObjReprJson):
         self._plotdims = ndims
 
     def get_repr(self):
+        ''' mostly delegated to the offline function _get_iFunc_repr '''
         datashape = self._get_datashape()
         retdct = self._get_full_repr_dict()
-        retdct['info'] = {'datashape' : datashape}
+        usrdct = {}
         
         if datashape in [None, tuple()]:
-            # get parameter names and fvals
-            vn = self.varname
-            pkeys = _eval('%s.Parameters;' % vn, nargout=1)
-            pvals = {}
-            vals = []
-            for key in pkeys:
-                key0 = key.split(' ')[0] # it should always be key0
-                val = _eval('%s.%s' % (vn, key0), nargout=1)
-                while type(val) == list:
-                    val = val[0]
-                if type(val) != float:
-                    pvals[key0] = None
-                elif math.isnan(float(val)):
-                    pvals[key0] = None
-                else:
-                    pvals[key0] = val
-                    vals.append(val)
-            retdct['userdata'] = pvals
+            pltdct, infdct, usrdct = _get_iFunc_repr(self.varname, self._plotaxes, self._plotdims)
+        else:
+            pltdct = None
+            infdct = {'datashape' : datashape, 'ndims' : None}
 
-            # if we have plotaxes != None, get function evaluation fvals on those
-            if self._plotaxes and len(pkeys) == len(vals):
-                if self._plotdims == 1:
-                    
-                    xmin = self._plotaxes[0]
-                    xmax = self._plotaxes[1]
-                    parvalstr = ' '.join([str(v) for v in vals])
-                    fvals = _eval("feval(%s, [%s], linspace(%s, %s, 100))" % (vn, parvalstr, xmin, xmax), nargout=1)
-                    fvals = np.array(fvals[0]).tolist()
-                    xvals = np.linspace(xmin, xmax, 100).tolist()
-                    yerr = np.zeros(100).tolist()
-                    #xlabel = _eval("xlabel(%s)" % vn, nargout=1)
-                    #ylabel = _eval("ylabel(%s)" % vn, nargout=1)
-                    xlabel = "x"
-                    ylabel = "y"
-                    retdct['plotdata'] = _get_plot_1D(axisvals=xvals, signal=fvals, yerr=yerr, xlabel=xlabel, ylabel=ylabel, title="title")
-
-                elif self._plotdims == 2:
-                    pass
-
+        retdct['plotdata'] = pltdct
+        retdct['info'] = infdct
+        retdct['userdata'] = usrdct
         return retdct
 
     def set_user_data(self, json_obj):
@@ -556,6 +527,50 @@ class IFunc(engintf.ObjReprJson):
             args = ()
             ndaargs = (parnames, )
             _vectorized(shape, fixpars_atomic, vnargs, args, ndaargs)
+
+def _get_iFunc_repr(varname, plotaxes, plotdims, datashape = None):
+    ''' returns an ifunc representation, and can even be used to extract a plot from a vactorized instance '''
+    # get parameter names and fvals
+    pkeys = _eval('%s.Parameters;' % varname, nargout=1)
+    pvals = {}
+    vals = []
+    for key in pkeys:
+        key0 = key.split(' ')[0] # it should always be key0
+        val = _eval('%s.%s' % (varname, key0), nargout=1)
+        while type(val) == list:
+            val = val[0]
+        if type(val) != float:
+            pvals[key0] = None
+        elif math.isnan(float(val)):
+            pvals[key0] = None
+        else:
+            pvals[key0] = val
+            vals.append(val)
+    userdct = pvals
+    pltdct = None
+    infdct = {'datashape' : datashape}
+
+    # if we have plotaxes != None, get function evaluation fvals on those
+    if plotaxes and len(pkeys) == len(vals):
+        if plotdims == 1:
+            xmin = plotaxes[0]
+            xmax = plotaxes[1]
+            parvalstr = ' '.join([str(v) for v in vals])
+            fvals = _eval("feval(%s, [%s], linspace(%s, %s, 100))" % (varname, parvalstr, xmin, xmax), nargout=1)
+            fvals = np.array(fvals[0]).tolist()
+            xvals = np.linspace(xmin, xmax, 100).tolist()
+            yerr = np.zeros(100).tolist()
+            #xlabel = _eval("xlabel(%s)" % varname, nargout=1)
+            #ylabel = _eval("ylabel(%s)" % varname, nargout=1)
+            xlabel = "x"
+            ylabel = "y"
+            pltdct = _get_plot_1D(axisvals=xvals, signal=fvals, yerr=yerr, xlabel=xlabel, ylabel=ylabel, title="title")
+            infdct = {'datashape' : datashape, 'ndims' : "%d" % 1}
+
+        elif plotdims == 2:
+            raise Exception("IFunc._plotdims==2 has not been implemented")
+
+    return pltdct, infdct, userdct
 
 def _lowest_level_irr_squeezecast(lst):
     # coule be e.g. a string
@@ -705,7 +720,8 @@ class PlotIter(engintf.ObjReprJson):
         else:
             midx = it.next()
 
-        self.idx = midx;
+        self.midx = midx;
+        self.idx = np.ravel_multi_index(self.midx, self.shape)
         try:
             self.nxt_idx = it.next()
         except StopIteration:
@@ -713,7 +729,7 @@ class PlotIter(engintf.ObjReprJson):
             self.nxt_idx = it.next()
 
         # determine idata symbol
-        indices = [i+1 for i in self.idx] # convert to matlab indexing
+        indices = [i+1 for i in self.midx] # convert to matlab indexing
         indices = str(indices).replace("[","(").replace("]",")")
         self.indices = indices
         self.symb = "%s%s" % (data.varname, indices)
@@ -722,30 +738,12 @@ class PlotIter(engintf.ObjReprJson):
         retdct = self._get_full_repr_dict()
         pltdct, infdct = _get_iData_repr(self.symb)
 
-        def m21D(shape, midx):
-            dims = len(shape)
-            F = []
-            N = shape
-            I = midx
-            for i in range(0, dims): # up to but not including dims
-                factor = 1
-                for j in range(i+1, dims): # up to, but not including, dims
-                    factor = factor*N[j]
-                F.append(factor)
-                # now we can sum using "factor"
-            idx = 0
-            for i in range(0, dims):
-                idx = idx + F[i]*I[i]
-            return idx
-
-        oned_idx = m21D(self.shape, self.idx)
-        import functools
         oned_size = functools.reduce(lambda d1,d2: d1*d2, self.shape)
 
         retdct['info'] = infdct
-        retdct['info']['wtitle'] = "%d of %d" % (oned_idx+1, oned_size)
+        retdct['info']['wtitle'] = "%d of %d" % (self.idx+1, oned_size)
         retdct['userdata'] = {
-                'idx' : self.idx,
+                'midx' : self.midx,
                 'nxt_idx' : self.nxt_idx
             }
         retdct['plotdata'] = pltdct
@@ -753,13 +751,80 @@ class PlotIter(engintf.ObjReprJson):
         return retdct
 
     def set_user_data(self, json_obj):
-        idx = json_obj.get("idx", None)
-        if tuple(idx) != self.idx:
-            raise Exception("PltIter: changing idx not possible, please use nxt_idx.")
+        idx = json_obj.get("midx", None)
+        if tuple(idx) != self.midx:
+            raise Exception("PltIter: changing midx not possible, please use nxt_idx.")
         nxt_idx = json_obj.get("nxt_idx", None)
         if nxt_idx:
             self.nxt_idx = tuple(nxt_idx)
 
+class FitIter(engintf.ObjReprJson):
+    ''' extract plotdata at index in vectorized ifunc '''
+    def __init__(self, fit:IFunc, fititer):
+        self.shape = fit._get_datashape()
+        if self.shape in (tuple(), None, ):
+            raise Exception("PltIter requires iterable IFunc instance")
+        
+        # determine indices - init or derive from input
+        it = np.ndindex(self.shape)
+        midx = None
+        if fititer:
+            cycle = False
+            while True:
+                try:
+                    midx = it.next()
+                    if midx == fititer.nxt_idx:
+                        break
+                except StopIteration:
+                    if cycle:
+                        raise Exception("invalid index")
+                    it = np.ndindex(self.shape)
+                    self.nxt_idx = it.next()
+                    cycle = True
+        else:
+            midx = it.next()
+
+        self.midx = midx;
+        self.idx = np.ravel_multi_index(self.midx, self.shape)
+        try:
+            self.nxt_idx = it.next()
+        except StopIteration:
+            it = np.ndindex(self.shape)
+            self.nxt_idx = it.next()
+
+        # determine idata symbol
+        indices = [i+1 for i in self.midx] # convert to matlab indexing
+        indices = str(indices).replace("[","(").replace("]",")")
+        self.indices = indices
+        
+        varname = fit.varname + str(indices).replace("[","(").replace("]",")")
+        
+        pltdct, infdct, userdct = _get_iFunc_repr(varname, fit._plotaxes[self.idx], fit._plotdims, self.shape)
+        self.plotdata = pltdct
+        self.info = infdct
+        
+    def get_repr(self):
+        retdct = self._get_full_repr_dict()
+        
+        oned_size = functools.reduce(lambda d1,d2: d1*d2, self.shape)
+
+        retdct['info'] = self.info
+        retdct['info']['wtitle'] = "%d of %d" % (self.idx+1, oned_size)
+        retdct['userdata'] = {
+                'midx' : self.midx,
+                'nxt_idx' : self.nxt_idx
+            }
+        retdct['plotdata'] = self.plotdata
+
+        return retdct
+
+    def set_user_data(self, json_obj):
+        idx = json_obj.get("midx", None)
+        if tuple(idx) != self.midx:
+            raise Exception("PltIter: changing midx not possible, please use nxt_idx.")
+        nxt_idx = json_obj.get("nxt_idx", None)
+        if nxt_idx:
+            self.nxt_idx = tuple(nxt_idx)
 
 '''
 constructor functions for various models, easy-gen substitutes for class constructors
@@ -843,18 +908,20 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         _eval('%s = o_%s.model' % (vn_outfunc, vn_outfunc), nargout=0)
         _eval('clear o_%s' % vn_outfunc, nargout=0)
 
-    def get_axis_lims(vn_data):
-        '''
-        returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax)
-        '''
+    def get_axis_lims(vn_data, acclst=[]):
+        ''' returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax) '''
         plotdata = _get_iData_repr(vn_data)[0]
         if plotdata:
             ndims = plotdata["ndims"]
             if ndims == 1:
                 x = plotdata["x"]
-                return (np.min(x), np.max(x)), 1
+                acclst.append((np.min(x), np.max(x), 1, ))
+                return acclst[-1], 1
+                #return (np.min(x), np.max(x)), 1
             elif ndims == 2:
-                return (plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax']), 2
+                acclst.append((plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax'], 2, ))
+                return acclst[-1], 2
+                #return (plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax']), 2
 
     ds1 = idata._get_datashape()
     ds2 = ifunc._get_datashape()
@@ -868,6 +935,12 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         args = (optimizer, )
         ndaargs = ()
         _vectorized(shape, fit_atomic, vnargs, args, ndaargs)
+        
+        axeslims = []
+        vnargs = (idata.varname, )
+        args = (axeslims, )
+        _vectorized(shape, get_axis_lims, vnargs, args, ndaargs)
+        retobj._set_plotaxes(axeslims, axeslims[0][2])
     else:
         fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
         # flag retobj to produce plotdata with the current idata axes
@@ -918,16 +991,16 @@ def decompose(fitfunc: IFunc, typefunc: IFunc, idx=0) -> IFunc:
     fitfunc:    object to extract parameter values and axes from
     typefunc:   object whose parameter names and type is extracted from 
                 fitfunc, and used for the output func, respectfully
-    idx:        If fitfunc has more matcheds for some parameters in 
+    midx:        If fitfunc has more matcheds for some parameters in 
                 typefunc, an index is required to indicate which ones to copy
     '''
     raise Exception("not implemented")
 
-    # checks: 
+    # checks:
     
     # fitfunc must have an axis set by someone
-    # idx must be >=0
-    # for idx > 0, throw "index out of range" errors
-    # for idx == 0 but no matching parameter names, throw a "parameters not found" error message
+    # midx must be >=0
+    # for midx > 0, throw "index out of range" errors
+    # for midx == 0 but no matching parameter names, throw a "parameters not found" error message
 
 
