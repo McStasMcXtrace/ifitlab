@@ -122,19 +122,6 @@ class IData(engintf.ObjReprJson):
         else:
             create_idata(self.varname, url)
 
-    def _get_axes_limits(self):
-        '''
-        returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax)
-        '''
-        plotdata = self.get_repr().get('plotdata', None)
-        if plotdata:
-            ndims = plotdata["ndims"]
-            if ndims == 1:
-                x = plotdata["x"]
-                return (np.min(x), np.max(x)), 1
-            elif ndims == 2:
-                return (plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax']), 2
-
     def _get_datashape(self):
         try:
             _eval("%s.Signal;" % self.varname, nargout=0)
@@ -692,12 +679,12 @@ class PlotIter(engintf.ObjReprJson):
     ''' extract plotdata at index in vectorized idata '''
     def __init__(self, data:IData, pltiter):
         '''
-        IData object "data" must be vectorized. PlotIter instance "pltiter" can be None
-        or a PlotIter instance derived from the same data/IData object.
+        IData object "data" must be vectorized. PltIter instance "pltiter" can be None
+        or a PltIter instance derived from the same data/IData object.
         '''
         self.shape = data._get_datashape()
         if self.shape in (tuple(), None, ):
-            raise Exception("PlotIter requires iterable IData instance")
+            raise Exception("PltIter requires iterable IData instance")
         
         # determine indices - init or derive from input
         it = np.ndindex(self.shape)
@@ -728,6 +715,7 @@ class PlotIter(engintf.ObjReprJson):
         # determine idata symbol
         indices = [i+1 for i in self.idx] # convert to matlab indexing
         indices = str(indices).replace("[","(").replace("]",")")
+        self.indices = indices
         self.symb = "%s%s" % (data.varname, indices)
         
     def get_repr(self):
@@ -767,7 +755,7 @@ class PlotIter(engintf.ObjReprJson):
     def set_user_data(self, json_obj):
         idx = json_obj.get("idx", None)
         if tuple(idx) != self.idx:
-            raise Exception("PlotIter: changing idx not possible, please use nxt_idx.")
+            raise Exception("PltIter: changing idx not possible, please use nxt_idx.")
         nxt_idx = json_obj.get("nxt_idx", None)
         if nxt_idx:
             self.nxt_idx = tuple(nxt_idx)
@@ -855,6 +843,19 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         _eval('%s = o_%s.model' % (vn_outfunc, vn_outfunc), nargout=0)
         _eval('clear o_%s' % vn_outfunc, nargout=0)
 
+    def get_axis_lims(vn_data):
+        '''
+        returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax)
+        '''
+        plotdata = _get_iData_repr(vn_data)[0]
+        if plotdata:
+            ndims = plotdata["ndims"]
+            if ndims == 1:
+                x = plotdata["x"]
+                return (np.min(x), np.max(x)), 1
+            elif ndims == 2:
+                return (plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax']), 2
+
     ds1 = idata._get_datashape()
     ds2 = ifunc._get_datashape()
     if ds1 != ds2:
@@ -870,7 +871,7 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     else:
         fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
         # flag retobj to produce plotdata with the current idata axes
-        lims, ndims = idata._get_axes_limits()
+        lims, ndims = get_axis_lims(idata.varname)
         retobj._set_plotaxes(lims, ndims)
     return retobj
 
