@@ -550,18 +550,25 @@ class PlotWindowHandler {
   }
   removePlots(id, closeEmpty=true) {
     let x_y = null
+    let closeUs = [];
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
       let didremove = pltw.removePlot(id);
       if (didremove && pltw.numPlots() == 0 && closeEmpty) {
         x_y = [pltw.left, pltw.top];
-        pltw.close();
+        closeUs.push(pltw);
       }
+    }
+    // warning: the close CB will remove items from this.plotWindows
+    let len = closeUs.length;
+    for (let i=0;i<len;i++) {
+      closeUs[i].close();
     }
     this.plotlines.removeLinesByNid(id);
     return x_y;
   }
   getAllPlots() {
+    // TODO: impl. for use with data reporting
     // just returns all plots with data in them, as they are
   }
   rePlot(id, gNode, plotdata) {
