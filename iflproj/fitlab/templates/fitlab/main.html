@@ -125,6 +125,10 @@
 
 <!-- jquery dialog style -->
 <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<div id="dialog" title="How to use iFitLab:">
+  <ul><li><b>create</b>: click template node, click work-area</li><li><b>delete</b>: ctr-click node</li><li><b>select</b>: click a node</li><li><b>move</b>: mouse-drag node</li><li><b>connect</b>: mouse-drag anchors (even if a link exists)</li><li><b>run</b>: double-click node</li>
+  </ul>
+</div>
 </body>
 
 <script src="/ifl/ifl-static/fitlab/d3.v4.min.js"></script>
@@ -353,22 +357,15 @@ $(document).ready(() => {
   intface.updateUi();
   intface.loadGraphDef(); // this also updates the ui...
 
+  // universal noselect to prevent selection during node handling. (This does not prevent selection in textboxes etc.)
   $("body").addClass("noselect");
 
-  // an ad-hoc popup help window, shown @ keypress: h
-  let dialogdiv = '<div id="dialog" title="How to use iFitLab:"><ul><li><b>create</b>: click template node, click work-area</li><li><b>delete</b>: ctr-click node</li><li><b>select</b>: click a node</li><li><b>move</b>: mouse-drag node</li><li><b>connect</b>: mouse-drag anchors (even if a link exists)</li><li><b>run</b>: double-click node</li></ul></div>';
-  let dlg = null;
+  // ad-hoc help dialog, shown @ keypress: h
+  $( "#dialog" ).dialog();
+  $( "#dialog" ).dialog("close");
   $("body").keypress( function(event) {
-    if (event.key == "h" && !dlg)
-    {
-      console.log(!dlg);
-      $("body").append(dialogdiv);
-      dlg = $("#dialog").dialog({
-        width: 450,
-        close: () => { dlg = null; } });
-      $("body").remove("#dialog");
-    }
-  }.bind(this));
+    if (event.key == "h" && event.target == this) $( "#dialog" ).dialog("open");
+  });
 
 });
 </script>
