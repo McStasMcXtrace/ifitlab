@@ -844,8 +844,7 @@ ifunc combination functions / operators
 '''
 
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    ''' adds two IFunc objects into a new fitting function, and returns this '''
-    
+    ''' returns the ifunc-addition of two IFunc objects '''
     # check datashape
     shape = ifunc_a._get_datashape()
     shape2 = ifunc_b._get_datashape()
@@ -865,36 +864,28 @@ def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
         add_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
     return retobj
 
-''' (temp disabled)
-
-
-def subtr(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    logging.debug("subtr: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a.varname
-    vn2 = ifunc_b.varname
-    obj = IFunc()
-    vn_new = obj.varname
-    _eval('%s = %s - %s;' % (vn_new, vn1, vn2))
-    return obj
-
 def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    logging.debug("mult: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a.varname
-    vn2 = ifunc_b.varname
-    obj = IFunc()
-    vn_new = obj.varname
-    _eval('%s = %s * %s;' % (vn_new, vn1, vn2))
-    return obj
+    ''' multiplies '''
+    # check datashape
+    shape = ifunc_a._get_datashape()
+    shape2 = ifunc_b._get_datashape()
+    if shape != shape2:
+        raise Exception("datashape mismatch: %s vs. %s" % (str(shape), str(shape2)))
+    
+    def mult_atomic(vn1, vn2, vn_sum):
+        _eval('%s = %s * %s;' % (vn_sum, vn1, vn2), nargout=0)
+    
+    retobj = IFunc(shape)
+    if shape not in (None, tuple(),):
+        vnargs = (ifunc_a.varname, ifunc_b.varname, retobj.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, mult_atomic, vnargs, args, ndaargs)
+    else:
+        mult_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
+    return retobj
 
-def div(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    logging.debug("div: %s, %s" % (ifunc_a, ifunc_b))
-    vn1 = ifunc_a.varname
-    vn2 = ifunc_b.varname
-    obj = IFunc()
-    vn_new = obj.varname
-    _eval('%s = %s / %s;' % (vn_new, vn1, vn2))
-    return obj
-
+'''
 def trapz(ifunc: IFunc) -> IFunc:
     logging.debug("trapz: %s" % ifunc)
     vn_old = ifunc.varname
