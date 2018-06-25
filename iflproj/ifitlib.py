@@ -827,7 +827,7 @@ class FitIter(engintf.ObjReprJson):
             self.nxt_idx = tuple(nxt_idx)
 
 '''
-constructor functions for various models, easy-gen substitutes for class constructors
+constructor functions for various models, substitutes for class constructors
 '''
 def Gauss(datashape:list=None) -> IFunc:
     return IFunc(datashape, 'gauss')
@@ -845,14 +845,25 @@ ifunc combination functions / operators
 
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     ''' adds two IFunc objects into a new fitting function, and returns this '''
-    raise Exception("not implemented")
     
-    vn1 = ifunc_a.varname
-    vn2 = ifunc_b.varname
-    obj = IFunc()
-    vn_new = obj.varname
-    _eval('%s = %s + %s;' % (vn_new, vn1, vn2))
-    return obj
+    # check datashape
+    shape = ifunc_a._get_datashape()
+    shape2 = ifunc_b._get_datashape()
+    if shape != shape2:
+        raise Exception("datashape mismatch: %s vs. %s" % (str(shape), str(shape2)))
+    
+    def add_atomic(vn1, vn2, vn_sum):
+        _eval('%s = %s + %s;' % (vn_sum, vn1, vn2), nargout=0)
+    
+    retobj = IFunc(shape)
+    if shape not in (None, tuple(),):
+        vnargs = (ifunc_a.varname, ifunc_b.varname, retobj.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, add_atomic, vnargs, args, ndaargs)
+    else:
+        add_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
+    return retobj
 
 ''' (temp disabled)
 
@@ -908,7 +919,7 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         _eval('%s = o_%s.model' % (vn_outfunc, vn_outfunc), nargout=0)
         _eval('clear o_%s' % vn_outfunc, nargout=0)
 
-    def get_axis_lims(vn_data, acclst=[]):
+    def get_axislims_atomic(vn_data, acclst=[]):
         ''' returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax) '''
         plotdata = _get_iData_repr(vn_data)[0]
         if plotdata:
@@ -939,12 +950,12 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         axeslims = []
         vnargs = (idata.varname, )
         args = (axeslims, )
-        _vectorized(shape, get_axis_lims, vnargs, args, ndaargs)
+        _vectorized(shape, get_axislims_atomic, vnargs, args, ndaargs)
         retobj._set_plotaxes(axeslims, axeslims[0][2])
     else:
         fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
         # flag retobj to produce plotdata with the current idata axes
-        lims, ndims = get_axis_lims(idata.varname)
+        lims, ndims = get_axislims_atomic(idata.varname)
         retobj._set_plotaxes(lims, ndims)
     return retobj
 
@@ -983,7 +994,7 @@ def combine(filenames:list) -> IData:
     
     return retobj
 
-def decompose(fitfunc: IFunc, typefunc: IFunc, idx=0) -> IFunc:
+def separate(fitfunc: IFunc, typefunc: IFunc, idx=0) -> IFunc:
     '''
     Extract parameter values and axis information from fitfunc, given the parameters in typefunc, 
     returning an IFunc object of that configuration.
