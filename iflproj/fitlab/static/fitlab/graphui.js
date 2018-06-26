@@ -1068,7 +1068,10 @@ class ConnRulesBasic {
     let ncs = this._nodeBaseClasses();
     let nt = ncs.map(cn => cn.basetype);
     let i = nt.indexOf(typeconf.basetype);
-    if (i >= 0) tpe = ncs[i]; else throw "unknown typeconf.basetype: " + typeconf.basetype;
+    if (i >= 0) tpe = ncs[i]; else {
+      console.log(typeconf)
+      throw "unknown typeconf.basetype: " + typeconf.basetype
+    }
 
     // create the node
     let n = new tpe(x, y, id,
@@ -1547,7 +1550,12 @@ class GraphInterface {
     let args = null;
     for (let key in def.nodes) {
       args = def.nodes[key];
-      this.node_add(args[0], args[1], args[2], args[3], args[4], args[5]);
+      try {
+        this.node_add(args[0], args[1], args[2], args[3], args[4], args[5]);
+      }
+      catch(error) {
+        console.log("inject node add: ", error.message);
+      }
     }
     let data = null;
     let elinks = null;
@@ -1555,12 +1563,22 @@ class GraphInterface {
       elinks = def.links[key];
       for (var j=0;j<elinks.length;j++) {
         args = elinks[j];
-        this.link_add(args[0], args[1], args[2], args[3], args[4]);
+        try {
+          this.link_add(args[0], args[1], args[2], args[3], args[4]);
+        }
+        catch(error) {
+          console.log("inject link add: ", error.message);
+        }
       }
     }
     for (let key in def.datas) {
       data = atob(def.datas[key]);
-      this.node_data(key, data);
+      try {
+        this.node_data(key, data);
+      }
+      catch(error) {
+        console.log("inject set data: ", error.message);
+      }
     }
     this.updateUi();
   }

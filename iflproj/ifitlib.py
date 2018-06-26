@@ -33,6 +33,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
 import functools
+import collections
 
 _eng = None
 _cmdlog = None
@@ -66,7 +67,7 @@ def _get_idata_prefix():
     return 'idata%d' % (_idataidx)
 
 class _VarnameMiddleware(engintf.MiddleWare):
-    ''' handles registration of varnames for clearing when finalize() is called '''
+    ''' handles automatic registration of varname's for clearing at session expire/shutdown '''
     def __init__(self):
         self.varnames = []
     def register(self, obj):
@@ -77,6 +78,24 @@ class _VarnameMiddleware(engintf.MiddleWare):
             _eval("clear %s;" % vn, nargout=0)
 def _load_middleware():
     return _VarnameMiddleware()
+
+namecategories = collections.OrderedDict({
+#    'IData' : 'tools',
+#    'IData.rmint' : 'tools',
+#    'IFunc' : 'tools',
+#    'IFunc.guess' : 'tools',
+#    'IFunc.fixpars' : 'tools',
+#    'PlotIter' : 'tools',
+#    'FitIter' : 'tools',
+#    'Lin' : 'models',
+#    'Gauss' : 'models',
+#    'Lorentz' : 'models',
+#    'add' : 'functions',
+#    'mult' : 'functions',
+#    'combine' : 'functions',
+#    'fit' : 'functions',
+#    'separate' : 'functions',
+})
 
 class IData(engintf.ObjReprJson):
     def __init__(self, url, datashape=None):

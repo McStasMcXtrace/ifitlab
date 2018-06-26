@@ -49,11 +49,11 @@ class TreeJsonAddr:
         item = self._descend_recurse(root, address)['leaf']
         return item
 
-    def put(self, address, item, getkey):
+    def put(self, path, item, getkey):
         root = self.root
         branch = root
-        if address != '' and not address[0] == '.':
-            branch = self._descend_recurse(root, address)['branch']
+        if path != '' and not path[0] == '.':
+            branch = self._descend_recurse(root, path)['branch']
         key = getkey(item)
         self._get_or_create(branch, key)['leaf'] = item
 
@@ -412,7 +412,8 @@ class NodeConfig:
         self.static = 'false'
         self.executable = 'true'
         self.edit = 'true'
-
+        self.name = 'object'
+        
     def make_literal(self, branch):
         self.type = 'literal'
         self.address = '.'.join([branch, 'literal'])
@@ -421,6 +422,7 @@ class NodeConfig:
         self.static = 'false'
         self.executable = 'false'
         self.edit = 'true'
+        self.name = 'literal'
 
     def make_idata(self, branch):
         self.type = 'idata'
@@ -433,6 +435,7 @@ class NodeConfig:
         self.static = 'false'
         self.executable = 'true'
         self.edit = 'false'
+        self.name = 'idata'
 
     def make_ifunc(self, branch):
         self.type = 'ifunc'
@@ -445,6 +448,7 @@ class NodeConfig:
         self.static = 'false'
         self.executable = 'true'
         self.edit = 'false'
+        self.name = 'ifunc'
 
     def get_repr(self):
         if self.basetype == '':
@@ -468,7 +472,7 @@ class NodeConfig:
         ])
         return dct
 
-def ctypeconf_tree_ifit(classes, functions):
+def ctypeconf_tree_ifit(classes, functions, namecategories={}):
     '''
     Creates complete "flatext" conf types json file from a python module and some defaults.
 
@@ -516,78 +520,83 @@ def ctypeconf_tree_ifit(classes, functions):
                 args.append(k)
         return args, data
 
-    def configure_constructor_node(cls):
+    # create types from a the give classes and functions
+    for entry in classes:
+        cls = entry['class']
+        
+        name = cls.__name__
+        category = namecategories.get(name, 'classes')
+        address = category + "." + name
+        path = category
+
         argspec = inspect.getfullargspec(cls.__init__)
         conf = NodeConfig()
         args, data = get_args_and_data(cls.__init__)
         conf.make_function_like_wtypehints(
-            'classes.' + cls.__name__,
-            cls.__name__,
+            address,
+            name,
             args[1:],
             argspec.annotations,
             data)
         conf.otypes[0] = cls.__name__
+
         # set an output type that is compatible with the non-polymorphic nature of graph connectivity rules
         if issubclass(cls, ObjReprJson):
             name = cls.non_polymorphic_typename()
             if not name == ObjReprJson.non_polymorphic_typename():
                 conf.otypes[0] = name
         conf.basetype = 'function_named'
-        return conf
 
-    def configure_method_node(cls, method):
-        argspec = inspect.getfullargspec(method)
-        conf = NodeConfig()
-        args, data = get_args_and_data(method)
-        conf.make_method_like_wtypehints(
-            address='classes.%s.%s' % (cls.__name__, method.__name__),
-            methodname=method.__name__,
-            args=args,
-            annotations=argspec.annotations,
-            clsobj=cls,
-            data=data)
-        conf.basetype = "method_as_function"
-        return conf
-
-    def configure_function_node(func):
-        argspec = inspect.getfullargspec(func)
-        conf = NodeConfig()
-        args, data = get_args_and_data(func)
-        # "functions" which are capitalized are assumed to be substitutes for class constructors
-        # ..now that the system isn't polymorphic really
-        hladdr = 'functions'
-        if func.__name__[0].upper() == func.__name__[0]:
-            hladdr = 'classes'
-        conf.make_function_like_wtypehints(
-            hladdr+'.'+func.__name__,
-            func.__name__,
-            args,
-            argspec.annotations,
-            data=data)
-        conf.basetype = 'function_named'
-        return conf, hladdr
-
-    # create types from a the give classes and functions
-    for entry in classes:
-        cls = entry['class']
-        conf = configure_constructor_node(cls)
-
-        tree.put('classes', conf.get_repr(), get_key)
-        addrss.append(conf.address)
+        tree.put(path, conf.get_repr(), get_key)
+        addrss.append(address)
 
         # create method node types
         methods = entry['methods']
         for m in methods:
-            conf = configure_method_node(cls, m)
-
-            tree.put('classes.' + cls.__name__, conf.get_repr(), get_key)
+            classname = cls.__name__
+            name = m.__name__
+            keyname = classname + '.' + name
+            category = namecategories.get(keyname, 'classes')
+            address = category + "." + classname + "." + name
+            path = category + "." + classname
+            
+            argspec = inspect.getfullargspec(m)
+            conf = NodeConfig()
+            args, data = get_args_and_data(m)
+            conf.make_method_like_wtypehints(
+                address,
+                name,
+                args=args,
+                annotations=argspec.annotations,
+                clsobj=cls,
+                data=data)
+            conf.basetype = "method_as_function"
+            
+            tree.put(path, conf.get_repr(), get_key)
             addrss.append(conf.address)
 
+    # create function node types
     for f in functions:
-        # create function node types
-        conf, hladdr = configure_function_node(f)
+        name = f.__name__
+        keyname = name
+        category = namecategories.get(keyname, "functions")
+        address = category + "." + name
+        path = category
+        
+        argspec = inspect.getfullargspec(f)
+        conf = NodeConfig()
+        args, data = get_args_and_data(f)
+        # "functions" which are capitalized are assumed to be substitutes for class constructors
+        # ..now that the system isn't polymorphic really
+        conf.make_function_like_wtypehints(
+            address,
+            name,
+            args,
+            argspec.annotations,
+            data=data)
+        conf.basetype = 'function_named'
 
-        tree.put(hladdr, conf.get_repr(), get_key)
+        tree.put(path, conf.get_repr(), get_key)
         addrss.append(conf.address)
 
     return tree, addrss
