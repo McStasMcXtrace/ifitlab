@@ -416,6 +416,7 @@ class IFunc(engintf.ObjReprJson):
         self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
         self._plotaxes = None
         self._plotdims = None
+        self.symbol = symbol
 
         datashape = _npify_shape(datashape)
         if datashape not in [None, tuple()]:
@@ -484,10 +485,12 @@ class IFunc(engintf.ObjReprJson):
             for key in parameternames:
                 values.append(dct[key])
             # because MATLAB arrays are not arrays of handles, we have to do the triangle trick
-            _eval('tmp = %s;' % vn, nargout=0)
-            _eval('tmp.ParameterValues = [%s];' % ' '.join( [str(float(v)) for v in values] ), nargout=0)
-            _eval('%s = tmp;' % vn, nargout=0)
-            _eval('clear tmp;', nargout=0)
+            try:
+                _eval('tmp = %s;' % vn, nargout=0)
+                _eval('tmp.ParameterValues = [%s];' % ' '.join( [str(float(v)) for v in values] ), nargout=0)
+                _eval('%s = tmp;' % vn, nargout=0)
+            finally:
+                _eval('clear tmp;', nargout=0)
 
         shape = self._get_datashape()
         rank = len(shape)
@@ -906,9 +909,11 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     # TODO: alter the call to 'fits' in a way that respects the current ifunc par values as a guess
 
     def fit_atomic(vn_data, vn_func, vn_outfunc, optim):
-        _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\')' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
-        _eval('%s = o_%s.model' % (vn_outfunc, vn_outfunc), nargout=0)
-        _eval('clear o_%s' % vn_outfunc, nargout=0)
+        try:
+            _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\');' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
+            _eval('%s = o_%s.model;' % (vn_outfunc, vn_outfunc), nargout=0)
+        finally:
+            _eval('clear o_%s;' % vn_outfunc, nargout=0)
 
     def get_axislims_atomic(vn_data, acclst=[]):
         ''' returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax) '''
@@ -985,24 +990,61 @@ def combine(filenames:list) -> IData:
     
     return retobj
 
-def separate(fitfunc: IFunc, typefunc: IFunc, idx=0) -> IFunc:
+def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
     '''
-    Extract parameter values and axis information from fitfunc, given the parameters in typefunc, 
-    returning an IFunc object of that configuration.
+    Extracts parameter values and axis information from fitfunc, given the parameters in typefunc, 
+    returning a new IFunc object of that configuration.
     
     fitfunc:    object to extract parameter values and axes from
-    typefunc:   object whose parameter names and type is extracted from 
-                fitfunc, and used for the output func, respectfully
-    midx:        If fitfunc has more matcheds for some parameters in 
+    typefunc:   object whose parameter names and type is used to extract information from 
+                fitfunc, in generating separated output
+    pidx:       If fitfunc has more matcheds for some parameters in 
                 typefunc, an index is required to indicate which ones to copy
     '''
-    raise Exception("not implemented")
-
-    # checks:
     
-    # fitfunc must have an axis set by someone
-    # midx must be >=0
-    # for midx > 0, throw "index out of range" errors
-    # for midx == 0 but no matching parameter names, throw a "parameters not found" error message
+    def separate_atomic(vn_fitf, vn_outf, typef, idx):
+        none, none, userdct = _get_iFunc_repr(vn_fitf, plotaxes=None, plotdims=None)
+        none, none, wanted = _get_iFunc_repr(typef.varname, plotaxes=None, plotdims=None)
 
+        # get the values
+        if idx<=0:
+            for key in wanted:
+                try:
+                    wanted[key] = userdct[key]
+                except:
+                    raise Exception("paraeter %s not found" % key)
+        elif idx>0:
+            for key in wanted:
+                try:
+                    key_idx = key + "_%d"%idx
+                    wanted[key] = userdct[key_idx]
+                except:
+                    raise Exception("paraeter '%s' not found" % key_idx)
+        
+        # set values on the output function
+        # (triangle trick enables indexing of vn_fitf using MATLAB, see IFunc.guess ...)
+        try:
+            _eval('tmp = %s;' % vn_outf, nargout=0)
+            for key in wanted:
+                _eval('tmp.%s = %s;' % (key, str(wanted[key])), nargout=0)
+            _eval('%s = tmp;' % vn_outf, nargout=0)
+        finally:
+            _eval('clear tmp;', nargout=0)
+
+    shape = fitfunc._get_datashape()
+    if typefunc._get_datashape() not in (None, tuple(),):
+        raise Exception("'typefunc' is used as a singular iFunc type indicator, and must have no shape")
+
+    retobj = IFunc(shape, symbol=typefunc.symbol)
+    if shape not in (None, tuple(),):
+        vnargs = (fitfunc.varname, retobj.varname)
+        args = (typefunc, pidx)
+        ndaargs = ()
+        _vectorized(shape, separate_atomic, vnargs, args, ndaargs)
+    else:
+        separate_atomic(fitfunc.varname, retobj.varname, typefunc, pidx)
+
+    # handle IFunc axis lims inheritane
+    retobj._set_plotaxes(fitfunc._plotaxes, fitfunc._plotdims)
+    return retobj
 
