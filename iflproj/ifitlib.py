@@ -40,7 +40,7 @@ def _eval(cmd, nargout=1):
     global _cmdlog
     if not _cmdlog:
         _cmdlog = logging.getLogger('cmds')
-        hdlr = logging.FileHandler('cmds.log')
+        hdlr = logging.FileHandler('cmds.m')
         formatter = logging.Formatter('%(message)s')
         hdlr.setFormatter(formatter)
         _cmdlog.addHandler(hdlr) 
