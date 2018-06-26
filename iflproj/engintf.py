@@ -332,17 +332,19 @@ For lib writing docs: See the module 'ifitlib.py' for rules used while writing a
 intended for on node type generation.
 '''
 
-def save_nodetypes_js(mypath, tree, addrss):
+def save_nodetypes_js(mypath, tree, addrss, categories):
+    text_categories = 'var categories = ' + json.dumps(categories, indent=2) + ';\n\n'
     text_addrss = 'var nodeAddresses = ' + json.dumps(addrss, indent=2) + ';\n\n'
     text = 'var nodeTypes = ' + json.dumps(tree.root, indent=2) + ';\n\n'
 
     fle = open(os.path.join(mypath, "nodetypes.js"), 'w')
-    fle.write(text_addrss + text)
+    fle.write(text_categories + text_addrss + text)
     fle.close()
 
-def save_nodeconfs_addresses_json(tree, addrss):
+def save_nodeconfs_addresses_json(tree, addrss, categories):
     text = json.dumps(tree.root, indent=2)
     text_addrss = json.dumps(addrss, indent=2)
+    text_categories = json.dumps(categories, indent=2)
 
     fle = open("types.json", 'w')
     fle.write(text)
@@ -350,6 +352,10 @@ def save_nodeconfs_addresses_json(tree, addrss):
 
     fle = open("addresses.json", 'w')
     fle.write(text_addrss)
+    fle.close()
+
+    fle = open("categories.json", 'w')
+    fle.write(text_categories)
     fle.close()
 
 def save_modulename_json(module_name, package_name):
@@ -481,6 +487,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
 
     tree = TreeJsonAddr()
     addrss = [] # currently lacking an iterator, we save all adresses to allow iterative access to the tree
+    categories = OrderedDict()
     def get_key(conf):
         return conf['type']
 
@@ -507,6 +514,8 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
     ifunc.make_ifunc('handles')
     tree.put('handles', ifunc.get_repr(), get_key)
     addrss.append(ifunc.address)
+    
+    categories['handles'] = ""
 
     def get_args_and_data(func):
         sign = inspect.signature(func)
@@ -549,6 +558,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
 
         tree.put(path, conf.get_repr(), get_key)
         addrss.append(address)
+        categories[category] = ""
 
         # create method node types
         methods = entry['methods']
@@ -574,6 +584,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
             
             tree.put(path, conf.get_repr(), get_key)
             addrss.append(conf.address)
+            categories[category] = ""
 
     # create function node types
     for f in functions:
@@ -598,8 +609,9 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
 
         tree.put(path, conf.get_repr(), get_key)
         addrss.append(conf.address)
+        categories[category] = ""
 
-    return tree, addrss
+    return tree, addrss, list(categories.keys())
 
 def get_nodetype_candidates(pymodule):
     '''

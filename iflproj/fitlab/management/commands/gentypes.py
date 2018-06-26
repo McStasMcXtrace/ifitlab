@@ -23,8 +23,8 @@ class Command(BaseCommand):
         namecategories = getattr(mdl, "namecategories")
 
         clss, fcts = engintf.get_nodetype_candidates(mdl)
-        tree, addrss = engintf.ctypeconf_tree_ifit(clss, fcts, namecategories)
+        tree, addrss, categories = engintf.ctypeconf_tree_ifit(clss, fcts, namecategories)
 
-        engintf.save_nodetypes_js('fitlab/static/fitlab', tree, addrss)
-        engintf.save_nodeconfs_addresses_json(tree, addrss)
+        engintf.save_nodetypes_js('fitlab/static/fitlab', tree, addrss, categories)
+        engintf.save_nodeconfs_addresses_json(tree, addrss, categories)
         engintf.save_modulename_json(options["python_module"][0], options["python_package"][0])
