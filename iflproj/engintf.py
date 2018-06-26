@@ -484,37 +484,36 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
 
     Somewhat specific to the ifitlib module, although not very much.
     '''
-
     tree = TreeJsonAddr()
     addrss = [] # currently lacking an iterator, we save all adresses to allow iterative access to the tree
     categories = OrderedDict()
     def get_key(conf):
         return conf['type']
 
-    # object
-    obj = NodeConfig()
-    obj.make_object('handles')
-    tree.put('handles', obj.get_repr(), get_key)
-    addrss.append(obj.address)
-
     # object_literal
     literal= NodeConfig()
     literal.make_literal('handles')
     tree.put('handles', literal.get_repr(), get_key)
-    addrss.append(literal.address)
+    addrss.append((literal.address, 0))
 
     # object_idata
     idata = NodeConfig()
     idata.make_idata('handles')
     tree.put('handles', idata.get_repr(), get_key)
-    addrss.append(idata.address)
+    addrss.append((idata.address, 1))
 
     # object_ifunc
     ifunc = NodeConfig()
     ifunc.make_ifunc('handles')
     tree.put('handles', ifunc.get_repr(), get_key)
-    addrss.append(ifunc.address)
+    addrss.append((ifunc.address, 2))
     
+    # object
+    obj = NodeConfig()
+    obj.make_object('handles')
+    tree.put('handles', obj.get_repr(), get_key)
+    addrss.append((obj.address, 3))
+
     categories['handles'] = ""
 
     def get_args_and_data(func):
@@ -530,11 +529,13 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
         return args, data
 
     # create types from a the give classes and functions
+    inputnames = list(namecategories.keys())
     for entry in classes:
         cls = entry['class']
         
         name = cls.__name__
-        category = namecategories.get(name, 'classes')
+        keyname = name
+        category = namecategories.get(keyname, 'classes')
         address = category + "." + name
         path = category
 
@@ -557,7 +558,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
         conf.basetype = 'function_named'
 
         tree.put(path, conf.get_repr(), get_key)
-        addrss.append(address)
+        addrss.append((address, inputnames.index(keyname)))
         categories[category] = ""
 
         # create method node types
@@ -581,9 +582,9 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
                 clsobj=cls,
                 data=data)
             conf.basetype = "method_as_function"
-            
+
             tree.put(path, conf.get_repr(), get_key)
-            addrss.append(conf.address)
+            addrss.append((address, inputnames.index(keyname)))
             categories[category] = ""
 
     # create function node types
@@ -608,10 +609,15 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
         conf.basetype = 'function_named'
 
         tree.put(path, conf.get_repr(), get_key)
-        addrss.append(conf.address)
+        addrss.append((address, inputnames.index(keyname)))
         categories[category] = ""
 
-    return tree, addrss, list(categories.keys())
+    def sortaddrs(entry):
+        return entry[1]
+    sorted_addrss = sorted(addrss, key=sortaddrs)
+    addrss = [key[0] for key in sorted_addrss]
+    categories = list(categories.keys())
+    return tree, addrss, categories
 
 def get_nodetype_candidates(pymodule):
     '''

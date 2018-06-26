@@ -80,21 +80,21 @@ def _load_middleware():
     return _VarnameMiddleware()
 
 namecategories = collections.OrderedDict({
-#    'IData' : 'tools',
-#    'IData.rmint' : 'tools',
-#    'IFunc' : 'tools',
-#    'IFunc.guess' : 'tools',
-#    'IFunc.fixpars' : 'tools',
-#    'PlotIter' : 'tools',
-#    'FitIter' : 'tools',
-#    'Lin' : 'models',
-#    'Gauss' : 'models',
-#    'Lorentz' : 'models',
-#    'add' : 'functions',
-#    'mult' : 'functions',
-#    'combine' : 'functions',
-#    'fit' : 'functions',
-#    'separate' : 'functions',
+    'IData' : 'tools',
+    'IData.rmint' : 'tools',
+    'IFunc' : 'tools',
+    'IFunc.guess' : 'tools',
+    'IFunc.fixpars' : 'tools',
+    'PltIter' : 'tools',
+    'FitIter' : 'tools',
+    'Lin' : 'models',
+    'Gauss' : 'models',
+    'Lorentz' : 'models',
+    'add' : 'functions',
+    'mult' : 'functions',
+    'combine' : 'functions',
+    'fit' : 'functions',
+    'separate' : 'functions',
 })
 
 class IData(engintf.ObjReprJson):
@@ -713,7 +713,7 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
         atomic_func(*symbols, *constants, *elements)
 
 
-class PlotIter(engintf.ObjReprJson):
+class PltIter(engintf.ObjReprJson):
     ''' extract plotdata at index in vectorized idata '''
     def __init__(self, data:IData, pltiter):
         '''

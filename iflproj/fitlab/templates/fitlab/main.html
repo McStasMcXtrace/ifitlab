@@ -111,9 +111,10 @@
   <button id="btnReset">Clear</button>
 </div>
 
-<div id="graph_menu_1" style="position:absolute;left:202px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
-<div id="graph_menu_2" style="position:absolute;left:101px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
-<div id="graph_menu_3" style="position:absolute;left:0px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
+<div id="graph_menu_1" style="position:absolute;left:303px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
+<div id="graph_menu_2" style="position:absolute;left:202px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
+<div id="graph_menu_3" style="position:absolute;left:101px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
+<div id="graph_menu_4" style="position:absolute;left:  0px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 
 <div id="divUserData" style="position:absolute;cursor:pointer;background-color:white;top:40px;" class=select><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
   <table id="tblUserData" style="width:460px;">
@@ -348,8 +349,9 @@ $(document).ready(() => {
   // create node menu
   let menuCB = intface.setCreateNodeConf.bind(intface)
   menu = new NodeTypeMenu(menuCB, 'graph_menu_1', 'handles');
-  menu = new NodeTypeMenu(menuCB, 'graph_menu_2', 'classes');
-  menu = new NodeTypeMenu(menuCB, 'graph_menu_3', 'functions');
+  menu = new NodeTypeMenu(menuCB, 'graph_menu_2', 'tools');
+  menu = new NodeTypeMenu(menuCB, 'graph_menu_3', 'models');
+  menu = new NodeTypeMenu(menuCB, 'graph_menu_4', 'functions');
 
   // load graph and run
   // why is this needed to get rid of the "self.draggable is null" error message?
