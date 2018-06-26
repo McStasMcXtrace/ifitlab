@@ -1,11 +1,5 @@
 '''
 Nodespeak extension using a single root node and one layer of sub-nodes.
-
-Notes on node type generation:
-1) any class, function or method can be is flagged as "non-public" by an underscore prefix in 
-its name - e.g. _get_plot_1D - will be omitted.
-2) any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
-whereby its constructor node will output that type name
 '''
 __author__ = "Jakob Garde"
 
@@ -118,7 +112,7 @@ class MiddleWare:
 '''
 Id- and type based graph manipulation interface.
 
-NOTE: "id" is called "name" in the nodespeak module
+NOTE: "id" here is referred to as "name" in the nodespeak module.
 '''
 class FlatGraph:
     def __init__(self, tpe_tree, pmodule):
@@ -332,7 +326,10 @@ basetypes = {
 
 
 '''
-Nodeconf generation section
+Node conf/type generation section
+
+For lib writing docs: See the module 'ifitlib.py' for rules used while writing a module 
+intended for on node type generation.
 '''
 
 def save_nodetypes_js(mypath, tree, addrss):
@@ -472,7 +469,11 @@ class NodeConfig:
         return dct
 
 def ctypeconf_tree_ifit(classes, functions):
-    ''' creates complete "flatext" conf types json file from a python module and some defaults '''
+    '''
+    Creates complete "flatext" conf types json file from a python module and some defaults.
+
+    Somewhat specific to the ifitlib module, although not very much.
+    '''
 
     tree = TreeJsonAddr()
     addrss = [] # currently lacking an iterator, we save all adresses to allow iterative access to the tree
@@ -593,10 +594,10 @@ def ctypeconf_tree_ifit(classes, functions):
 
 def get_nodetype_candidates(pymodule):
     '''
-    Investigate a module and return classes, class methods and functions under the following conditions:
+    Investigate any module and return classes, class methods and functions under the following conditions:
     
-    1) If a class or method, it is not pre-fixed by an underscore '_'
-    2) If a method, it is not inherited from a class in the local variable 'excepted_classes'
+    1) Any entity prefixed by underscore ('_') is omitted.
+    2) Any class not inheriting from a class name in 'excepted_classes' is omitted.
     '''
     classes = []
     functions = []

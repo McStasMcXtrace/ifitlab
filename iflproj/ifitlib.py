@@ -1,21 +1,22 @@
 '''
 iFit-interfaced library used as a base for generating ifitlab node types.
 
-Notes on node type generation:
-1) any class, function or method can be is flagged as "non-public" by an underscore prefix in 
-its name - e.g. _get_plot_1D - will be omitted.
-2) any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
-whereby its constructor node will output that type name
+#####
 
-Module loader / node generator features:
-1) inherit all classes from ObjReprJson
-2) implement get_repr and set_user_data to interact with low-level data. Extend or use _get_full_repr_dict only.
-3) implement non_polymorphic_typename (annotated with @staticmethod) if you want to overload 
-the node type of the resulting constructor node
-4) any parameter with a default value will not give rise to a node anchor, but rathe a configurable value on the
-actual node in the gui. Use this for function configuration options that are better suited for this minor or 
-secondary presence
-5) A function "_load_middleware" may be implemented. It must return an object subclassed from engintf.MiddeWare.
+Classes:
+- Any class, function or method can be is flagged as "non-public" by an underscore prefix in 
+its name - e.g. _get_plot_1D - will be omitted during type generation.
+- Any class can implement the static ObjReprJson.non_polymorphic_typename (annotated by @staticmethod)
+whereby its constructor node will output that typename
+- Inherit classes from ObjReprJson
+- Implement get_repr and set_user_data to interact with low-level data.
+
+Functions & methods:
+- Any parameter with a default value will not give rise to a connectable anchor, but a configurable field on the
+node.
+
+Module level:
+- A function "_load_middleware" may be implemented, and must return an object subclassed from engintf.MiddeWare.
 '''
 __author__ = "Jakob Garde"
 
