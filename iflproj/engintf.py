@@ -114,11 +114,26 @@ Id- and type based graph manipulation interface.
 
 NOTE: "id" here is referred to as "name" in the nodespeak module.
 '''
+
+'''
+WARNING: The presense of flatgraph_pmodule global variable is a hack that enables
+Pickling of FlatGraph instances. Every time a new FG object is loaded, it will
+be reset. This means that the pmodule constructor argument must always be
+the same.
+'''
+flatgraph_pmodule = None
+
+'''
+A "flat" nodespeak graph, in the sense that as a tree, the graph has at most two 
+layers: The root and its children. This simple nodespeak graph handling 
+implementation is the only available one at the time of writing.
+'''
 class FlatGraph:
     def __init__(self, tpe_tree, pmodule):
         self.root = RootNode("root")
         self.tpe_tree = tpe_tree
-        self.pmodule = pmodule
+        global flatgraph_pmodule
+        flatgraph_pmodule = pmodule
         self.node_cmds_cache = {}
         self.dslinks_cache = {} # ds = downstream
 
@@ -128,6 +143,10 @@ class FlatGraph:
             self._middleware = load_mw()
 
     def _create_node(self, id, tpe_addr):
+        '''
+        id - node id
+        tpe_addr - node type address
+        '''
         conf = self.tpe_tree.retrieve(tpe_addr)
         n = None
         node_tpe = basetypes[conf['basetype']]
@@ -136,7 +155,7 @@ class FlatGraph:
         elif node_tpe == ObjLiteralNode:
             n = ObjLiteralNode(id, None)
         elif node_tpe == FuncNode:
-            func = getattr(self.pmodule, conf['type'])
+            func = getattr(flatgraph_pmodule, conf['type'])
             n = FuncNode(id, func)
         elif node_tpe == MethodAsFunctionNode:
             n = MethodAsFunctionNode(id, conf['type'])
@@ -339,23 +358,6 @@ def save_nodetypes_js(mypath, tree, addrss, categories):
 
     fle = open(os.path.join(mypath, "nodetypes.js"), 'w')
     fle.write(text_categories + text_addrss + text)
-    fle.close()
-
-def save_nodeconfs_addresses_json(tree, addrss, categories):
-    text = json.dumps(tree.root, indent=2)
-    text_addrss = json.dumps(addrss, indent=2)
-    text_categories = json.dumps(categories, indent=2)
-
-    fle = open("types.json", 'w')
-    fle.write(text)
-    fle.close()
-
-    fle = open("addresses.json", 'w')
-    fle.write(text_addrss)
-    fle.close()
-
-    fle = open("categories.json", 'w')
-    fle.write(text_categories)
     fle.close()
 
 def save_modulename_json(module_name, package_name):
@@ -618,6 +620,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
     addrss = [key[0] for key in sorted_addrss]
     categories = list(categories.keys())
     return tree, addrss, categories
+
 
 def get_nodetype_candidates(pymodule):
     '''

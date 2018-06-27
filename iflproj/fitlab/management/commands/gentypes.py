@@ -26,5 +26,4 @@ class Command(BaseCommand):
         tree, addrss, categories = engintf.ctypeconf_tree_ifit(clss, fcts, namecategories)
 
         engintf.save_nodetypes_js('fitlab/static/fitlab', tree, addrss, categories)
-        engintf.save_nodeconfs_addresses_json(tree, addrss, categories)
         engintf.save_modulename_json(options["python_module"][0], options["python_package"][0])
