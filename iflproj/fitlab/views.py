@@ -9,7 +9,7 @@ import re
 import importlib
 import time
 
-import engintf
+import enginterface
 from fitlab.models import GraphDef
 
 def index(request):
@@ -151,12 +151,12 @@ class GraphSession:
             self.graph.shutdown()
         
         text = self._loadNodeTypesJsFile()
-        tree = engintf.TreeJsonAddr(json.loads(text))
+        tree = enginterface.TreeJsonAddr(json.loads(text))
 
         text = open('pmodule.json').read()
         pmod = json.loads(text)
         mdl = importlib.import_module(pmod["module"], pmod["package"])
-        self.graph = engintf.FlatGraph(tree, mdl)
+        self.graph = enginterface.FlatGraph(tree, mdl)
 
     def test(self):
         cmds = json.loads('[[["node_add",454.25,401.3333333333333,"o0","","","obj"],["node_rm","o0"]],[["node_add",382.75,281.3333333333333,"o1","","","Pars"],["node_rm","o1"]],[["node_add",348,367.3333333333333,"f0","","C","Colour"],["node_rm","f0"]],[["link_add","o1",0,"f0",0,0],["link_rm","o1",0,"f0",0,0]],[["link_add","f0",0,"o0",0,0],["link_rm","f0",0,"o0",0,0]],[["node_data","o1","\\"red\\""],["node_data","o1",{}]]]')

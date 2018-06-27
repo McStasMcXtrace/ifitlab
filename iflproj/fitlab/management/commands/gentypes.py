@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 import importlib
 import json
 
-import engintf
+import enginterface
 
 def ctypeconf_ifitlib(tree, addrss):
     '''
@@ -18,7 +18,7 @@ def ctypeconf_ifitlib(tree, addrss):
         return conf['type']
 
     # object_idata
-    idata = engintf.NodeConfig()
+    idata = enginterface.NodeConfig()
     idata.type = 'idata'
     idata.address = '.'.join(['handles', 'idata'])
     idata.basetype = 'object_idata'
@@ -34,7 +34,7 @@ def ctypeconf_ifitlib(tree, addrss):
     addrss.insert(1, idata.address)
 
     # object_ifunc
-    ifunc = engintf.NodeConfig()
+    ifunc = enginterface.NodeConfig()
     ifunc.type = 'ifunc'
     ifunc.address = '.'.join(['handles', 'ifunc'])
     ifunc.basetype = 'object_ifunc'
@@ -65,12 +65,12 @@ class Command(BaseCommand):
         mdl = importlib.import_module(options["python_module"][0], options["python_package"][0])
         namecategories = getattr(mdl, "namecategories")
 
-        clss, fcts = engintf.get_nodetype_candidates(mdl)
-        tree, addrss, categories = engintf.ctypeconf_tree_ifit(clss, fcts, namecategories)
+        clss, fcts = enginterface.get_nodetype_candidates(mdl)
+        tree, addrss, categories = enginterface.ctypeconf_tree_ifit(clss, fcts, namecategories)
         
         # ifitlib specific part ...
         ctypeconf_ifitlib(tree, addrss)
 
-        engintf.save_nodetypes_js('fitlab/static/fitlab', tree, addrss, categories)
-        engintf.save_modulename_json(options["python_module"][0], options["python_package"][0])
+        enginterface.save_nodetypes_js('fitlab/static/fitlab', tree, addrss, categories)
+        enginterface.save_modulename_json(options["python_module"][0], options["python_package"][0])
 

@@ -16,11 +16,11 @@ Functions & methods:
 node.
 
 Module level:
-- A function "_load_middleware" may be implemented, and must return an object subclassed from engintf.MiddeWare.
+- A function "_load_middleware" may be implemented, and must return an object subclassed from enginterface.MiddeWare.
 '''
 __author__ = "Jakob Garde"
 
-import engintf
+import enginterface
 from iflproj.settings import IFIT_DIR
 
 import scipy.misc
@@ -66,7 +66,7 @@ def _get_idata_prefix():
     _idataidx += 1
     return 'idata%d' % (_idataidx)
 
-class _VarnameMiddleware(engintf.MiddleWare):
+class _VarnameMiddleware(enginterface.MiddleWare):
     ''' handles automatic registration of varname's for clearing at session expire/shutdown '''
     def __init__(self):
         self.varnames = []
@@ -97,7 +97,7 @@ namecategories = collections.OrderedDict({
     'separate' : 'functions',
 })
 
-class IData(engintf.ObjReprJson):
+class IData(enginterface.ObjReprJson):
     def __init__(self, url, datashape=None):
         '''
         If url is a string datashape must be None.
@@ -393,7 +393,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
 
     return params
 
-class IFunc(engintf.ObjReprJson):
+class IFunc(enginterface.ObjReprJson):
     '''  '''
     def __init__(self, datashape:list=None, symbol='iFunc'):
         logging.debug("%s.__init__" % str(type(self)))
@@ -713,7 +713,7 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
         atomic_func(*symbols, *constants, *elements)
 
 
-class PltIter(engintf.ObjReprJson):
+class PltIter(enginterface.ObjReprJson):
     ''' extract plotdata at index in vectorized idata '''
     def __init__(self, data:IData, pltiter):
         '''
@@ -781,7 +781,7 @@ class PltIter(engintf.ObjReprJson):
         if nxt_idx:
             self.nxt_idx = tuple(nxt_idx)
 
-class FitIter(engintf.ObjReprJson):
+class FitIter(enginterface.ObjReprJson):
     ''' extract plotdata at index in vectorized ifunc '''
     def __init__(self, fit:IFunc, fititer):
         self.shape = fit._get_datashape()
