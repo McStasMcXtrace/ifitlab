@@ -421,7 +421,7 @@ class NodeConfig:
         self.executable = 'true'
         self.edit = 'true'
         self.name = 'object'
-        
+
     def make_literal(self, branch):
         self.type = 'literal'
         self.address = '.'.join([branch, 'literal'])
@@ -431,32 +431,6 @@ class NodeConfig:
         self.executable = 'false'
         self.edit = 'true'
         self.name = 'literal'
-
-    def make_idata(self, branch):
-        self.type = 'idata'
-        self.address = '.'.join([branch, 'idata'])
-        self.basetype = 'object_idata'
-        # superfluous?
-        self.itypes = ['IData']
-        # superfluous?
-        self.otypes = ['IData']
-        self.static = 'false'
-        self.executable = 'true'
-        self.edit = 'false'
-        self.name = 'idata'
-
-    def make_ifunc(self, branch):
-        self.type = 'ifunc'
-        self.address = '.'.join([branch, 'ifunc'])
-        self.basetype = 'object_ifunc'
-        # superfluous?
-        self.itypes = ['IFunc']
-        # superfluous?
-        self.otypes = ['IFunc']
-        self.static = 'false'
-        self.executable = 'true'
-        self.edit = 'false'
-        self.name = 'ifunc'
 
     def get_repr(self):
         if self.basetype == '':
@@ -497,18 +471,6 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
     literal.make_literal('handles')
     tree.put('handles', literal.get_repr(), get_key)
     addrss.append((literal.address, 0))
-
-    # object_idata
-    idata = NodeConfig()
-    idata.make_idata('handles')
-    tree.put('handles', idata.get_repr(), get_key)
-    addrss.append((idata.address, 1))
-
-    # object_ifunc
-    ifunc = NodeConfig()
-    ifunc.make_ifunc('handles')
-    tree.put('handles', ifunc.get_repr(), get_key)
-    addrss.append((ifunc.address, 2))
     
     # object
     obj = NodeConfig()
@@ -614,11 +576,12 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
         addrss.append((address, inputnames.index(keyname)))
         categories[category] = ""
 
-    def sortaddrs(entry):
+    def sortaddrs_keyfunc(entry):
         return entry[1]
-    sorted_addrss = sorted(addrss, key=sortaddrs)
+    sorted_addrss = sorted(addrss, key=sortaddrs_keyfunc)
     addrss = [key[0] for key in sorted_addrss]
     categories = list(categories.keys())
+    
     return tree, addrss, categories
 
 

@@ -163,3 +163,4 @@ class GraphSession:
 
         self.graph.graph_change(cmds)
         self.graph.execute_node("o0")
+
