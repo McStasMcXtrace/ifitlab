@@ -1639,6 +1639,9 @@ class GraphInterface {
         }
         catch(error) {
           console.log("JSON.parse error on string: ", msg);
+          alert("uncomprehensible server response");
+          selfref.graphData._updateNodeState(n);
+          selfref.updateUi();
           throw error
         }
 

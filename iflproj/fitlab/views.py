@@ -14,6 +14,8 @@ import enginterface
 import fitlab.models
 from fitlab.models import GraphDef
 
+GS_REQ_TIMEOUT = 30
+
 def index(request):
     # TODO: this should open the login page or dashboard
     
@@ -29,11 +31,6 @@ def index(request):
     print("default user was logged in")
     request.session['username'] = username
 
-    # reset the graph session
-    graphsession = get_graph_session(username)
-    graphsession.reset()
-    print("graph session was reset")
-
     return render(request, "fitlab/main.html", context={ "gs_id" : "hest" })
 
 @login_required
@@ -48,36 +45,25 @@ def ajax_run_node(request, gs_id):
     s = request.POST.get('json_str')
     if not s:
         return HttpResponse("ajax request FAIL");
-    print("received command: %s" % s)
-
-    # main
-    username = request.session['username']
+    
+    # file the request
     syncset = request.POST.get('json_str')
-    uireq = GraphUiRequest(username=username, syncset=syncset, gs_id=gs_id)
+    uireq = GraphUiRequest(username=request.session['username'], gs_id=gs_id, syncset=syncset)
     uireq.save()
     reqid = uireq.id
 
-    # emulate worker action:
-    sync_obj = json.loads(uireq.syncset) # this would be polled from db
-    graphsession = get_graph_session(username) # the gs py-object matching the request's gs_id, or create using db object info
-    json_obj = graphsession.update_and_execute(sync_obj['run_id'], sync_obj['sync'])
-    grep = GraphReply(username=uireq.username, reqid=uireq.id, reply_json=json.dumps(json_obj)) # work action
-    # should something like this be in a finally block?
-    grep.save()
-    uireq.delete() # clean up
-
-    # back to main
-    reply_json = _poll_db_for_reply(username, reqid)
+    # wait for reply or time out
+    reply_json = _poll_db_for_reply(reqid)
     if reply_json:
         return HttpResponse(reply_json)
     else:
-        return HttpResponse("ajax request db poll timed out")
+        return HttpResponse('{"error" : { "message" : "graph session request timed out" }}')
 
-def _poll_db_for_reply(username, requid, timeout=30):
+def _poll_db_for_reply(requid, timeout=GS_REQ_TIMEOUT):
     ''' polling the db is used as a process sync mechanism '''
     t = time.time()
     while True:
-        lst = GraphReply.objects.filter(username=username, reqid=requid)
+        lst = GraphReply.objects.filter(reqid=requid)
         if len(lst) == 1:
             answer = lst[0].reply_json
             lst[0].delete()
@@ -111,50 +97,4 @@ def ajax_save_graph_def(request, gs_id):
 
     return HttpResponse("graphdef saved")
 
-#
-# ON ITS WAY TO RUNWORKER:
-#
-
-# single-threaded approach
-graphsessions = {}
-def get_graph_session(key):
-    if not graphsessions.get(key):
-        graphsessions[key] = GraphSession()
-        print("a new GraphSession was created with key: ", key)
-    return graphsessions[key]
-
-class GraphSession:
-    def __init__(self):
-        self.graph = None
-        self.reset()
-
-    def _loadNodeTypesJsFile(self):
-        text = open('fitlab/static/fitlab/nodetypes.js').read()
-        m = re.search("var nodeTypes\s=\s([^;]*)", text, re.DOTALL)
-        return m.group(1)
-
-    def update_and_execute(self, runid, syncset):
-        json_obj = self.graph.graph_update(syncset)
-        if json_obj:
-            return json_obj
-        json_obj = self.graph.execute_node(runid)
-        return json_obj
-
-    def reset(self):
-        if (self.graph):
-            self.graph.shutdown()
-
-        text = self._loadNodeTypesJsFile()
-        tree = enginterface.TreeJsonAddr(json.loads(text))
-
-        text = open('pmodule.json').read()
-        pmod = json.loads(text)
-        mdl = importlib.import_module(pmod["module"], pmod["package"])
-        self.graph = enginterface.FlatGraph(tree, mdl)
-
-    def test(self):
-        cmds = json.loads('[[["node_add",454.25,401.3333333333333,"o0","","","obj"],["node_rm","o0"]],[["node_add",382.75,281.3333333333333,"o1","","","Pars"],["node_rm","o1"]],[["node_add",348,367.3333333333333,"f0","","C","Colour"],["node_rm","f0"]],[["link_add","o1",0,"f0",0,0],["link_rm","o1",0,"f0",0,0]],[["link_add","f0",0,"o0",0,0],["link_rm","f0",0,"o0",0,0]],[["node_data","o1","\\"red\\""],["node_data","o1",{}]]]')
-
-        self.graph.graph_change(cmds)
-        self.graph.execute_node("o0")
 

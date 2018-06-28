@@ -13,9 +13,14 @@ class GraphUiRequest(models.Model):
     syncset = TextField(blank=True)
 
 class GraphReply(models.Model):
-    username = CharField(max_length=200)
     reqid = CharField(max_length=200, unique=True)
     reply_json = TextField()
 
 class GraphSession(models.Model):
     username = CharField(max_length=200)
+    
+    autosave_gdid = None
+    autosave_mlfile = None
+    save_gdid = None
+    save_mlfile = None
+    
