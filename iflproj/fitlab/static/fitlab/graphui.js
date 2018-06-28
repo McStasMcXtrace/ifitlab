@@ -1588,7 +1588,8 @@ class GraphInterface {
     console.log(JSON.stringify(lst));
   }
   loadGraphDef() {
-    simpleajax('/ifl/ajax_load_graph_def', "", function(msg) {
+    let gs_id = $("body > #gs_id")[0].value;
+    simpleajax('/ifl/ajax_load_graph_def/' + gs_id, "", function(msg) {
       this.reset();
       this.injectGraphDefinition(JSON.parse(msg));
     }.bind(this));
@@ -1596,7 +1597,8 @@ class GraphInterface {
   saveGraphDef() {
     let graphDef = this.extractGraphDefinition();
     let post_data = { "graphdef" : graphDef };
-    simpleajax('/ifl/ajax_save_graph_def', post_data, function(msg) {
+    let gs_id = $("body > #gs_id")[0].value;
+    simpleajax('/ifl/ajax_save_graph_def/' + gs_id, post_data, function(msg) {
       console.log(msg);
     }.bind(this));
   }
@@ -1626,7 +1628,8 @@ class GraphInterface {
     let post_data = {json_str: JSON.stringify({ run_id: id, sync: syncset })};
     let selfref = this; // replace this with the .bind(this) method on a func object
 
-    simpleajax('/ifl/ajax_run_node', post_data,
+    let gs_id = $("body > #gs_id")[0].value;
+    simpleajax('/ifl/ajax_run_node/' + gs_id, post_data,
       function(msg) {
         selfref.lock = false;
 
