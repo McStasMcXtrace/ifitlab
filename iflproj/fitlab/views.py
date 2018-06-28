@@ -1,6 +1,7 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 
 from .models import GraphUiRequest, GraphReply
 
@@ -10,9 +11,12 @@ import importlib
 import time
 
 import enginterface
+import fitlab.models
 from fitlab.models import GraphDef
 
 def index(request):
+    # TODO: this should open the login page or dashboard
+    
     username = 'admin'
     password = 'admin123'
 
@@ -30,53 +34,38 @@ def index(request):
     graphsession.reset()
     print("graph session was reset")
 
-    return render(request, "fitlab/main.html")
+    return render(request, "fitlab/main.html", context={ "gs_id" : "hest" })
 
-'''
-def ajax_run_node(request):
-    ### ajax target function for "run node" action
-    s = request.POST.get('json_str')
-    if not s:
-        return HttpResponse("ajax request FAIL");
-    print("received command: %s" % s)
-    
-    # get the command data
-    obj = json.loads(s)
-    runid = obj['run_id']
-    sync = obj['sync']
+@login_required
+def graph_session(request, gs_id):
+    if not fitlab.models.GraphSession.objects.filter(id=gs_id).exists():
+        print("redirecting missing graph session to index...")
+        return redirect(index)
+    return render(request, "fitlab/main.html", context={ "gs_id" : gs_id })
 
-    # pass it on
-    username = request.session['username']
-    graphsession = get_graph_session(username)
-    json_obj = graphsession.update_and_execute(runid, sync)
-
-    # return the data
-    return HttpResponse(json.dumps(json_obj))
-
-'''
-
-def ajax_run_node(request):
+@login_required
+def ajax_run_node(request, gs_id):
     s = request.POST.get('json_str')
     if not s:
         return HttpResponse("ajax request FAIL");
     print("received command: %s" % s)
 
+    # main
     username = request.session['username']
     syncset = request.POST.get('json_str')
-    greq = GraphUiRequest(username=username, syncset=syncset)
-    greq.save()
-    reqid = greq.id
-    
-    # emulate worker action
-    graphsession = get_graph_session(username)
-    # fetch (will be executed by username-tagged thread in turn or in parallel)
-    sync_obj = json.loads(greq.syncset)
-    # execute and finalize reply
+    uireq = GraphUiRequest(username=username, syncset=syncset, gs_id=gs_id)
+    uireq.save()
+    reqid = uireq.id
+
+    # emulate worker action:
+    sync_obj = json.loads(uireq.syncset) # this would be polled from db
+    graphsession = get_graph_session(username) # the gs py-object matching the request's gs_id, or create using db object info
     json_obj = graphsession.update_and_execute(sync_obj['run_id'], sync_obj['sync'])
-    grep = GraphReply(username=greq.username, reqid=greq.id, reply_json=json.dumps(json_obj))
+    grep = GraphReply(username=uireq.username, reqid=uireq.id, reply_json=json.dumps(json_obj)) # work action
+    # should something like this be in a finally block?
     grep.save()
-    greq.delete()
-    
+    uireq.delete() # clean up
+
     # back to main
     reply_json = _poll_db_for_reply(username, reqid)
     if reply_json:
@@ -100,26 +89,31 @@ def _poll_db_for_reply(username, requid, timeout=30):
         if elapsed > timeout and timeout > 0:
             return None
 
-def ajax_load_graph_def(request):
-    ''' can we load a graph def from the db? '''
+@login_required
+def ajax_load_graph_def(request, gs_id):
     username = request.session['username']
-    gd = GraphDef.objects.filter(username__exact=username)
+    print(gs_id)
+    
+    gd = GraphDef.objects.filter(username__exact=username, gs_id=gs_id)
     graphdef_json = gd[0].graphdef_json
     print('loading graph def for user %s: %s chars' % (username, len(graphdef_json)))
     return HttpResponse(graphdef_json)
 
-def ajax_save_graph_def(request):
-    ''' can we save a graph def to the db? '''
+@login_required
+def ajax_save_graph_def(request, gs_id):
     s = request.POST.get('graphdef')
 
     username = request.session['username']
     existing = GraphDef.objects.filter(username__exact=username)
     existing.delete()
-    gd = GraphDef(graphdef_json=s, username=username)
+    gd = GraphDef(graphdef_json=s, username=username, gs_id=gs_id)
     gd.save()
 
     return HttpResponse("graphdef saved")
 
+#
+# ON ITS WAY TO RUNWORKER:
+#
 
 # single-threaded approach
 graphsessions = {}
@@ -149,7 +143,7 @@ class GraphSession:
     def reset(self):
         if (self.graph):
             self.graph.shutdown()
-        
+
         text = self._loadNodeTypesJsFile()
         tree = enginterface.TreeJsonAddr(json.loads(text))
 
