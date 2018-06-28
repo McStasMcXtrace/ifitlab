@@ -1,7 +1,7 @@
 '''
 General directed graph execution engine with variable node types, custom
 node execution models, dynamic graph consistency checking and egalitarian and
-hierarchical graph structure.
+hierarchical graph structure (graphtree).
 '''
 __author__ = "Jakob Garde"
 

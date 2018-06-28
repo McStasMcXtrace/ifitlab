@@ -1,5 +1,8 @@
 '''
 Nodespeak extension using a single root node and one layer of sub-nodes.
+
+This module depends on nodespeak, and acts in accordance with the requirements 
+of the graphui js frontend.
 '''
 __author__ = "Jakob Garde"
 
