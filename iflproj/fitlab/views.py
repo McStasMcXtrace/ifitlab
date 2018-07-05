@@ -6,8 +6,6 @@ from django.contrib.auth.decorators import login_required
 from .models import GraphUiRequest, GraphReply
 
 import json
-import re
-import importlib
 import time
 
 import enginterface
@@ -18,7 +16,7 @@ GS_REQ_TIMEOUT = 30
 
 def index(request):
     # TODO: this should open the login page or dashboard
-    
+
     username = 'admin'
     password = 'admin123'
 
@@ -35,6 +33,8 @@ def index(request):
 
 @login_required
 def graph_session(request, gs_id):
+    # TODO: here, we need to put an "attach" which can be a "load_attach" (we don't know which one at this level)
+
     if not fitlab.models.GraphSession.objects.filter(id=gs_id).exists():
         print("redirecting missing graph session to index...")
         return redirect(index)
@@ -45,7 +45,7 @@ def ajax_run_node(request, gs_id):
     s = request.POST.get('json_str')
     if not s:
         return HttpResponse("ajax request FAIL");
-    
+
     # file the request
     syncset = request.POST.get('json_str')
     uireq = GraphUiRequest(username=request.session['username'], gs_id=gs_id, syncset=syncset)
@@ -70,31 +70,34 @@ def _poll_db_for_reply(requid, timeout=GS_REQ_TIMEOUT):
             return answer
         if len(lst) > 1:
             raise Exception("more than one reply for single request - multi-processing issue detected")
-        time.sleep(0.3)
+        time.sleep(0.1)
         elapsed = time.time() - t
         if elapsed > timeout and timeout > 0:
             return None
 
 @login_required
-def ajax_load_graph_def(request, gs_id):
+def ajax_load_session(request, gs_id):
     username = request.session['username']
     print(gs_id)
-    
+
     gd = GraphDef.objects.filter(username__exact=username, gs_id=gs_id)
-    graphdef_json = gd[0].graphdef_json
-    print('loading graph def for user %s: %s chars' % (username, len(graphdef_json)))
-    return HttpResponse(graphdef_json)
+    print('loading session %s for user %s' % (gs_id, username))
+    return HttpResponse(json.dumps( { "graphdef" : json.loads(gd[0].graphdef_json), "update" : []} ))
 
 @login_required
-def ajax_save_graph_def(request, gs_id):
+def ajax_save_session(request, gs_id):
     s = request.POST.get('graphdef')
 
     username = request.session['username']
+    print("ajax_save_session has not been implemented, user: %s, gs_id: %s" % (username, gs_id))
+
+    '''
     existing = GraphDef.objects.filter(username__exact=username)
     existing.delete()
     gd = GraphDef(graphdef_json=s, username=username, gs_id=gs_id)
     gd.save()
-
-    return HttpResponse("graphdef saved")
+    '''
+    
+    return HttpResponse("session saved: not implemented")
 
 

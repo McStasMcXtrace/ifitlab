@@ -107,8 +107,8 @@
   <button id="btnRun">Run</button>
   <button id="btnPlot">Plot</button>
   <button id="btnSave">Save</button>
-  <button id="btnLoad">Load</button>
-  <button id="btnReset">Clear</button>
+  <button id="btnRevert">Revert</button>
+  <button id="btnClear">Clear</button>
 </div>
 
 <div id="graph_menu_1" style="position:absolute;left:303px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
@@ -275,9 +275,9 @@ $(document).ready(() => {
   $("#btnRedo").click( () => { intface.redo() });
   $("#btnRun").click( () => { intface.runSelectedNode() });
   $("#btnPlot").click( () => { plthandler.newPlotwindow(480, 100); });
-  $("#btnSave").click( () => { intface.saveGraphDef() });
-  $("#btnLoad").click( () => { intface.loadGraphDef() })
-  $("#btnReset").click( () => { intface.reset() });
+  $("#btnSave").click( () => { intface.saveSession() });
+  $("#btnRevert").click( () => { intface.revert() })
+  $("#btnClear").click( () => { intface.reset() });
   clearUserDataPanel();
 
   // construct graph engine and add listeners
@@ -356,11 +356,6 @@ $(document).ready(() => {
   menu = new NodeTypeMenu(menuCB, 'graph_menu_3', 'models');
   menu = new NodeTypeMenu(menuCB, 'graph_menu_4', 'functions');
 
-  // load graph and run
-  // why is this needed to get rid of the "self.draggable is null" error message?
-  intface.updateUi();
-  intface.loadGraphDef(); // this also updates the ui...
-
   // universal noselect to prevent selection during node handling. (This does not prevent selection in textboxes etc.)
   $("body").addClass("noselect");
 
@@ -371,6 +366,9 @@ $(document).ready(() => {
     if (event.key == "h" && event.target == this) $( "#dialog" ).dialog("open");
   });
 
+  // load graph and run
+  intface.updateUi(); // why is this needed to get rid of the "self.draggable is null" error message?
+  intface.loadSession(); // this also updates the ui...
 });
 </script>
 </html>

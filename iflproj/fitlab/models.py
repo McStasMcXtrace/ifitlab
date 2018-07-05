@@ -1,6 +1,7 @@
 from django.db import models
-from django.db.models.fields import TextField, CharField
-from django.db.models.fields.related import ForeignKey
+from django.db.models import TextField, CharField, DateTimeField
+from django.utils import timezone
+
 
 class GraphDef(models.Model):
     username = CharField(max_length=200)
@@ -10,6 +11,7 @@ class GraphDef(models.Model):
 class GraphUiRequest(models.Model):
     username = CharField(max_length=200)
     gs_id = CharField(max_length=200)
+    cmd = CharField(max_length=200, default="update_run")
     syncset = TextField(blank=True)
 
 class GraphReply(models.Model):
@@ -18,9 +20,18 @@ class GraphReply(models.Model):
 
 class GraphSession(models.Model):
     username = CharField(max_length=200)
-    
-    autosave_gdid = None
-    autosave_mlfile = None
-    save_gdid = None
-    save_mlfile = None
-    
+    created = DateTimeField('created', default=timezone.now)
+    quicksaved = DateTimeField('quicksaved', blank=True, null=True)
+    stashed = DateTimeField('stashed', blank=True, null=True)
+
+    # stashed live data on top of quicksave
+    stashed_graphdef = TextField(blank=True)
+    stashed_pickle = TextField(blank=True)
+    stashed_matfile = CharField(max_length=200, default="")
+
+    stashed_undostack = TextField(blank=True) # this is mainly for transferring the undo stack from a previous browser as a gimmick
+
+    # restore point / quick save
+    quicksave_graphdef = TextField(blank=True)
+    quicksave_pickle = TextField(blank=True)
+    quicksave_matfile = CharField(max_length=200, default="")

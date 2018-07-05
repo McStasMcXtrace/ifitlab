@@ -1587,18 +1587,21 @@ class GraphInterface {
     //console.log(JSON.stringify(lst, null, 2));
     console.log(JSON.stringify(lst));
   }
-  loadGraphDef() {
+  revert() {
+    console.log("revert has not been implemented")
+  }
+  loadSession() {
     let gs_id = $("body > #gs_id")[0].value;
-    simpleajax('/ifl/ajax_load_graph_def/' + gs_id, "", function(msg) {
+    simpleajax('/ifl/ajax_load_session/' + gs_id, "", function(msg) {
       this.reset();
-      this.injectGraphDefinition(JSON.parse(msg));
+      let obj = JSON.parse(msg);
+      this.injectGraphDefinition(obj["graphdef"]);
+      this._update(obj["update"]);
     }.bind(this));
   }
-  saveGraphDef() {
-    let graphDef = this.extractGraphDefinition();
-    let post_data = { "graphdef" : graphDef };
+  saveSession() {
     let gs_id = $("body > #gs_id")[0].value;
-    simpleajax('/ifl/ajax_save_graph_def/' + gs_id, post_data, function(msg) {
+    simpleajax('/ifl/ajax_save_session/' + gs_id, null, function(msg) {
       console.log(msg);
     }.bind(this));
   }
@@ -1665,18 +1668,7 @@ class GraphInterface {
 
         // success section
         let update = retobj['update'];
-        for (let key in update) {
-          let obj = update[key];
-          let m = selfref.graphData.getNode(key);
-          if (obj != null) {
-            selfref.node_data(key, JSON.stringify(obj.userdata));
-            m.obj = obj; // (re)set all data
-            selfref.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-          }
-          selfref.graphData._updateNodeState(m);
-          selfref._fireEvents(selfref._nodeRunReturnListn, [m]);
-        }
-        selfref.updateUi();
+        selfref._update(update);
       },
       function() {
         // unhandled server exception section
@@ -1685,6 +1677,21 @@ class GraphInterface {
         selfref.updateUi();
       }
     );
+  }
+  _update(update) {
+    // server node representation update
+    for (let key in update) {
+      let obj = update[key];
+      let m = this.graphData.getNode(key);
+      if (obj != null) {
+        this.node_data(key, JSON.stringify(obj.userdata));
+        m.obj = obj; // (re)set all data
+        this.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
+      }
+      this.graphData._updateNodeState(m);
+      this._fireEvents(this._nodeRunReturnListn, [m]);
+    }
+    this.updateUi();
   }
   _command(cmd) {
     let args = cmd.slice(1);

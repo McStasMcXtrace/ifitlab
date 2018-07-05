@@ -133,10 +133,14 @@ implementation is the only available one at the time of writing.
 '''
 class FlatGraph:
     def __init__(self, tpe_tree, pmodule):
-        self.root = RootNode("root")
-        self.tpe_tree = tpe_tree
         global flatgraph_pmodule
         flatgraph_pmodule = pmodule
+        
+        self.root = RootNode("root")
+        self.tpe_tree = tpe_tree
+
+        self.coords = None # should be reset with every execute syncset, and by inject_graphdef
+
         self.node_cmds_cache = {}
         self.dslinks_cache = {} # ds = downstream
 
@@ -205,6 +209,8 @@ class FlatGraph:
         _log("removed link from (%s, %d) to (%s, %d)" % (id1, idx1, id2, idx2))
 
     def node_label(self, id, label):
+        # TODO: remember node label changes to be able to generate a proper graphdef
+
         _log("node label update always ignored, (%s, %s)." % (id, label))
         # caching
         e = self.node_cmds_cache[id]
@@ -257,6 +263,8 @@ class FlatGraph:
 
     def graph_update(self, redo_lsts):
         ''' takes an undo-redo list and sequentially modifies the server-side graph '''
+        # TODO: cache node coords
+        
         _log('graph update: %d commands' % len(redo_lsts))
         for redo in redo_lsts:
             cmd = redo[0]
@@ -315,23 +323,43 @@ class FlatGraph:
             return {'error' : {'message' : "Repr. exc.: %s" % str(e)}}
 
     def extract_graphdef(self):
-        ''' extract and return a frontend-readable graph definition '''
+        ''' extract and return a frontend-readable graph definition, using the x_y field to insert these into the gd '''
+        # TODO: put data from self.x_y and label changes into the graph def
+        
         _log("extracting graph def...")
         gdef = {}
         gdef["nodes"] = {}
-        #gdef["datas"] = {}
         gdef["links"] = {}
+        gdef["labels"] = {}
         for key in self.root.subnodes.keys():
-            gdef["nodes"][key] = self.node_cmds_cache[key] # will tuples be jsonized as lists?
-            # datas here (unimplemented
+            # nodes
+            gdef["nodes"][key] = self.node_cmds_cache[key]
+            # TODO: update labels info
+
+            # links
             try:
                 gdef["links"][key] = self.dslinks_cache[key]
             except:
                 pass # not all nodes have outgoing links...
+
+        # TODO: update node x and y by means of the coords info
+        # UNTESTED
+        keys = self.coords[0]
+        x_y = self.coords[1]
+        node_cmds = gdef["nodes"]
+        for i in range(len(keys)): # if self.x_y is a tupple of two list ... 
+            key = keys[i]
+            node_cmds[key][0] = x_y[2*i]
+            node_cmds[key][1] = x_y[2*i+1]
+
         return gdef
+    
+    def inject_graphdef(self, graphdef):
+        ''' sets the current node, link, labels and coords state based on input '''
+        
 
     def shutdown(self):
-        ''' kind of a destructor - should be called when this graph session is no longer required '''
+        ''' should be called when this graph session is no longer required, cleans up the lower layers '''
         self._middleware.finalize()
 
 basetypes = {

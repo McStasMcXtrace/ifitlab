@@ -1,5 +1,5 @@
 '''
-Worker process which handles all graph sessions, in parallel.
+Worker process which handles all ui requests in parallel.
 '''
 import time
 import threading
@@ -11,37 +11,14 @@ import sys
 import os
 
 from django.core.management.base import BaseCommand
-from django.utils import timezone
+from queue import Queue, Empty
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-
 
 from fitlab.models import GraphUiRequest, GraphReply, GraphSession
 import enginterface
 
-
 NUM_THREADS = 4
-
-
-'''
-def load_graph_def(username, request):
-    username = request.session['username']
-    gd = GraphDef.objects.filter(username__exact=username)
-    graphdef_json = gd[0].graphdef_json
-    print('loading graph def for user %s: %s chars' % (username, len(graphdef_json)))
-
-    return graphdef_json
-    
-def ajax_save_graph_def(request):
-    s = request.POST.get('graphdef')
-
-    username = request.session['username']
-    existing = GraphDef.objects.filter(username__exact=username)
-    existing.delete()
-    gd = GraphDef(graphdef_json=s, username=username)
-    gd.save()
-'''
-
 
 class SoftGraphSession:
     def __init__(self, gs_id, username):
@@ -85,93 +62,147 @@ class SoftGraphSession:
         self.graph.execute_node("o0")
 
 
+'''
+Internal commands as functions
+'''
+def load(req): pass
+def restore(req): pass
+def attach(req): pass
+def save(req): pass
+def stash_shutdown(req): pass
+def savecopy(req): pass
+def update_run(req): pass
+def shutdown(req): pass
 
-class ExitException(Exception): pass
+def _session_is_live(req): pass
+def _session_is_autosave(req): pass
 
+'''
+External commands blueprint
+
+public/ui:
+- attach/load-attach: this is the 'ifl/graph_session/id' url
+- save: the save button, sets the restore point (this is quick-save)
+- restore: revert to last save
+- save-a-copy: inverted save-as, creates save data on a new session
+- update_run: the bread-and-butter run button
+- shutdown: logout or session timeout
+'''
 
 class Task:
-    def __init__(self, username, gs_id, sync_obj_str, reqid, cmd="update"):
+    def __init__(self, username, gs_id, sync_obj_str, reqid, cmd):
         self.username = username
         self.gs_id = gs_id
         self.reqid = reqid
         self.sync_obj = json.loads(sync_obj_str)
         self.cmd = cmd
 
-def get_work():
-    lst = GraphUiRequest.objects.all()
-    if len(lst) > 0:
-        uireq = lst[0]
-        work = Task(uireq.username, uireq.gs_id, uireq.syncset, uireq.id)
-        uireq.delete()
-        return work
-
-def threadwork(task, softsession, semaphore=None):
-    if not task.cmd == "update":
-        raise Exception('work.cmd != "update" has not been implemented')
-    try:
-        # run
-        json_obj = softsession.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
-        # loot
-        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
-        graphreply.save()
-        # log
-        # TODO: log
+class Workers:
+    '''
+    Represents a pool of worker threads.
+    '''
+    def __init__(self, threaded=True):
+        self.taskqueue = Queue()
+        self.sessions = {}
+        self.terminated = False
+        self.threaded = threaded
         
-    except Exception as e:
-        # TODO: thread-log this
-        print(str(e))
-        # save fail state / raise ?
-    finally:
-        if semaphore:
-            semaphore.release()
+        self.threads = []
+        for i in range(NUM_THREADS):
+            t = threading.Thread(target=self.threadwork)
+            t.setDaemon(True)
+            t.setName('%s (%s)' % (t.getName().replace('Thread-','T')))
+            t.start()
+            self.threads.append(t)
 
-all_soft_sessions = {}
-def mainwork(threaded=True, semaphore=None):
-    global all_soft_sessions
+    def mainwork(self):
+        ''' Process a batch of UIRequest objects. Called from the main thread. '''
+        for uireq in GraphUiRequest.objects.all():
+            self.taskqueue.put(Task(uireq.username, uireq.gs_id, uireq.syncset, uireq.id, uireq.cmd))
+            uireq.delete()
+        if not self.threaded:
+            self.threadwork()
 
-    # TODO: find a nice way to impl. various types of tasks:
-    # update (we have this default)
-    # save
-    # load_attach
-    # save_copy
-    # shutdown
-    # autosave_shutdown
-    task = get_work()
+    def terminate(self):
+        self.terminated = True
+        # TODO: introduce a thread.wait at the end here
 
-    while task:
-        # exceptions raised during work do not break the processing loop
-        try:
-            # get or create the appropriate session
-            session = all_soft_sessions.get(task.gs_id, None)
-            if not session:
-                try:
-                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
-                except:
-                    raise Exception("requested gs_id yielded no soft graph session or db object")
-                # username validation
-                if obj.username != task.username:
-                    raise Exception("username validation failed, sender: %s, session: %s" % (task.username, obj.username))
-                session = SoftGraphSession(task.gs_id, obj.username)
-                all_soft_sessions[task.gs_id] = session
-
-            # work
-            if threaded:
-                semaphore.acquire() # this will block until a slot is released
-
-                t = threading.Thread(target=threadwork, args=(task, session, semaphore))
-                t.setDaemon(True)
-                t.setName('%s (%s)' % (t.getName().replace('Thread-','T'), '%s (username: %s)' % (task.gs_id, task.username)))
-                t.start()
-            else:
-                threadwork(task, session)
-
-        except Exception as e:
-            logging.error('fail: %s (%s)' % (e.__str__(), type(e).__name__))
-
-        finally:
-            task = get_work()
+    def threadwork(self):
+        '''  '''
+        # check for the self.terminated=True signal every timeout seconds
+        task = None
+        while not self.terminated:
+            try:
+                task = self.taskqueue.get(block=True, timeout=0.1)
+            except Empty:
+                task = None
             if not task:
-                logging.info("idle...")
+                # sigle run (debug mode, not threaded)
+                if not self.threaded:
+                    return
+                continue
+
+            logging.info("doing task, session id: %s" % task.gs_id)
+            try:
+                session = self.sessions.get(task.gs_id, None)
+                if not session:
+                    logging.info("no session found...")
+                    try:
+                        obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                    except:
+                        raise Exception("requested gs_id yielded no soft graph session or db object")
+
+                    logging.info("creating session, id: %s" % task.gs_id)
+                    session = SoftGraphSession(task.gs_id, obj.username)
+                    self.sessions[task.gs_id] = session
+
+                # validate username
+                if session.username != task.username:
+                    raise Exception("username validation failed, sender: %s, session: %s" % (task.username, obj.username))
+
+                if task.cmd == "load":
+                    if not self.sessions.get(task.gs_id, None) is not None:
+                        # create the session object
+                        try:
+                            obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                        except:
+                            raise Exception("requested gs_id yielded no soft graph session or db object")
+                        self.sessions[task.gs_id] = SoftGraphSession(task.gs_id, obj.username)
+
+                        if not _session_is_autosave(task):
+                            load(task)
+                        else:
+                            restore(task)
+                    attach(task)
+
+                elif task.cmd == "save":
+                    save(task)
+
+                elif task.cmd == "branch":
+                    savecopy(task)
+
+                elif task.cmd == "update_run":
+                    json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
+                    graphreply.save()
+
+                elif task.cmd == "save_shutdown":
+                    save(task)
+                    shutdown(task)
+
+                elif task.cmd == "shutdown":
+                    shutdown(task)
+
+                else:
+                    raise Exception("invalid command: %s" % task.cmd)
+
+                # TODO: log
+                logging.info("...")
+
+            except Exception as e:
+                # TODO: thread-log this
+                logging.error(str(e))
+                # save fail state / raise ?
 
 
 class Command(BaseCommand):
@@ -184,38 +215,18 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         logging.basicConfig(level=logging.INFO, format='%(threadName)-22s: %(message)s' )
 
+        logging.info("looking for tasks...")
+        workers = Workers(threaded=True)
         try:
-            # debug run
-            if options['debug']:
-                mainwork(threaded=False)
-                exit()
-            
-            # single threaded run
-            threaded = True
-            if options['singlethreaded']:
-                threaded = False
-
-            # main threaded execution loop:
-            sema = threading.BoundedSemaphore(NUM_THREADS)
-            logging.info("created semaphore with %d slots" % NUM_THREADS)
-
-            logging.info("looking for work...")
             while True:
-                mainwork(threaded=threaded, semaphore=sema)
-                time.sleep(0.3)
+                workers.mainwork()
+                time.sleep(0.1)
 
         # ctr-c exits
         except KeyboardInterrupt:
             print("")
             logging.info("shutdown requested, exiting...")
+            workers.terminate()
             print("")
             print("")
-
-        # handle exit-exception (programmatic shutdown)
-        except ExitException as e:
-            print("")
-            logging.warning("exit exception raised, exiting (%s)" % e.__str__())
-            print("")
-            print("")
-
 
