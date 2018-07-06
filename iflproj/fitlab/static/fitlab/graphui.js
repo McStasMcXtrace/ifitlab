@@ -1574,7 +1574,7 @@ class GraphInterface {
         this.node_data(key, data);
       }
       catch(error) {
-        console.log("inject set data: ", error.message);
+        console.log("inject set data error: ", error.message);
       }
     }
     this.undoredo.resetSync();
@@ -1599,10 +1599,9 @@ class GraphInterface {
   }
   saveSession() {
     let gs_id = $("body > #gs_id")[0].value;
-    //let post_data = { "graphdef" : graphDef };
-    let post_data = {"graphdef": this.graphData.extractGraphDefinition()};
+    let post_data = { "sync" : JSON.stringify(this.undoredo.getSyncSet()) };
     simpleajax('/ifl/ajax_save_session/' + gs_id, post_data, function(msg) {
-      console.log(msg);
+      //
     }.bind(this));
   }
 
@@ -1628,7 +1627,7 @@ class GraphInterface {
     this.updateUi();
 
     let syncset = this.undoredo.getSyncSet();
-    let post_data = {json_str: JSON.stringify({ run_id: id, sync: syncset })};
+    let post_data = { json_str: JSON.stringify({ run_id: id, sync: syncset }) };
     let selfref = this; // replace this with the .bind(this) method on a func object
 
     let gs_id = $("body > #gs_id")[0].value;
@@ -1679,6 +1678,7 @@ class GraphInterface {
     );
   }
   _update(update) {
+    console.log(update)
     // server node representation update
     for (let key in update) {
       let obj = update[key];

@@ -99,9 +99,9 @@ def ajax_load_session(request, gs_id):
 def ajax_save_session(request, gs_id):
     username = request.session['username']
     cmd = "save"
-    syncset = request.POST.get('graphdef')
-    
-    print("ajax_save_session, user: %s, gs_id: %s" % (username, gs_id))
+    syncset = request.POST.get('sync')
+        
+    print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, str(syncset)))
 
     return _reply(_command(username, gs_id, cmd, syncset))
 

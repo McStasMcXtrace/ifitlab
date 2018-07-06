@@ -18,8 +18,10 @@ from queue import Queue, Empty
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
+from iflproj import settings
 from fitlab.models import GraphUiRequest, GraphReply, GraphSession, GraphDef
 import enginterface
+
 
 NUM_THREADS = 4
 
@@ -186,12 +188,23 @@ class Workers:
                 # load/attach command
                 if task.cmd == "load":
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
+
+                    # load python structure
                     session.graph = from_djangodb_str(obj.quicksave_pickle)
-                    gd = session.graph.extract_graphdef()
                     
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : []} ))
+                    # load matlab variables
+                    filepath = os.path.join(settings.MATFILES_DIRNAME, obj.quicksave_matfile)
+                    load_fct = session.graph.get_load_fct()
+                    load_fct(filepath)
+                    
+                    gd = session.graph.extract_graphdef()
+                    update = session.graph.extract_update()
+                    
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
                     graphreply.save()
 
+
+                    # TODO: implement 'restore' when a live graph of that id already exists
                     '''
                     # how it perhaps will be: 
                     if not _session_is_autosave(task):
@@ -201,24 +214,25 @@ class Workers:
                     '''
 
                 elif task.cmd == "save":
+                    anyerrors = session.graph.graph_update(task.sync_obj)
+                    if anyerrors:
+                        raise Exception("errors encountered during sync")
                     
+                    # python structure
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
                     obj.quicksave_pickle = to_djangodb_str(session.graph)
                     obj.save()
-
+                    
+                    # mat file
+                    if not os.path.exists(settings.MATFILES_DIRNAME):
+                        os.makedirs(settings.MATFILES_DIRNAME)
+                    filepath = os.path.join(settings.MATFILES_DIRNAME, task.gs_id + ".mat")
+                    save_fct = session.graph.get_save_fct()
+                    save_fct(filepath)
+                    
+                    # return
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
                     graphreply.save()
-
-                    '''
-                    try:
-                        existing = GraphDef.objects.filter(username__exact=task.username)
-                        existing.delete()
-                    finally:
-                        gd = GraphDef(graphdef_json=json.dumps(task.sync_obj), username=task.username, gs_id=task.gs_id)
-                        gd.save()
-                    graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
-                    graphreply.save()
-                    '''
 
                 elif task.cmd == "branch":
                     savecopy(task)

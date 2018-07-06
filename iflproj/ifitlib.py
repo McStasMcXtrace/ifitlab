@@ -73,6 +73,12 @@ class _VarnameMiddleware(enginterface.MiddleWare):
     def register(self, obj):
         if type(obj) in (IData, IFunc, ):
             self.varnames.append(obj.varname)
+    def load(self, filepath):
+        _eval("clear all;", nargout=0)
+        _eval("load('%s');" % filepath, nargout=0)
+    def save(self, filepath):
+        ''' filepath must be a .mat file '''
+        _eval("save('%s', '*');" % filepath, nargout=0)
     def finalize(self):
         for vn in self.varnames:
             _eval("clear %s;" % vn, nargout=0)

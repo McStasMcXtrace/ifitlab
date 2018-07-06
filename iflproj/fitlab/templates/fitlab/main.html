@@ -308,7 +308,8 @@ $(document).ready(() => {
       });
     }
 
-    if (node.id == intface.getSelectedNode().id) {
+    let sn = intface.getSelectedNode();
+    if (sn && node.id == sn.id) {
       setUserData(node);
     }
 
