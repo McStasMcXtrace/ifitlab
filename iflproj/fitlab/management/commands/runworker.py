@@ -154,7 +154,7 @@ class Workers:
                     except:
                         raise Exception("requested gs_id yielded no soft graph session or db object")
 
-                    logging.info("creating session, id: %s" % task.gs_id)
+                    logging.info("creating session, gs_id: %s" % task.gs_id)
                     session = SoftGraphSession(task.gs_id, obj.username)
                     self.sessions[task.gs_id] = session
 
@@ -166,9 +166,10 @@ class Workers:
                 
                 # load/attach command
                 if task.cmd == "load":
-
                     gd = GraphDef.objects.filter(username__exact=task.username, gs_id=task.gs_id)
-                
+                    
+                    logging.info("loading graph def... %s" % gd[0].graphdef_json)
+                    
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : json.loads(gd[0].graphdef_json), "update" : []} ))
                     graphreply.save()
 
@@ -181,7 +182,14 @@ class Workers:
                     '''
 
                 elif task.cmd == "save":
-                    save(task)
+                    try:
+                        existing = GraphDef.objects.filter(username__exact=task.username)
+                        existing.delete()
+                    finally:
+                        gd = GraphDef(graphdef_json=json.dumps(task.sync_obj), username=task.username, gs_id=task.gs_id)
+                        gd.save()
+                    graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
+                    graphreply.save()
 
                 elif task.cmd == "branch":
                     savecopy(task)

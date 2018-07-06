@@ -1543,9 +1543,6 @@ class GraphInterface {
     this.draw.drawAll();
     this._fireEvents(this._updateUiListn, [this.graphData.getSelectedNode()]);
   }
-  extractGraphDefinition() {
-    return this.graphData.extractGraphDefinition();
-  }
   injectGraphDefinition(def) {
     let args = null;
     for (let key in def.nodes) {
@@ -1601,7 +1598,9 @@ class GraphInterface {
   }
   saveSession() {
     let gs_id = $("body > #gs_id")[0].value;
-    simpleajax('/ifl/ajax_save_session/' + gs_id, null, function(msg) {
+    //let post_data = { "graphdef" : graphDef };
+    let post_data = {"graphdef": this.graphData.extractGraphDefinition()};
+    simpleajax('/ifl/ajax_save_session/' + gs_id, post_data, function(msg) {
       console.log(msg);
     }.bind(this));
   }
