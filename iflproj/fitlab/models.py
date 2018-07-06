@@ -12,7 +12,7 @@ class GraphUiRequest(models.Model):
     username = CharField(max_length=200)
     gs_id = CharField(max_length=200)
     cmd = CharField(max_length=200, default="update_run")
-    syncset = TextField(blank=True)
+    syncset = TextField(blank=True, null=True)
 
 class GraphReply(models.Model):
     reqid = CharField(max_length=200, unique=True)

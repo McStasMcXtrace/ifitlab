@@ -15,7 +15,7 @@ from queue import Queue, Empty
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from fitlab.models import GraphUiRequest, GraphReply, GraphSession
+from fitlab.models import GraphUiRequest, GraphReply, GraphSession, GraphDef
 import enginterface
 
 NUM_THREADS = 4
@@ -94,7 +94,9 @@ class Task:
         self.username = username
         self.gs_id = gs_id
         self.reqid = reqid
-        self.sync_obj = json.loads(sync_obj_str)
+        self.sync_obj = None
+        if sync_obj_str:
+            self.sync_obj = json.loads(sync_obj_str)
         self.cmd = cmd
 
 class Workers:
@@ -111,7 +113,7 @@ class Workers:
         for i in range(NUM_THREADS):
             t = threading.Thread(target=self.threadwork)
             t.setDaemon(True)
-            t.setName('%s (%s)' % (t.getName().replace('Thread-','T')))
+            t.setName('%s' % (t.getName().replace('Thread-','T')))
             t.start()
             self.threads.append(t)
 
@@ -160,20 +162,23 @@ class Workers:
                 if session.username != task.username:
                     raise Exception("username validation failed, sender: %s, session: %s" % (task.username, obj.username))
 
+                # execute commands
+                
+                # load/attach command
                 if task.cmd == "load":
-                    if not self.sessions.get(task.gs_id, None) is not None:
-                        # create the session object
-                        try:
-                            obj = GraphSession.objects.filter(id=task.gs_id)[0]
-                        except:
-                            raise Exception("requested gs_id yielded no soft graph session or db object")
-                        self.sessions[task.gs_id] = SoftGraphSession(task.gs_id, obj.username)
 
-                        if not _session_is_autosave(task):
-                            load(task)
-                        else:
-                            restore(task)
-                    attach(task)
+                    gd = GraphDef.objects.filter(username__exact=task.username, gs_id=task.gs_id)
+                
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : json.loads(gd[0].graphdef_json), "update" : []} ))
+                    graphreply.save()
+
+                    '''
+                    # how it perhaps will be: 
+                    if not _session_is_autosave(task):
+                        load(task)
+                    else:
+                        restore(task)
+                    '''
 
                 elif task.cmd == "save":
                     save(task)
