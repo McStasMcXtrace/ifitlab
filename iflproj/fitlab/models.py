@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import TextField, CharField, DateTimeField
+from django.db.models import TextField, CharField, DateTimeField, BinaryField
 from django.utils import timezone
 
 

@@ -9,6 +9,9 @@ import re
 import importlib
 import sys
 import os
+import pickle
+import base64
+
 
 from django.core.management.base import BaseCommand
 from queue import Queue, Empty
@@ -89,6 +92,18 @@ public/ui:
 - shutdown: logout or session timeout
 '''
 
+
+def to_djangodb_str(obj):
+    tosave = base64.b64encode(pickle.dumps(obj))
+    return str(tosave)[2:]
+
+def from_djangodb_str(s):
+    b = bytes(s, 'utf8')
+    toload = bytes(str(b)[2:], 'utf8')
+    obj = pickle.loads(base64.b64decode(toload))
+    return obj
+
+
 class Task:
     def __init__(self, username, gs_id, sync_obj_str, reqid, cmd):
         self.username = username
@@ -162,15 +177,19 @@ class Workers:
                 if session.username != task.username:
                     raise Exception("username validation failed, sender: %s, session: %s" % (task.username, obj.username))
 
-                # execute commands
-                
+
+                #########################
+                #    execute command    #
+                #########################
+
+
                 # load/attach command
                 if task.cmd == "load":
-                    gd = GraphDef.objects.filter(username__exact=task.username, gs_id=task.gs_id)
+                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                    session.graph = from_djangodb_str(obj.quicksave_pickle)
+                    gd = session.graph.extract_graphdef()
                     
-                    logging.info("loading graph def... %s" % gd[0].graphdef_json)
-                    
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : json.loads(gd[0].graphdef_json), "update" : []} ))
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : []} ))
                     graphreply.save()
 
                     '''
@@ -182,6 +201,15 @@ class Workers:
                     '''
 
                 elif task.cmd == "save":
+                    
+                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                    obj.quicksave_pickle = to_djangodb_str(session.graph)
+                    obj.save()
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
+                    graphreply.save()
+
+                    '''
                     try:
                         existing = GraphDef.objects.filter(username__exact=task.username)
                         existing.delete()
@@ -190,6 +218,7 @@ class Workers:
                         gd.save()
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
                     graphreply.save()
+                    '''
 
                 elif task.cmd == "branch":
                     savecopy(task)
@@ -198,7 +227,7 @@ class Workers:
                     json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
                     graphreply.save()
-
+                    
                 elif task.cmd == "save_shutdown":
                     save(task)
                     shutdown(task)
@@ -226,7 +255,7 @@ class Command(BaseCommand):
         parser.add_argument('--singlethreaded', action='store_true', help="run work() using main thread only")
 
     def handle(self, *args, **options):
-        logging.basicConfig(level=logging.INFO, format='%(threadName)-22s: %(message)s' )
+        logging.basicConfig(level=logging.INFO, format='%(threadName)-3s: %(message)s' )
 
         logging.info("looking for tasks...")
         workers = Workers(threaded=True)

@@ -11,6 +11,7 @@ import inspect
 import json
 import re
 import os
+import base64
 from collections import OrderedDict
 
 from nodespeak import RootNode, FuncNode, ObjNode, MethodNode, MethodAsFunctionNode, add_subnode, remove_subnode
@@ -291,8 +292,7 @@ class FlatGraph:
             if type(n) in (MethodAsFunctionNode, ):
                 update_lst.append([o[0].name for o in n.parents if type(o[0])==ObjNode ][0]) # find "owner" id...
             if type(n) in (MethodNode, ):
-                # TODO: implement
-                pass
+                raise Exception("MethodNode is not suppoted")
             for key in update_lst:
                 try:
                     retobj['update'][key] = None
@@ -330,20 +330,33 @@ class FlatGraph:
         gdef = {}
         gdef["nodes"] = {}
         gdef["links"] = {}
+        gdef["datas"] = {}
         gdef["labels"] = {}
         for key in self.root.subnodes.keys():
             # nodes
             gdef["nodes"][key] = self.node_cmds_cache[key]
-            # TODO: update labels info
 
             # links
             try:
                 gdef["links"][key] = self.dslinks_cache[key]
             except:
                 pass # not all nodes have outgoing links...
+            # labels
+            
+            # data
+            n = self.root.subnodes[key]
+            obj = n.get_object()
+            if obj and type(n) in (ObjLiteralNode, ):
+                gdef["datas"][key] = str( base64.b64encode( json.dumps(obj).encode('utf-8') ))[2:-1]
+            elif obj and type(n) in (ObjNode, FuncNode, MethodAsFunctionNode, ):
+                pass
+                # this requires fixing ML variable naming
+                #gdef["datas"][key] = str( base64.b64encode( json.dumps(obj.get_repr()).encode('utf8') )[2:-1]
+
 
         # TODO: update node x and y by means of the coords info
         # UNTESTED
+        '''
         keys = self.coords[0]
         x_y = self.coords[1]
         node_cmds = gdef["nodes"]
@@ -351,6 +364,7 @@ class FlatGraph:
             key = keys[i]
             node_cmds[key][0] = x_y[2*i]
             node_cmds[key][1] = x_y[2*i+1]
+        '''
 
         return gdef
     

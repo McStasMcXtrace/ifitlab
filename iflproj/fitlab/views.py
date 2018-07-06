@@ -90,24 +90,19 @@ def ajax_load_session(request, gs_id):
     cmd = "load"
     syncset = None
 
-    print('loading session %s for user %s ...' % (gs_id, username))
+    print('loading graphdef for user: %s, gs_id: %s ...' % (username, gs_id))
 
-    return _reply(_command(username, gs_id, cmd, syncset))
+    rep = _command(username, gs_id, cmd, syncset)
+    return _reply(rep)
 
 @login_required
 def ajax_save_session(request, gs_id):
-    s = request.POST.get('graphdef')
-
     username = request.session['username']
-    print("ajax_save_session has not been implemented, user: %s, gs_id: %s" % (username, gs_id))
+    cmd = "save"
+    syncset = request.POST.get('graphdef')
+    
+    print("ajax_save_session, user: %s, gs_id: %s" % (username, gs_id))
 
-    '''
-    existing = GraphDef.objects.filter(username__exact=username)
-    existing.delete()
-    gd = GraphDef(graphdef_json=s, username=username, gs_id=gs_id)
-    gd.save()
-    '''
-
-    return HttpResponse("session saved: not implemented")
+    return _reply(_command(username, gs_id, cmd, syncset))
 
 

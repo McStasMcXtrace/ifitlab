@@ -1577,6 +1577,7 @@ class GraphInterface {
         console.log("inject set data: ", error.message);
       }
     }
+    this.undoredo.resetSync();
     this.updateUi();
   }
   printUndoRedoStack() {
@@ -1869,6 +1870,9 @@ class UndoRedoCommandStack {
   }
   incSyncByOne() {
     this.synced += 1;
+  }
+  resetSync() {
+    this.synced = this.idx+1;
   }
   _getSyncSetNoBuffer() {
     // init synced variable
