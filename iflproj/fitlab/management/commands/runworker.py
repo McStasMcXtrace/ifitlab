@@ -12,7 +12,7 @@ import os
 import pickle
 import base64
 
-
+from django.utils import timezone
 from django.core.management.base import BaseCommand
 from queue import Queue, Empty
 
@@ -115,9 +115,32 @@ class Workers:
             session.graph.shutdown()
             del session.graph[task.gs_id]
 
-    def load_session(self, task, quick_or_auto=True):
+    def quickload_repair_and_reset_nonliteral_data(self, task):
+        try:
+            obj = GraphSession.objects.filter(id=task.gs_id)[0]
+        except:
+            raise Exception("requested gs_id yielded no soft graph session or db object")
+        if obj.username != task.username:
+            raise Exception("username validation failed for session id: %s, sender: %s" % (obj.username, task.username))
+
+        try:
+            # fall back to graphdef injection (no soft data works), and a db object reset
+            session = SoftGraphSession(task.gs_id, obj.username)
+            session.graph.inject_graphdef(json.loads(obj.quicksave_graphdef))
+
+            obj.quicksave_matfile = ""
+            obj.quicksave_pickle = to_djangodb_str(session.graph)
+            obj.quicksaved = timezone.now()
+            obj.save()
+            self.sessions[task.gs_id] = session
+        except Exception as e:
+            logging.error("fallback loading failed, not looking good (%s)" % str(e))
+
+        return self.sessions.get(task.gs_id, None)
+
+    def quickload_session(self, task):
         ''' use only if the session does not exists, or if you also shut down the previous session first '''
-        logging.info("loading quicksaved session from db, gs_id: %s" % task.gs_id)
+        logging.info("loading quicksaved session, gs_id: %s" % task.gs_id)
 
         # load gs from DB
         obj = None
@@ -128,22 +151,21 @@ class Workers:
         if obj.username != task.username:
             raise Exception("username validation failed for session id: %s, sender: %s" % (obj.username, task.username))
 
-        # create session object
-        session = SoftGraphSession(task.gs_id, obj.username)
-        self.sessions[task.gs_id] = session
+        try:
+            if not obj.quicksaved:
+                raise Exception("quickload_session: 'quicksaved' timezone flag was never set")
 
-        # load python & matlab structures
-        pickle = obj.quicksave_pickle
-        matfile = obj.quicksave_matfile
-        if quick_or_auto == False:
-            pickle = obj.autosave_pickle
-            matfile = obj.autosave_matfile
+            # load python & matlab structures
+            session = SoftGraphSession(task.gs_id, obj.username)
+            session.graph = from_djangodb_str(obj.quicksave_pickle)
+            filepath = os.path.join(settings.MATFILES_DIRNAME, obj.quicksave_matfile)
+            session.graph.middleware.get_load_fct()(filepath)
+            self.sessions[task.gs_id] = session
 
-        session.graph = from_djangodb_str(pickle)
-        filepath = os.path.join(settings.MATFILES_DIRNAME, matfile)
-        session.graph.middleware.get_load_fct()(filepath)
+        except Exception as e:
+            logging.error("loading failed, repqiring... (%s)" % str(e))
 
-        return session
+        return self.sessions.get(task.gs_id, None)
 
     def mainwork(self):
         ''' Process a batch of UIRequest objects. Called from the main thread. '''
@@ -158,7 +180,6 @@ class Workers:
         # TODO: introduce a thread.wait at the end here
 
     def threadwork(self):
-        '''  '''
         # check for the self.terminated=True signal every timeout seconds
         task = None
         while not self.terminated:
@@ -178,11 +199,20 @@ class Workers:
                 if task.cmd == "load":
                     session = self.get_soft_session(task)
                     if not session: 
-                        session = self.load_session(task)
-
-                    gd = session.graph.extract_graphdef()
-                    update = session.graph.extract_update()
-
+                        session = self.quickload_session(task)
+                    
+                    gd = None
+                    update = None
+                    try:
+                        gd = session.graph.extract_graphdef()
+                        update = session.graph.extract_update()
+                    except:
+                        # graphdef fallback
+                        session = self.quickload_repair_and_reset_nonliteral_data(task)
+                        if not session:
+                            raise Exception("session could not be loaded: %s" % task.gs_id)
+                        gd = session.graph.extract_graphdef()
+                    
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
                     graphreply.save()
 
@@ -197,7 +227,7 @@ class Workers:
                     # python structure
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
                     obj.quicksave_pickle = to_djangodb_str(session.graph)
-                    obj.save()
+                    obj.quicksave_graphdef = json.dumps( session.graph.extract_graphdef() )
 
                     # mat file
                     if not os.path.exists(settings.MATFILES_DIRNAME):
@@ -205,6 +235,9 @@ class Workers:
                     filepath = os.path.join(settings.MATFILES_DIRNAME, task.gs_id + ".mat")
                     save_fct = session.graph.middleware.get_save_fct()
                     save_fct(filepath)
+                    obj.quicksave_matfile = filepath
+                    obj.quicksaved = timezone.now()
+                    obj.save()
 
                     # return
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )

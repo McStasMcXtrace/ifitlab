@@ -426,7 +426,7 @@ class MethodAsFunctionNode(Node):
         self.defaults = {}
     def assign(self, obj):
         if type(obj) not in (dict, ):
-            raise Exception("only do call FuncNode.assign with a dict")
+            raise Exception("only do call MethodAsFunctionNode.assign with a dict (%s)" % str(obj))
         for k in obj.keys():
             # we have to assume that they are assigning something meaningful - otherwise call() will fail (a check could be implemented though)
             self.defaults[k] = obj[k]
@@ -451,7 +451,7 @@ class MethodAsFunctionNode(Node):
             raise InternalExecutionException(self.name, str(e))
 
     def get_object(self):
-        return self.methodname
+        return self.defaults
 
     def _check_subnode(self, node):
         return False

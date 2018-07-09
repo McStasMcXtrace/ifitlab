@@ -34,6 +34,7 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy as np
 import functools
 import collections
+import uuid
 
 _eng = None
 _cmdlog = None
@@ -55,16 +56,10 @@ def _eval(cmd, nargout=1):
     _cmdlog.info(cmd)
     return _eng.eval(cmd, nargout=nargout)
 
-_ifuncidx = -1
-_idataidx = -1;
-def _get_ifunc_prefix():
-    global _ifuncidx
-    _ifuncidx += 1
-    return 'ifunc%d' % (_ifuncidx)
-def _get_idata_prefix():
-    global _idataidx
-    _idataidx += 1
-    return 'idata%d' % (_idataidx)
+def _get_ifunc_uuid():
+    return 'ifunc_%s' % uuid.uuid4().hex
+def _get_idata_uuid():
+    return 'idata_%s' % uuid.uuid4().hex
 
 class _VarnameMiddleware(enginterface.MiddleWare):
     ''' handles automatic registration of varname's for clearing at session expire/shutdown '''
@@ -72,20 +67,23 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         self.varnames = []
     def DB_who(self):
         _eval("who", nargout=0)
-    def DB_clear(self):
+    def DB_clearall(self):
         _eval("clear all", nargout=0)
     def register(self, obj):
         if type(obj) in (IData, IFunc, ):
             self.varnames.append(obj.varname)
     def load(self, filepath):
-        _eval("clear all;", nargout=0)
         _eval("load('%s');" % filepath, nargout=0)
     def save(self, filepath):
-        ''' filepath must be a .mat file '''
-        _eval("save('%s', '*');" % filepath, nargout=0)
+        varnames = "'" + "', '".join(self.varnames) + "'"
+        _eval("save('%s', %s);" % (filepath, varnames), nargout=0)
+    def clear(self, filepath):
+        varnames = ' '.join(self.varnames)
+        _eval("clear %s;" % (filepath, varnames), nargout=0)
     def finalize(self):
         for vn in self.varnames:
             _eval("clear %s;" % vn, nargout=0)
+
 def _load_middleware():
     return _VarnameMiddleware()
 
@@ -114,7 +112,7 @@ class IData(enginterface.ObjReprJson):
         Otherwise, url must be an ndarray (nested json lists) of shape matching datashape.
         '''
         logging.debug("IData.__init__('%s')" % url)
-        self.varname = '%s_%d' % (_get_idata_prefix(), id(self))
+        self.varname = _get_idata_uuid()
 
         if url==None:
             '''
@@ -443,7 +441,7 @@ class IFunc(enginterface.ObjReprJson):
         if symbol == None or symbol == "":
             symbol = "iFunc"
 
-        self.varname = '%s_%d' % (_get_ifunc_prefix(), id(self))
+        self.varname = _get_ifunc_uuid()
         self._plotaxes = None
         self._plotdims = None
         self.symbol = symbol

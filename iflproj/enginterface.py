@@ -311,7 +311,7 @@ class FlatGraph:
                 except Exception as e:
                     raise ObjectRepresentationException(str(e))
             return retobj
-        
+
         except InternalExecutionException as e:
             _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
             return {'error' : {'message' : "Run exc.: %s" % str(e), 'source-id' : e.name}}
@@ -332,6 +332,30 @@ class FlatGraph:
             obj = n.get_object()
             if obj and type(n) in (ObjNode, ):
                 n.assign(None)
+
+    def inject_graphdef(self, graphdef):
+        nodes = graphdef['nodes']
+        links = graphdef['links']
+        datas = graphdef['datas']
+
+        for key in nodes.keys():
+            cmd = nodes[key]
+            self.node_add(cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5])
+
+        for key in links.keys():
+            for cmd in links[key]:
+                self.link_add(cmd[0], cmd[1], cmd[2], cmd[3], cmd[4])
+
+        for key in datas.keys():
+            n = self.root.subnodes[key]
+            if type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode, ):
+                obj = json.loads(str(base64.b64decode( datas[key] ))[2:-1])
+                try:
+                    n.assign(obj)
+                except:
+                    print(obj)
+            else:
+                _log("inject: omiting node of type: %s" % str(type(n)))
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition, using the x_y field to insert these into the gd '''
@@ -385,10 +409,6 @@ class FlatGraph:
                     update[key] = obj.get_repr()
 
         return update
-
-    def inject_graphdef(self, graphdef):
-        ''' sets the current node, link, labels and coords state based on input '''
-        raise Exception("inject_graphdef as not been implemented")
 
 
 basetypes = {
