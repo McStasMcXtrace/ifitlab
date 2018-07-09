@@ -253,7 +253,7 @@ class FlatGraph:
             _log("node_data clearing node: %s" % id)
         elif type(n) in (ObjLiteralNode,):
             n.assign(obj)
-            _log('node_data assigning deserialised input to literal object node "%s"' % n.name)
+            _log('node_data assigning to literal "%s"' % n.name)
         elif type(n) in (FuncNode, MethodAsFunctionNode, ):
             n.assign(obj)
             _log("node_data assigning to FuncNode or MethodAsFunctionNode %s" % n.name)
@@ -357,10 +357,8 @@ class FlatGraph:
             # data
             n = self.root.subnodes[key]
             obj = n.get_object()
-            if obj and type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode,  ):
+            if obj != None and type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode,  ):
                 gdef["datas"][key] = str( base64.b64encode( json.dumps(obj).encode('utf-8') ))[2:-1]
-            #elif obj and type(n) in (ObjNode, ):
-            #    gdef["update"][key] = str( base64.b64encode( json.dumps(obj.get_repr()).encode('utf8') ))[2:-1]
 
 
         # TODO: update node x and y by means of the coords info

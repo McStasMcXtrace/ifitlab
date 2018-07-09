@@ -1678,7 +1678,6 @@ class GraphInterface {
     );
   }
   _update(update) {
-    console.log(update)
     // server node representation update
     for (let key in update) {
       let obj = update[key];
