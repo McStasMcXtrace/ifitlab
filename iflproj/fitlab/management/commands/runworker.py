@@ -39,7 +39,6 @@ class SoftGraphSession:
         pmod = json.loads(open('pmodule.json').read())
         mdl = importlib.import_module(pmod["module"], pmod["package"]) # rewrite fom package = dot ! 
         self.graph = enginterface.FlatGraph(tree, mdl)
-        self.graph.
 
     def _loadNodeTypesJsFile(self):
         text = open('fitlab/static/fitlab/nodetypes.js').read()
