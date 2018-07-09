@@ -34,7 +34,12 @@ class SoftGraphSession:
         self.gs_id = gs_id
         self.username = username 
         self.graph = None
-        self.reset()
+
+        tree = enginterface.TreeJsonAddr(json.loads(self._loadNodeTypesJsFile()))
+        pmod = json.loads(open('pmodule.json').read())
+        mdl = importlib.import_module(pmod["module"], pmod["package"]) # rewrite fom package = dot ! 
+        self.graph = enginterface.FlatGraph(tree, mdl)
+        self.graph.
 
     def _loadNodeTypesJsFile(self):
         text = open('fitlab/static/fitlab/nodetypes.js').read()
@@ -48,52 +53,15 @@ class SoftGraphSession:
         json_obj = self.graph.execute_node(runid)
         return json_obj
 
-    def reset(self):
-        if (self.graph):
-            self.graph.shutdown()
-
-        text = self._loadNodeTypesJsFile()
-        tree = enginterface.TreeJsonAddr(json.loads(text))
-
-        text = open('pmodule.json').read()
-        pmod = json.loads(text)
-        mdl = importlib.import_module(pmod["module"], pmod["package"]) # rewrite fom package = dot ! 
-        self.graph = enginterface.FlatGraph(tree, mdl)
-
     def test(self):
         cmds = json.loads('[[["node_add",454.25,401.3333333333333,"o0","","","obj"],["node_rm","o0"]],[["node_add",382.75,281.3333333333333,"o1","","","Pars"],["node_rm","o1"]],[["node_add",348,367.3333333333333,"f0","","C","Colour"],["node_rm","f0"]],[["link_add","o1",0,"f0",0,0],["link_rm","o1",0,"f0",0,0]],[["link_add","f0",0,"o0",0,0],["link_rm","f0",0,"o0",0,0]],[["node_data","o1","\\"red\\""],["node_data","o1",{}]]]')
 
         self.graph.graph_change(cmds)
         self.graph.execute_node("o0")
 
-
 '''
-Internal commands as functions
+Utility
 '''
-def load(req): pass
-def restore(req): pass
-def attach(req): pass
-def save(req): pass
-def stash_shutdown(req): pass
-def savecopy(req): pass
-def update_run(req): pass
-def shutdown(req): pass
-
-def _session_is_live(req): pass
-def _session_is_autosave(req): pass
-
-'''
-External commands blueprint
-
-public/ui:
-- attach/load-attach: this is the 'ifl/graph_session/id' url
-- save: the save button, sets the restore point (this is quick-save)
-- restore: revert to last save
-- save-a-copy: inverted save-as, creates save data on a new session
-- update_run: the bread-and-butter run button
-- shutdown: logout or session timeout
-'''
-
 
 def to_djangodb_str(obj):
     tosave = base64.b64encode(pickle.dumps(obj))
@@ -105,7 +73,6 @@ def from_djangodb_str(s):
     obj = pickle.loads(base64.b64decode(toload))
     return obj
 
-
 class Task:
     def __init__(self, username, gs_id, sync_obj_str, reqid, cmd):
         self.username = username
@@ -116,6 +83,10 @@ class Task:
             self.sync_obj = json.loads(sync_obj_str)
         self.cmd = cmd
 
+'''
+cmd impl.
+'''
+
 class Workers:
     '''
     Represents a pool of worker threads.
@@ -125,7 +96,7 @@ class Workers:
         self.sessions = {}
         self.terminated = False
         self.threaded = threaded
-        
+
         self.threads = []
         for i in range(NUM_THREADS):
             t = threading.Thread(target=self.threadwork)
@@ -133,6 +104,47 @@ class Workers:
             t.setName('%s' % (t.getName().replace('Thread-','T')))
             t.start()
             self.threads.append(t)
+
+    def get_soft_session(self, task):
+        ''' if this returns None, a session must be created or loaded '''
+        return self.sessions.get(task.gs_id, None)
+
+    def shutdown_session(self, task):
+        ''' a hard shutdown, nothing is saved '''
+        session = self.sessions.get(task.gs_id, None)
+        if session:
+            session.graph.shutdown()
+            del session.graph[task.gs_id]
+
+    def load_session(self, task, quick_or_auto=True):
+        ''' use only if the session does not exists, or if you also shut down the previous session first '''
+        logging.info("loading quicksaved session from db, gs_id: %s" % task.gs_id)
+
+        # load gs from DB
+        obj = None
+        try:
+            obj = GraphSession.objects.filter(id=task.gs_id)[0]
+        except:
+            raise Exception("requested gs_id yielded no soft graph session or db object")
+        if obj.username != task.username:
+            raise Exception("username validation failed for session id: %s, sender: %s" % (obj.username, task.username))
+
+        # create session object
+        session = SoftGraphSession(task.gs_id, obj.username)
+        self.sessions[task.gs_id] = session
+
+        # load python & matlab structures
+        pickle = obj.quicksave_pickle
+        matfile = obj.quicksave_matfile
+        if quick_or_auto == False:
+            pickle = obj.autosave_pickle
+            matfile = obj.autosave_matfile
+
+        session.graph = from_djangodb_str(pickle)
+        filepath = os.path.join(settings.MATFILES_DIRNAME, matfile)
+        session.graph.middleware.get_load_fct()(filepath)
+
+        return session
 
     def mainwork(self):
         ''' Process a batch of UIRequest objects. Called from the main thread. '''
@@ -163,91 +175,66 @@ class Workers:
 
             logging.info("doing task, session id: %s" % task.gs_id)
             try:
-                session = self.sessions.get(task.gs_id, None)
-                if not session:
-                    logging.info("no session found...")
-                    try:
-                        obj = GraphSession.objects.filter(id=task.gs_id)[0]
-                    except:
-                        raise Exception("requested gs_id yielded no soft graph session or db object")
-
-                    logging.info("creating session, gs_id: %s" % task.gs_id)
-                    session = SoftGraphSession(task.gs_id, obj.username)
-                    self.sessions[task.gs_id] = session
-
-                # validate username
-                if session.username != task.username:
-                    raise Exception("username validation failed, sender: %s, session: %s" % (task.username, obj.username))
-
-
-                #########################
-                #    execute command    #
-                #########################
-
-
-                # load/attach command
+                # attach/load-attach
                 if task.cmd == "load":
-                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                    session = self.get_soft_session(task)
+                    if not session: 
+                        session = self.load_session(task)
 
-                    # load python structure
-                    session.graph = from_djangodb_str(obj.quicksave_pickle)
-                    
-                    # load matlab variables
-                    filepath = os.path.join(settings.MATFILES_DIRNAME, obj.quicksave_matfile)
-                    load_fct = session.graph.get_load_fct()
-                    load_fct(filepath)
-                    
                     gd = session.graph.extract_graphdef()
                     update = session.graph.extract_update()
-                    
+
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
                     graphreply.save()
 
-
-                    # TODO: implement 'restore' when a live graph of that id already exists
-                    '''
-                    # how it perhaps will be: 
-                    if not _session_is_autosave(task):
-                        load(task)
-                    else:
-                        restore(task)
-                    '''
-
+                # save
                 elif task.cmd == "save":
+                    session = self.get_soft_session(task)
+
                     anyerrors = session.graph.graph_update(task.sync_obj)
                     if anyerrors:
                         raise Exception("errors encountered during sync")
-                    
+
                     # python structure
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
                     obj.quicksave_pickle = to_djangodb_str(session.graph)
                     obj.save()
-                    
+
                     # mat file
                     if not os.path.exists(settings.MATFILES_DIRNAME):
                         os.makedirs(settings.MATFILES_DIRNAME)
                     filepath = os.path.join(settings.MATFILES_DIRNAME, task.gs_id + ".mat")
-                    save_fct = session.graph.get_save_fct()
+                    save_fct = session.graph.middleware.get_save_fct()
                     save_fct(filepath)
-                    
+
                     # return
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
                     graphreply.save()
 
+                # save-copy
                 elif task.cmd == "branch":
-                    savecopy(task)
+                    raise Exception("branch has not been implemented")
 
+                # update & run
                 elif task.cmd == "update_run":
+                    session = self.get_soft_session(task)
                     json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
                     graphreply.save()
-                    
-                elif task.cmd == "save_shutdown":
-                    save(task)
-                    shutdown(task)
+
+                # save & shutdown
+                elif task.cmd == "autosave_shutdown":
+                    raise Exception("save_shutdown has not been implemented")
+
+                    session = self.get_soft_session(task)
+                    # TODO: save
+                    session.graph.middleware.finalize()
 
                 elif task.cmd == "shutdown":
-                    shutdown(task)
+                    raise Exception("shutdown has not been implemented")
+
+                    session = self.get_soft_session(task)
+                    session.graph.middleware.finalize()
 
                 else:
                     raise Exception("invalid command: %s" % task.cmd)

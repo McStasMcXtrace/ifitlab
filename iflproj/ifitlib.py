@@ -70,6 +70,10 @@ class _VarnameMiddleware(enginterface.MiddleWare):
     ''' handles automatic registration of varname's for clearing at session expire/shutdown '''
     def __init__(self):
         self.varnames = []
+    def DB_who(self):
+        _eval("who", nargout=0)
+    def DB_clear(self):
+        _eval("clear all", nargout=0)
     def register(self, obj):
         if type(obj) in (IData, IFunc, ):
             self.varnames.append(obj.varname)

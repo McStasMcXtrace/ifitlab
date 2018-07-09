@@ -149,10 +149,10 @@ class FlatGraph:
         self.node_cmds_cache = {}
         self.dslinks_cache = {} # ds = downstream
 
-        self._middleware = None
+        self.middleware = None
         load_mw = getattr(pmodule, "_load_middleware")
         if load_mw:
-            self._middleware = load_mw()
+            self.middleware = load_mw()
 
     def _create_node(self, id, tpe_addr):
         '''
@@ -289,7 +289,7 @@ class FlatGraph:
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
             
-            self._middleware.register(obj)
+            self.middleware.register(obj)
             
             retobj = {'update':{}}
             update_lst = [id]
@@ -353,13 +353,12 @@ class FlatGraph:
             except:
                 pass # not all nodes have outgoing links...
             # labels
-            
+
             # data
             n = self.root.subnodes[key]
             obj = n.get_object()
             if obj != None and type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode,  ):
                 gdef["datas"][key] = str( base64.b64encode( json.dumps(obj).encode('utf-8') ))[2:-1]
-
 
         # TODO: update node x and y by means of the coords info
         # UNTESTED
@@ -374,7 +373,7 @@ class FlatGraph:
         '''
 
         return gdef
-    
+
     def extract_update(self):
         _log("extracting update...")
         update = {}
@@ -386,20 +385,11 @@ class FlatGraph:
                     update[key] = obj.get_repr()
 
         return update
-    
+
     def inject_graphdef(self, graphdef):
         ''' sets the current node, link, labels and coords state based on input '''
         raise Exception("inject_graphdef as not been implemented")
 
-    def get_save_fct(self):
-        return self._middleware.get_save_fct()
-
-    def get_load_fct(self):
-        return self._middleware.get_load_fct()
-
-    def shutdown(self):
-        ''' should be called when this graph session is no longer required, cleans up the lower layers '''
-        self._middleware.finalize()
 
 basetypes = {
     'object' : ObjNode,

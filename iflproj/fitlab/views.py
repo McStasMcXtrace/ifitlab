@@ -5,7 +5,6 @@ from django.contrib.auth.decorators import login_required
 
 from .models import GraphUiRequest, GraphReply
 
-import json
 import time
 
 import enginterface
@@ -37,6 +36,47 @@ def graph_session(request, gs_id):
         print("redirecting missing graph session to index...")
         return redirect(index)
     return render(request, "fitlab/main.html", context={ "gs_id" : gs_id })
+
+@login_required
+def logout(req):
+    pass
+    # TODO: implement
+    # create a "autosave_shutdown" task
+
+#########################################
+#    DJANGO framework event handlers    #
+#########################################
+
+def at_session_timeout():
+    pass
+    # TODO: implement
+    # create a "autosave_shutdown" task
+
+############################
+#    AJAx call handlers    #
+############################
+
+
+@login_required
+def ajax_load_session(request, gs_id):
+    username = request.session['username']
+    cmd = "load"
+    syncset = None
+
+    print('loading graphdef for user: %s, gs_id: %s ...' % (username, gs_id))
+
+    rep = _command(username, gs_id, cmd, syncset)
+    return _reply(rep)
+
+@login_required
+def ajax_save_session(request, gs_id):
+    username = request.session['username']
+    cmd = "save"
+    syncset = request.POST.get('sync')
+
+    print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, str(syncset)))
+
+    return _reply(_command(username, gs_id, cmd, syncset))
 
 @login_required
 def ajax_run_node(request, gs_id):
@@ -83,26 +123,5 @@ def _command(username, gs_id, cmd, syncset):
         if elapsed > GS_REQ_TIMEOUT and GS_REQ_TIMEOUT > 0:
             # timeout
             return None
-
-@login_required
-def ajax_load_session(request, gs_id):
-    username = request.session['username']
-    cmd = "load"
-    syncset = None
-
-    print('loading graphdef for user: %s, gs_id: %s ...' % (username, gs_id))
-
-    rep = _command(username, gs_id, cmd, syncset)
-    return _reply(rep)
-
-@login_required
-def ajax_save_session(request, gs_id):
-    username = request.session['username']
-    cmd = "save"
-    syncset = request.POST.get('sync')
-        
-    print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, str(syncset)))
-
-    return _reply(_command(username, gs_id, cmd, syncset))
 
 
