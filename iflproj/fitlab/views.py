@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 
 from .models import GraphUiRequest, GraphReply
 
@@ -22,6 +23,7 @@ def index(req):
     user = authenticate(username=username, password=password)
 
     login(req, user)
+    
     req.session['username'] = username
     return HttpResponse("logged in as admin... <br><a href='/ifl/graphsession/1'>open hardcoded gs</a>")
 
@@ -43,22 +45,23 @@ def logout_user(req):
     print('loging out user: %s' % username)
     logout(req)
 
-    rep = _command(username, "*", cmd, syncset, async=True)
+    _command(username, "*", cmd, syncset, async=True)
     return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl'>login</a>" % username)
 
-#########################################
-#    DJANGO framework event handlers    #
-#########################################
+@login_required
+def new_session(req):
+    username = req.session['username']
+    cmd = "new"
+    syncset = None
 
-def at_session_timeout():
-    pass
-    # TODO: implement
-    # create a "autosave_shutdown" task
+    print('creating new graph session for user: %s' % (username))
+
+    _command(username, "", cmd, syncset)
+    return redirect("index")
 
 ############################
 #    AJAx call handlers    #
 ############################
-
 
 @login_required
 def ajax_revert_session(req, gs_id):

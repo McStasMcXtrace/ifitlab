@@ -371,9 +371,23 @@ class Workers:
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
                     graphreply.save()
 
+                # hard shutdown
                 elif task.cmd == "shutdown":
                     session = self.get_soft_session(task)
                     session.graph.middleware.finalize()
+
+                # create / new
+                elif task.cmd == "new":
+                    obj = GraphSession()
+                    obj.username = task.username
+                    obj.save()
+                    session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
+
+                    self.sessions[obj.id] = session
+                    self.autosave(session)
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id )
+                    graphreply.save()
 
                 else:
                     raise Exception("invalid command: %s" % task.cmd)
