@@ -46,11 +46,11 @@ class SoftGraphSession:
         return m.group(1)
 
     def update_and_execute(self, runid, syncset):
-        json_obj = self.graph.graph_update(syncset)
-        if json_obj:
-            return json_obj
-        json_obj = self.graph.execute_node(runid)
-        return json_obj
+        ''' returns engine update set '''
+        error = self.graph.graph_update(syncset)
+        if error:
+            return error
+        return self.graph.execute_node(runid)
 
     def test(self):
         cmds = json.loads('[[["node_add",454.25,401.3333333333333,"o0","","","obj"],["node_rm","o0"]],[["node_add",382.75,281.3333333333333,"o1","","","Pars"],["node_rm","o1"]],[["node_add",348,367.3333333333333,"f0","","C","Colour"],["node_rm","f0"]],[["link_add","o1",0,"f0",0,0],["link_rm","o1",0,"f0",0,0]],[["link_add","f0",0,"o0",0,0],["link_rm","f0",0,"o0",0,0]],[["node_data","o1","\\"red\\""],["node_data","o1",{}]]]')
@@ -359,6 +359,15 @@ class Workers:
                     session = self.get_soft_session(task)
                     json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
+                    graphreply.save()
+
+                # update
+                elif task.cmd == "update":
+                    session = self.get_soft_session(task)
+                    error = session.graph.graph_update(task.sync_obj['update'])
+                    error = session.graph.graph_coords(task.sync_obj['coords'])
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(error))
                     graphreply.save()
 
                 # save & shutdown

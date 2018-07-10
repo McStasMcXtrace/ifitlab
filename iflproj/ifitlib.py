@@ -154,7 +154,7 @@ class IData(enginterface.ObjReprJson):
         else:
             create_idata(self.varname, url)
     
-    def __del__(self):
+    def __del__(self, exc_type, exc_value, traceback):
         _eval("clear %s;" % self.varname, nargout=0)
 
     def _get_datashape(self):

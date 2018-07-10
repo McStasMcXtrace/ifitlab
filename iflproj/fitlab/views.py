@@ -123,10 +123,18 @@ def ajax_run_node(req, gs_id):
 
     return _reply(_command(username, gs_id, cmd, syncset))
 
+@login_required
+def ajax_update(req, gs_id):
+    username = req.session['username']
+    cmd = "update"
+    syncset = req.POST.get('json_str')
+
+    print(syncset)
+
+    error_or_nullstr = _command(username, gs_id, cmd, syncset)
+    return _reply(error_or_nullstr)
+
 def _reply(reply_json):
-    '''
-    standard reply 
-    '''
     if reply_json:
         return HttpResponse(reply_json)
     else:

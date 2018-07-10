@@ -396,4 +396,13 @@ class GraphTree {
     console.log(def_text);
     return def_text;
   }
+  getCoords() {
+    let coords = {};
+    let n = null;
+    for (let key in this._current.nodes) {
+      n = this._current.nodes[key];
+      coords[key] = [n.gNode.x, n.gNode.y];
+    }
+    return coords;
+  }
 }

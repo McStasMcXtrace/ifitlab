@@ -273,8 +273,6 @@ class FlatGraph:
 
     def graph_update(self, redo_lsts):
         ''' takes an undo-redo list and sequentially modifies the server-side graph '''
-        # TODO: cache node coords
-        
         _log('graph update: %d commands' % len(redo_lsts))
         for redo in redo_lsts:
             cmd = redo[0]
@@ -284,6 +282,15 @@ class FlatGraph:
             except Exception as e:
                 _log('graph update failed: "%s"' % redo)
                 return {'error' : {'message' : "Graph update exc.: %s" % str(e)}}
+
+    def graph_coords(self, coords):
+        ''' updates the cached node_add commands x- and y-coordinate entries '''
+        keys = coords.keys()
+        for key in keys:
+            coord = coords[key]
+            cached_cmd = self.node_cmds_cache[key]
+            self.node_cmds_cache[key] = (coord[0], coord[1], cached_cmd[2], cached_cmd[3], cached_cmd[4], cached_cmd[5])
+        _log('graph coords: %d update' % len(keys))
 
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''
