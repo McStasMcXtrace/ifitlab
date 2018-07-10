@@ -72,6 +72,9 @@ class _VarnameMiddleware(enginterface.MiddleWare):
     def register(self, obj):
         if type(obj) in (IData, IFunc, ):
             self.varnames.append(obj.varname)
+    def deregister(self, obj):
+        if type(obj) in (IData, IFunc, ) and obj.varname in self.varnames:
+            self.varnames.remove(obj.varname)
     def load(self, filepath):
         _eval("load('%s');" % filepath, nargout=0)
     def save(self, filepath):

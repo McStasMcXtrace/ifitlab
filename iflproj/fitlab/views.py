@@ -13,7 +13,7 @@ from fitlab.models import GraphDef
 
 GS_REQ_TIMEOUT = 30
 
-def index(request):
+def index(req):
     # TODO: this should open the login page or dashboard
 
     username = 'admin'
@@ -21,27 +21,30 @@ def index(request):
 
     user = authenticate(username=username, password=password)
 
-    login(request, user)
-    print("default user was logged in")
-
-    request.session['username'] = username
-
-    return render(request, "fitlab/main.html", context={ "gs_id" : "hest" })
+    login(req, user)
+    req.session['username'] = username
+    return HttpResponse("logged in as admin... <br><a href='/ifl/graphsession/1'>open hardcoded gs</a>")
 
 @login_required
-def graph_session(request, gs_id):
+def graph_session(req, gs_id):
     # TODO: here, we need to put an "attach" which can be a "load_attach" (we don't know which one at this level)
 
     if not fitlab.models.GraphSession.objects.filter(id=gs_id).exists():
         print("redirecting missing graph session to index...")
         return redirect(index)
-    return render(request, "fitlab/main.html", context={ "gs_id" : gs_id })
+    return render(req, "fitlab/main.html", context={ "gs_id" : gs_id })
 
 @login_required
-def logout(req):
-    pass
-    # TODO: implement
-    # create a "autosave_shutdown" task
+def logout_user(req):
+    username = req.session['username']
+    cmd = "autosave_shutdown"
+    syncset = None
+
+    print('loging out user: %s' % username)
+    logout(req)
+
+    rep = _command(username, "*", cmd, syncset, async=True)
+    return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl'>login</a>" % username)
 
 #########################################
 #    DJANGO framework event handlers    #
@@ -58,8 +61,8 @@ def at_session_timeout():
 
 
 @login_required
-def ajax_revert_session(request, gs_id):
-    username = request.session['username']
+def ajax_revert_session(req, gs_id):
+    username = req.session['username']
     cmd = "revert"
     syncset = None
 
@@ -69,8 +72,8 @@ def ajax_revert_session(request, gs_id):
     return _reply(rep)
 
 @login_required
-def ajax_load_session(request, gs_id):
-    username = request.session['username']
+def ajax_load_session(req, gs_id):
+    username = req.session['username']
     cmd = "load"
     syncset = None
 
@@ -80,24 +83,24 @@ def ajax_load_session(request, gs_id):
     return _reply(rep)
 
 @login_required
-def ajax_save_session(request, gs_id):
-    username = request.session['username']
+def ajax_save_session(req, gs_id):
+    username = req.session['username']
     cmd = "save"
-    syncset = request.POST.get('sync')
+    syncset = req.POST.get('sync')
 
     print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, str(syncset)))
 
     return _reply(_command(username, gs_id, cmd, syncset))
 
 @login_required
-def ajax_run_node(request, gs_id):
-    s = request.POST.get('json_str')
+def ajax_run_node(req, gs_id):
+    s = req.POST.get('json_str')
     if not s:
-        return HttpResponse("ajax request FAIL");
+        return HttpResponse("ajax req FAIL");
 
-    username = request.session['username']
+    username = req.session['username']
     cmd = "update_run"
-    syncset = request.POST.get('json_str')
+    syncset = req.POST.get('json_str')
 
     return _reply(_command(username, gs_id, cmd, syncset))
 
@@ -110,7 +113,7 @@ def _reply(reply_json):
     else:
         return HttpResponse('{"error" : { "message" : "graph session request timed out" }}')
 
-def _command(username, gs_id, cmd, syncset):
+def _command(username, gs_id, cmd, syncset, async=False):
     '''
     blocking with timeout, waits for workers to execute and returns the reply or None if timed out
     '''
@@ -118,6 +121,9 @@ def _command(username, gs_id, cmd, syncset):
     uireq = GraphUiRequest(username=username, gs_id=gs_id, cmd=cmd, syncset=syncset)
     uireq.save()
 
+    if async:
+        return
+    
     # poll db
     t = time.time()
     while True:

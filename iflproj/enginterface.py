@@ -186,6 +186,11 @@ class FlatGraph:
         n = self.root.subnodes.get(id, None)
         if not n:
             return
+        
+        obj = n.get_object()
+        if obj != None:
+            self.middleware.deregister(obj)
+        
         if n.num_parents() != 0 or n.num_children() != 0:
             raise Exception("node_rm: can not remove node with existing links")
         remove_subnode(self.root, n)
