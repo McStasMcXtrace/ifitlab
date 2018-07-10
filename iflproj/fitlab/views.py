@@ -10,21 +10,24 @@ import time
 
 import enginterface
 import fitlab.models
-from fitlab.models import GraphDef
+from fitlab.models import GraphDef, GraphSession
+
 
 GS_REQ_TIMEOUT = 30
 
 def index(req):
-    # TODO: this should open the login page or dashboard
-
+    # TEMP auto-login as admin
     username = 'admin'
     password = 'admin123'
 
     user = authenticate(username=username, password=password)
-
     login(req, user)
-    
     req.session['username'] = username
+    
+    # get graph session ids
+    session_ids = [obj.id for obj in GraphSession.objects.filter(username=username)]
+    
+    return render(req, "fitlab/dashboard.html", context={ "session_ids" : session_ids })
     return HttpResponse("logged in as admin... <br><a href='/ifl/graphsession/1'>open hardcoded gs</a>")
 
 @login_required
@@ -58,6 +61,19 @@ def new_session(req):
 
     _command(username, "", cmd, syncset)
     return redirect("index")
+
+@login_required
+def delete_session(req, gs_id):
+    username = req.session['username']
+    cmd = "delete"
+    syncset = None
+
+    print('deleting graph session for user: %s, gs_id: %s' % (username, gs_id))
+
+    _command(username, gs_id, cmd, syncset)
+    return redirect("index")
+
+
 
 ############################
 #    AJAx call handlers    #

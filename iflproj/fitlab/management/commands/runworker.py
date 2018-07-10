@@ -273,7 +273,7 @@ class Workers:
                     return
                 continue
 
-            logging.info("doing task, session id: %s" % task.gs_id)
+            logging.info("doing task '%s', session id: %s" % (task.cmd, task.gs_id))
             try:
                 # attach/load-attach
                 if task.cmd == "load":
@@ -387,6 +387,21 @@ class Workers:
                     self.autosave(session)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id )
+                    graphreply.save()
+
+                elif task.cmd == "delete":
+                    self.shutdown_task(task)
+
+                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                    # remove matfiles from disk
+                    if os.path.exists(obj.stashed_matfile):
+                        os.remove(obj.stashed_matfile)
+                    if os.path.exists(obj.quicksave_matfile):
+                        os.remove(obj.quicksave_matfile)
+                    # get rid of db object
+                    obj.delete()
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json="" )
                     graphreply.save()
 
                 else:

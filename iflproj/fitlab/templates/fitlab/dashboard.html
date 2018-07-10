@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<head>
+</head>
+
+<body>
+
+<table>
+<tr>
+<td><a href="/ifl/new">new</a><td>
+</tr>
+{% for gs_id in session_ids %}
+<tr>
+<td>session_{{ gs_id }}</td>
+<td style="padding-left:25px;"><a href="/ifl/graphsession/{{ gs_id }}" target="_blank">resume</a></td>
+<td style="padding-left:25px;"><a href="/ifl/delete/{{ gs_id }}">delete</a></td>
+</tr>
+{% endfor %}
+</table>
+
+</body>
+
+</html>
