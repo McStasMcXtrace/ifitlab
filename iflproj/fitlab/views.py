@@ -58,6 +58,17 @@ def at_session_timeout():
 
 
 @login_required
+def ajax_revert_session(request, gs_id):
+    username = request.session['username']
+    cmd = "revert"
+    syncset = None
+
+    print('reverting graphdef for user: %s, gs_id: %s ...' % (username, gs_id))
+
+    rep = _command(username, gs_id, cmd, syncset)
+    return _reply(rep)
+
+@login_required
 def ajax_load_session(request, gs_id):
     username = request.session['username']
     cmd = "load"

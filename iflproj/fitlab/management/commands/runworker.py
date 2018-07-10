@@ -113,7 +113,7 @@ class Workers:
         session = self.sessions.get(task.gs_id, None)
         if session:
             session.graph.shutdown()
-            del session.graph[task.gs_id]
+            del self.sessions[task.gs_id]
 
     def quickload_repair_and_reset_nonliteral_data(self, task):
         try:
@@ -198,9 +198,32 @@ class Workers:
                 # attach/load-attach
                 if task.cmd == "load":
                     session = self.get_soft_session(task)
-                    if not session: 
+                    if not session:
                         session = self.quickload_session(task)
                     
+                    gd = None
+                    update = None
+                    try:
+                        gd = session.graph.extract_graphdef()
+                        update = session.graph.extract_update()
+                    except:
+                        # graphdef fallback
+                        session = self.quickload_repair_and_reset_nonliteral_data(task)
+                        if not session:
+                            raise Exception("session could not be loaded: %s" % task.gs_id)
+                        gd = session.graph.extract_graphdef()
+                    
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
+                    graphreply.save()
+
+                elif task.cmd == "revert":
+                    # cleanup & remove any active session
+                    self.shutdown_session(task)
+                    
+                    # autoload the session AKA revert
+                    session = self.quickload_session(task)
+                    
+                    # construct the graph reply
                     gd = None
                     update = None
                     try:

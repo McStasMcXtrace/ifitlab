@@ -80,7 +80,7 @@ class _VarnameMiddleware(enginterface.MiddleWare):
     def clear(self, filepath):
         varnames = ' '.join(self.varnames)
         _eval("clear %s;" % (filepath, varnames), nargout=0)
-    def finalize(self):
+    def finalise(self):
         for vn in self.varnames:
             _eval("clear %s;" % vn, nargout=0)
 
@@ -150,6 +150,9 @@ class IData(enginterface.ObjReprJson):
             _vectorized(datashape, create_idata, vnargs, args, ndaargs)
         else:
             create_idata(self.varname, url)
+    
+    def __del__(self):
+        _eval("clear %s;" % self.varname, nargout=0)
 
     def _get_datashape(self):
         try:
@@ -455,6 +458,9 @@ class IFunc(enginterface.ObjReprJson):
             _vectorized(datashape, create_ifunc, vnargs, args, ndaargs)
         else:
             create_ifunc(self.varname, symbol)
+
+    def __del__(self, exc_type, exc_value, traceback):
+        _eval("clear %s;" % self.varname, nargout=0)
 
     def _clear_plotaxes(self):
         self._plotaxes = None

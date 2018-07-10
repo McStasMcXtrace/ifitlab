@@ -300,9 +300,6 @@ class FlatGraph:
             for key in update_lst:
                 try:
                     retobj['update'][key] = None
-                    #if obj and id==key:
-                    #    retobj['update'][id] = obj.get_repr()
-                    #else:
                     m = self.root.subnodes[key]
                     if m.exemodel().can_assign():
                         objm = m.get_object()
@@ -399,6 +396,7 @@ class FlatGraph:
         return gdef
 
     def extract_update(self):
+        ''' an "update" is a set of non-literal data representations '''
         _log("extracting update...")
         update = {}
         for key in self.root.subnodes.keys():
@@ -409,6 +407,9 @@ class FlatGraph:
                     update[key] = obj.get_repr()
 
         return update
+    
+    def shutdown(self):
+        self.middleware.finalise()
 
 
 basetypes = {

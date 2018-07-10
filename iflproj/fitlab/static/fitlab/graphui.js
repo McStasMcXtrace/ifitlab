@@ -1597,6 +1597,15 @@ class GraphInterface {
       this._update(obj["update"]);
     }.bind(this));
   }
+  revertSession() {
+    let gs_id = $("body > #gs_id")[0].value;
+    simpleajax('/ifl/ajax_revert_session/' + gs_id, "", function(msg) {
+      this.reset();
+      let obj = JSON.parse(msg);
+      this.injectGraphDefinition(obj["graphdef"]);
+      this._update(obj["update"]);
+    }.bind(this));
+  }
   saveSession() {
     let gs_id = $("body > #gs_id")[0].value;
     let post_data = { "sync" : JSON.stringify(this.undoredo.getSyncSet()) };
