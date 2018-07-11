@@ -19,7 +19,7 @@ from queue import Queue, Empty
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 from iflproj import settings
-from fitlab.models import GraphUiRequest, GraphReply, GraphSession, GraphDef
+from fitlab.models import GraphUiRequest, GraphReply, GraphSession
 import enginterface
 
 
@@ -358,6 +358,7 @@ class Workers:
                 elif task.cmd == "update_run":
                     session = self.get_soft_session(task)
                     json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
+
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
                     graphreply.save()
 
@@ -393,6 +394,7 @@ class Workers:
                     session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
 
                     self.sessions[obj.id] = session
+                    self.quicksave(session)
                     self.autosave(session)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id )
@@ -417,12 +419,14 @@ class Workers:
                     raise Exception("invalid command: %s" % task.cmd)
 
                 # TODO: log
-                logging.info("...")
+                logging.info("task done")
 
             except Exception as e:
-                # TODO: thread-log this
-                logging.error(str(e))
-                # save fail state / raise ?
+                logging.error("fail: " + str(e))
+
+                graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "error" : str(e) } ))
+                graphreply.save()
+
 
 
 class Command(BaseCommand):

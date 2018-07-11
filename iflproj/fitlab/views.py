@@ -10,8 +10,7 @@ import time
 
 import enginterface
 import fitlab.models
-from fitlab.models import GraphDef, GraphSession
-
+from fitlab.models import GraphSession
 
 GS_REQ_TIMEOUT = 30
 
@@ -79,16 +78,38 @@ def delete_session(req, gs_id):
 #    AJAx call handlers    #
 ############################
 
-@login_required
-def ajax_revert_session(req, gs_id):
-    username = req.session['username']
-    cmd = "revert"
-    syncset = None
+def _command(username, gs_id, cmd, syncset):
+    ''' blocking with timeout, waits for workers to execute and returns the reply or None if timed out. '''
+    # file the request
+    uireq = GraphUiRequest(username=username, gs_id=gs_id, cmd=cmd, syncset=syncset)
+    uireq.save()
 
-    print('reverting graphdef for user: %s, gs_id: %s ...' % (username, gs_id))
+    # poll db
+    t = time.time()
+    while True:
+        lst = GraphReply.objects.filter(reqid=uireq.id)
+        if len(lst) == 1:
+            answer = lst[0].reply_json
+            error = lst[0].reply_error
+            lst[0].delete()
+            # success
+            return answer, error
+        if len(lst) > 1:
+            raise Exception("more than one reply for single request - multi-processing issue detected")
+        time.sleep(0.1)
+        elapsed = time.time() - t
 
-    rep = _command(username, gs_id, cmd, syncset)
-    return _reply(rep)
+        # timeout
+        if elapsed > GS_REQ_TIMEOUT and GS_REQ_TIMEOUT > 0:
+            return None
+
+def _reply(reply_json, error_json):
+    if reply_json:
+        if error_json != None:
+            return HttpResponse(error_json)
+        return HttpResponse(reply_json)
+    else:
+        return HttpResponse('{"error" : { "message" : "graph session request timed out" }}')
 
 @login_required
 def ajax_load_session(req, gs_id):
@@ -96,10 +117,10 @@ def ajax_load_session(req, gs_id):
     cmd = "load"
     syncset = None
 
-    print('loading graphdef for user: %s, gs_id: %s ...' % (username, gs_id))
+    print('ajax_load_session for user: %s, gs_id: %s ...' % (username, gs_id))
 
-    rep = _command(username, gs_id, cmd, syncset)
-    return _reply(rep)
+    rep, err = _command(username, gs_id, cmd, syncset)
+    return _reply(rep, err)
 
 @login_required
 def ajax_save_session(req, gs_id):
@@ -109,19 +130,19 @@ def ajax_save_session(req, gs_id):
 
     print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, str(syncset)))
 
-    return _reply(_command(username, gs_id, cmd, syncset))
+    rep, err = _command(username, gs_id, cmd, syncset)
+    return _reply(rep, err)
 
 @login_required
 def ajax_run_node(req, gs_id):
-    s = req.POST.get('json_str')
-    if not s:
-        return HttpResponse("ajax req FAIL");
-
     username = req.session['username']
     cmd = "update_run"
     syncset = req.POST.get('json_str')
 
-    return _reply(_command(username, gs_id, cmd, syncset))
+    print('ajax_run_node for user: %s, gs_id: %s ...' % (username, gs_id))
+
+    rep, err = _command(username, gs_id, cmd, syncset)
+    return _reply(rep, err)
 
 @login_required
 def ajax_update(req, gs_id):
@@ -129,43 +150,20 @@ def ajax_update(req, gs_id):
     cmd = "update"
     syncset = req.POST.get('json_str')
 
-    print(syncset)
+    print('ajax_update for user: %s, gs_id: %s ...' % (username, gs_id))
 
-    error_or_nullstr = _command(username, gs_id, cmd, syncset)
-    return _reply(error_or_nullstr)
+    rep, err = _command(username, gs_id, cmd, syncset)
+    return _reply(rep, err)
 
-def _reply(reply_json):
-    if reply_json:
-        return HttpResponse(reply_json)
-    else:
-        return HttpResponse('{"error" : { "message" : "graph session request timed out" }}')
+@login_required
+def ajax_revert_session(req, gs_id):
+    username = req.session['username']
+    cmd = "revert"
+    syncset = None
 
-def _command(username, gs_id, cmd, syncset, async=False):
-    '''
-    blocking with timeout, waits for workers to execute and returns the reply or None if timed out
-    '''
-    # file the request
-    uireq = GraphUiRequest(username=username, gs_id=gs_id, cmd=cmd, syncset=syncset)
-    uireq.save()
+    print('ajax_revert_session for user: %s, gs_id: %s ...' % (username, gs_id))
 
-    if async:
-        return
-    
-    # poll db
-    t = time.time()
-    while True:
-        lst = GraphReply.objects.filter(reqid=uireq.id)
-        if len(lst) == 1:
-            answer = lst[0].reply_json
-            lst[0].delete()
-            # success
-            return answer
-        if len(lst) > 1:
-            raise Exception("more than one reply for single request - multi-processing issue detected")
-        time.sleep(0.1)
-        elapsed = time.time() - t
-        if elapsed > GS_REQ_TIMEOUT and GS_REQ_TIMEOUT > 0:
-            # timeout
-            return None
+    rep, err = _command(username, gs_id, cmd, syncset)
+    return _reply(rep, err)
 
 
