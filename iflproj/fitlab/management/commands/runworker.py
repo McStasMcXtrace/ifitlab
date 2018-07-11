@@ -285,14 +285,14 @@ class Workers:
                     try:
                         gd = session.graph.extract_graphdef()
                         update = session.graph.extract_update()
+                        
+                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
+                        graphreply.save()
                     except:
                         # revert as autoload fallback (?)
                         logging.info("autoload failed, requiesting fallback cmd='revert', session id: %s" % task.gs_id)
                         task.cmd = "revert"
                         self.taskqueue.put(task)
-
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
-                    graphreply.save()
 
                 # revert AKA "manual" load
                 elif task.cmd == "revert":
@@ -372,12 +372,39 @@ class Workers:
                     obj.username = task.username
                     obj.save()
                     session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
-
                     self.sessions[obj.id] = session
+
                     self.quicksave(session)
                     self.autosave(session)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id )
+                    graphreply.save()
+
+                elif task.cmd == "clone":
+                    newobj = GraphSession()
+                    newobj.username = task.username
+                    newobj.save()
+                    newsession = SoftGraphSession(gs_id=str(newobj.id), username=newobj.username)
+
+                    # copy graph structure and literal data
+                    session = self.get_soft_session(task)
+                    gd = None
+                    if not session:
+                        obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                        # TODO: is this correct (vs. quicksave_graphdef)?
+                        gd = json.loads(obj.stashed_graphdef)
+                    else:
+                        gd = session.graph.extract_graphdef()
+                    newsession.graph.inject_graphdef(gd)
+
+                    # TODO: implement some kind of ML-Python magic to clone data objects
+
+                    # finalize
+                    self.quicksave(newsession)
+                    self.autosave(newsession)
+                    self.sessions[newobj.id] = newsession
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id )
                     graphreply.save()
 
                 elif task.cmd == "delete":

@@ -62,6 +62,17 @@ def new_session(req):
     return redirect("index")
 
 @login_required
+def clone_session(req, gs_id):
+    username = req.session['username']
+    cmd = "clone"
+    syncset = None
+
+    print('cloning graph session for user: %s, gs_id: %s' % (username, gs_id))
+
+    _command(username, gs_id, cmd, syncset)
+    return redirect("index")
+
+@login_required
 def delete_session(req, gs_id):
     username = req.session['username']
     cmd = "delete"
@@ -71,7 +82,6 @@ def delete_session(req, gs_id):
 
     _command(username, gs_id, cmd, syncset)
     return redirect("index")
-
 
 
 ############################
