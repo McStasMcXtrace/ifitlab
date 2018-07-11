@@ -47,7 +47,7 @@ def logout_user(req):
     print('loging out user: %s' % username)
     logout(req)
 
-    _command(username, "*", cmd, syncset, async=True)
+    _command(username, "*", cmd, syncset)
     return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl'>login</a>" % username)
 
 @login_required

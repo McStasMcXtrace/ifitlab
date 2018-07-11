@@ -109,7 +109,6 @@
   <button id="btnSave">Save</button>
   <button id="btnRevert">Revert</button>
   <button id="btnClear">Clear</button>
-  <!-- <button id="btnUpdate">TEST_Update</button> -->
   <a href="/ifl/logout">logout</a>
 </div>
 
@@ -280,7 +279,6 @@ $(document).ready(() => {
   $("#btnSave").click( () => { intface.saveSession() });
   $("#btnRevert").click( () => { intface.revertSession() })
   $("#btnClear").click( () => { intface.reset() });
-  //$("#btnUpdate").click( () => { intface.update() });
   clearUserDataPanel();
 
   // construct graph engine and add listeners
@@ -322,6 +320,8 @@ $(document).ready(() => {
   $(window).bind('beforeunload', () => {
     intface.update();
   });
+  // update server, timed
+  setInterval(intface.update.bind(intface), 30000);
 
   // lines from nodes to plotwindows handler
   plotlines = new PlotLines(intface.draw.svg);

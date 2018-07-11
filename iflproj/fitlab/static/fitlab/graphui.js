@@ -1616,9 +1616,7 @@ class GraphInterface {
   update() {
     let gs_id = $("body > #gs_id")[0].value;
     let coords = this.graphData.getCoords();
-    console.log(coords);
     let post_data = { json_str: JSON.stringify({ "update" : this.undoredo.getSyncSet(), "coords" : coords }) };
-    console.log(post_data);
     simpleajax('/ifl/ajax_update/' + gs_id, post_data, function(msg) {
       //
     }.bind(this));
