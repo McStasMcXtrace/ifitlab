@@ -22,7 +22,6 @@ from iflproj import settings
 from fitlab.models import GraphUiRequest, GraphReply, GraphSession
 import enginterface
 
-
 NUM_THREADS = 4
 
 class SoftGraphSession:
@@ -310,12 +309,12 @@ class Workers:
                         gd = session.graph.extract_graphdef()
                         update = session.graph.extract_update()
                     except:
-                        # graphdef fallback
+                        # "dry graphdef" fallback
                         session = self.quickload_repair_and_reset_nonliteral_data(task)
                         if not session:
                             raise Exception("session could not be loaded: %s" % task.gs_id)
                         gd = session.graph.extract_graphdef()
-                    
+
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
                     graphreply.save()
 
@@ -329,28 +328,10 @@ class Workers:
 
                     self.quicksave(session)
 
-                    '''
-                    # python structure
-                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
-                    obj.quicksave_pickle = to_djangodb_str(session.graph)
-                    obj.quicksave_graphdef = json.dumps( session.graph.extract_graphdef() )
-
-                    # mat file
-                    if not os.path.exists(settings.MATFILES_DIRNAME):
-                        os.makedirs(settings.MATFILES_DIRNAME)
-                    filepath = os.path.join(settings.MATFILES_DIRNAME, task.gs_id + ".mat")
-                    save_fct = session.graph.middleware.get_save_fct()
-                    save_fct(filepath)
-                    obj.quicksave_matfile = filepath
-                    obj.quicksaved = timezone.now()
-                    obj.save()
-                    '''
-                    
-                    # return
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
                     graphreply.save()
 
-                # save-copy
+                # clone
                 elif task.cmd == "branch":
                     raise Exception("branch has not been implemented")
 
@@ -373,7 +354,6 @@ class Workers:
 
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":
-                    # autosave and shutdown sessions one at the time
                     for session in self.get_user_softsessions(task):
                         self.autosave(session)
                         self.shutdown_session(session)
@@ -404,12 +384,10 @@ class Workers:
                     self.shutdown_task(task)
 
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
-                    # remove matfiles from disk
                     if os.path.exists(obj.stashed_matfile):
                         os.remove(obj.stashed_matfile)
                     if os.path.exists(obj.quicksave_matfile):
                         os.remove(obj.quicksave_matfile)
-                    # get rid of db object
                     obj.delete()
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json="" )
@@ -418,7 +396,6 @@ class Workers:
                 else:
                     raise Exception("invalid command: %s" % task.cmd)
 
-                # TODO: log
                 logging.info("task done")
 
             except Exception as e:
@@ -426,7 +403,6 @@ class Workers:
 
                 graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "error" : str(e) } ))
                 graphreply.save()
-
 
 
 class Command(BaseCommand):
@@ -452,5 +428,5 @@ class Command(BaseCommand):
             logging.info("shutdown requested, exiting...")
             workers.terminate()
             print("")
-            print("")
+
 
