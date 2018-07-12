@@ -3,14 +3,13 @@ from django.http import HttpResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-
-from .models import GraphUiRequest, GraphReply
-
 import time
 
 import enginterface
 import fitlab.models
+from .models import GraphUiRequest, GraphReply
 from fitlab.models import GraphSession
+from iflproj.settings import UI_COORDS_UPDATE_INTERVAL_MS
 
 GS_REQ_TIMEOUT = 30
 
@@ -36,7 +35,7 @@ def graph_session(req, gs_id):
     if not fitlab.models.GraphSession.objects.filter(id=gs_id).exists():
         print("redirecting missing graph session to index...")
         return redirect(index)
-    return render(req, "fitlab/main.html", context={ "gs_id" : gs_id })
+    return render(req, "fitlab/main.html", context={ "gs_id" : gs_id, "update_interval" : UI_COORDS_UPDATE_INTERVAL_MS })
 
 @login_required
 def logout_user(req):
@@ -84,15 +83,18 @@ def delete_session(req, gs_id):
     return redirect("index")
 
 
-############################
-#    AJAx call handlers    #
-############################
+#################
+#    Utility    #
+#################
 
-def _command(username, gs_id, cmd, syncset):
+def _command(username, gs_id, cmd, syncset, nowait=False):
     ''' blocking with timeout, waits for workers to execute and returns the reply or None if timed out. '''
     # file the request
     uireq = GraphUiRequest(username=username, gs_id=gs_id, cmd=cmd, syncset=syncset)
     uireq.save()
+    
+    if nowait:
+        return
 
     # poll db
     t = time.time()
@@ -111,6 +113,10 @@ def _command(username, gs_id, cmd, syncset):
 
         # timeout
         if elapsed > GS_REQ_TIMEOUT and GS_REQ_TIMEOUT > 0:
+            # clean up the request if it still exists
+            lst = GraphUiRequest.objects.filter(id=uireq.id)
+            if len(lst)==1:
+                lst[0].delete()
             return None
 
 def _reply(reply_json, error_json):
@@ -120,6 +126,10 @@ def _reply(reply_json, error_json):
         return HttpResponse(reply_json)
     else:
         return HttpResponse('{"error" : { "message" : "graph session request timed out" }}')
+
+#######################
+#    AJAx handlers    #
+#######################
 
 @login_required
 def ajax_load_session(req, gs_id):
@@ -162,9 +172,9 @@ def ajax_update(req, gs_id):
 
     print('ajax_update for user: %s, gs_id: %s ...' % (username, gs_id))
 
-    rep, err = _command(username, gs_id, cmd, syncset)
-    return _reply(rep, err)
-
+    _command(username, gs_id, cmd, syncset, nowait=True)
+    return HttpResponse("update received")
+    
 @login_required
 def ajax_revert_session(req, gs_id):
     username = req.session['username']

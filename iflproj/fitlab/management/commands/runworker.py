@@ -346,6 +346,9 @@ class Workers:
                 # update
                 elif task.cmd == "update":
                     session = self.get_soft_session(task)
+                    if not session:
+                        raise Exception("update failed: session was not alive")
+                    
                     error = session.graph.graph_update(task.sync_obj['update'])
                     error = session.graph.graph_coords(task.sync_obj['coords'])
 

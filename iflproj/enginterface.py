@@ -290,7 +290,7 @@ class FlatGraph:
             coord = coords[key]
             cached_cmd = self.node_cmds_cache[key]
             self.node_cmds_cache[key] = (coord[0], coord[1], cached_cmd[2], cached_cmd[3], cached_cmd[4], cached_cmd[5])
-        _log('graph coords: %d update' % len(keys))
+        _log('graph coords: %d updates' % len(keys))
 
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''

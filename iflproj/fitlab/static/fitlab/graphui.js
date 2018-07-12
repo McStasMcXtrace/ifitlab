@@ -3,6 +3,8 @@
 *
 * Written by Jakob Garde 2017-2018.
 */
+
+// graphics node settings
 const width = 790;
 const height = 700;
 const nodeRadius = 30;
@@ -38,6 +40,18 @@ function simpleajax(url, d, success_cb, fail_cb=null) {
   })
   .success(success_cb);
 }
+function noerrorajax(url, d, success_cb) {
+  return $.ajax({
+    type: 'POST',
+    url: url,
+    data: d,
+  })
+  .fail(function(xhr, statusText, errorThrown) {
+    //
+  })
+  .success(success_cb);
+}
+
 function isString(value) {
   let b1 = (typeof value === 'string' || value instanceof String);
   return b1;
@@ -1352,8 +1366,8 @@ class NodeFunctional extends Node {
 // high/user-level interface to graph data and drawing
 //
 class GraphInterface {
-  constructor(plotlines) {
-    this.plotlines = plotlines;
+  constructor(gs_id) {
+    this.gs_id = gs_id;
 
     this.graphData = new GraphTree(ConnRulesBasic);
     let linkCB = this._tryCreateLink.bind(this);
@@ -1589,8 +1603,7 @@ class GraphInterface {
     console.log("revert has not been implemented")
   }
   loadSession() {
-    let gs_id = $("body > #gs_id")[0].value;
-    simpleajax('/ifl/ajax_load_session/' + gs_id, "", function(msg) {
+    simpleajax('/ifl/ajax_load_session/' + this.gs_id, "", function(msg) {
       this.reset();
       let obj = JSON.parse(msg);
       this.injectGraphDefinition(obj["graphdef"]);
@@ -1598,8 +1611,7 @@ class GraphInterface {
     }.bind(this));
   }
   revertSession() {
-    let gs_id = $("body > #gs_id")[0].value;
-    simpleajax('/ifl/ajax_revert_session/' + gs_id, "", function(msg) {
+    simpleajax('/ifl/ajax_revert_session/' + this.gs_id, "", function(msg) {
       this.reset();
       let obj = JSON.parse(msg);
       this.injectGraphDefinition(obj["graphdef"]);
@@ -1607,17 +1619,15 @@ class GraphInterface {
     }.bind(this));
   }
   saveSession() {
-    let gs_id = $("body > #gs_id")[0].value;
     let post_data = { "sync" : JSON.stringify(this.undoredo.getSyncSet()) };
     simpleajax('/ifl/ajax_save_session/' + gs_id, post_data, function(msg) {
       //
     }.bind(this));
   }
   update() {
-    let gs_id = $("body > #gs_id")[0].value;
     let coords = this.graphData.getCoords();
     let post_data = { json_str: JSON.stringify({ "update" : this.undoredo.getSyncSet(), "coords" : coords }) };
-    simpleajax('/ifl/ajax_update/' + gs_id, post_data, function(msg) {
+    noerrorajax('/ifl/ajax_update/' + this.gs_id, post_data, function(msg) {
       //
     }.bind(this));
   }
@@ -1647,8 +1657,7 @@ class GraphInterface {
     let post_data = { json_str: JSON.stringify({ run_id: id, sync: syncset }) };
     let selfref = this; // replace this with the .bind(this) method on a func object
 
-    let gs_id = $("body > #gs_id")[0].value;
-    simpleajax('/ifl/ajax_run_node/' + gs_id, post_data,
+    simpleajax('/ifl/ajax_run_node/' + this.gs_id, post_data,
       function(msg) {
         selfref.lock = false;
 

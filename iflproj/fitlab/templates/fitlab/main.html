@@ -132,7 +132,9 @@
 </div>
 
 <!-- this key must be sent along with every ajax call -->
-<input id="gs_id" type="hidden" value="{{gs_id}}">
+<input id="gs_id" type="hidden" value="{{ gs_id }}">
+<!-- update coords call time interval -->
+<input id="update_interval" type="hidden" value="{{ update_interval }}">
 </body>
 
 <script src="/ifl/ifl-static/fitlab/d3.v4.min.js"></script>
@@ -274,15 +276,16 @@ $(document).ready(() => {
   // set up events
   $("#btnUndo").click( () => { intface.undo() });
   $("#btnRedo").click( () => { intface.redo() });
-  $("#btnRun").click( () => { intface.runSelectedNode() });
+  $("#btnRun").click( () => { intface.runSelectedNode($("body > #gs_id")[0].value) });
   $("#btnPlot").click( () => { plthandler.newPlotwindow(480, 100); });
-  $("#btnSave").click( () => { intface.saveSession() });
-  $("#btnRevert").click( () => { intface.revertSession() })
+  $("#btnSave").click( () => { intface.saveSession($("body > #gs_id")[0].value) });
+  $("#btnRevert").click( () => { intface.revertSession($("body > #gs_id")[0].value) })
   $("#btnClear").click( () => { intface.reset() });
   clearUserDataPanel();
 
   // construct graph engine and add listeners
-  intface = new GraphInterface();
+  let gs_id = $("body > #gs_id")[0].value;
+  intface = new GraphInterface(gs_id);
   intface.addNodeRunReturnListener( (node) => {
     // clear previous subwindow elements with this id
     let x_y = plthandler.removePlots(node.id);
@@ -316,12 +319,12 @@ $(document).ready(() => {
 
   }, null);
 
-  // update server with recent changes before window close event
+  // update server, before window close
   $(window).bind('beforeunload', () => {
     intface.update();
   });
   // update server, timed
-  setInterval(intface.update.bind(intface), 30000);
+  setInterval(function() { intface.update(); }.bind(intface), $("body > #update_interval")[0].value);
 
   // lines from nodes to plotwindows handler
   plotlines = new PlotLines(intface.draw.svg);
