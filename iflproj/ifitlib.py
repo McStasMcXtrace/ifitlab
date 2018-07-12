@@ -948,6 +948,8 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     def fit_atomic(vn_data, vn_func, vn_outfunc, optim):
         try:
             _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\');' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
+            _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\');' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
+            _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\');' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
             _eval('%s = o_%s.model;' % (vn_outfunc, vn_outfunc), nargout=0)
         finally:
             _eval('clear o_%s;' % vn_outfunc, nargout=0)
