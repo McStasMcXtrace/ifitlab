@@ -17,8 +17,11 @@ class GraphReply(models.Model):
     reply_error = TextField(blank=True, null=True)
 
 class GraphSession(models.Model):
-    username = CharField(max_length=200)
     created = DateTimeField('created', default=timezone.now)
+    title = CharField(max_length=200, default="", blank=True, null=True)
+    description = TextField(blank=True, null=True)
+    
+    username = CharField(max_length=200)
     quicksaved = DateTimeField('quicksaved', blank=True, null=True)
     stashed = DateTimeField('stashed', blank=True, null=True)
 

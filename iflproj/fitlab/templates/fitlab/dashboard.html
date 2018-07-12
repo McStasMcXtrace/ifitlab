@@ -6,22 +6,39 @@
 
 <body>
 
+<fieldset style="width:800px;">
+
+<p>User:</p>
+
+<p style="padding-left:25px;">{{ username }}</p>
+
+<hr>
+<p>Sessions:</p>
+
 <table>
 <tr>
-<td><a href="/ifl/new">new</a><td>
+<td style="padding-left:25px;text-align:center;font-size:small">TITLE</td>
+<td style="padding-left:25px;text-align:center;font-size:small">NAME</td>
 </tr>
-{% for gs_id in session_ids %}
+{% for gs_id_title in session_ids_titles %}
 <tr>
-<td>session_{{ gs_id }}</td>
-<td style="padding-left:25px;"><a href="/ifl/graphsession/{{ gs_id }}" target="_blank">resume</a></td>
-<td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id }}">clone graph</a></td>
-<td style="padding-left:25px;"><a href="/ifl/delete/{{ gs_id }}">delete</a></td>
+<td style="padding-left:25px;">{{ gs_id_title.1 }}</td>
+<td style="padding-left:25px;">session_{{ gs_id_title.0 }}</td>
+<td style="padding-left:25px;"><a href="/ifl/graphsession/{{ gs_id_title.0 }}" target="_blank">resume</a></td>
+<td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title.0 }}">clone graph</a></td>
+<td style="padding-left:25px;"><a href="/ifl/delete/{{ gs_id_title.0 }}">delete</a></td>
 </tr>
 {% endfor %}
 </table>
 
+<hr>
+<p>Menu:</p>
 
-<p><a href="/ifl/logout">logout</a></p>
+<p style="padding-left:25px;"><a href="/ifl/new">new session</a></p>
+<p style="padding-left:25px;"><a href="/ifl/logout">logout</a></p>
+
+</fieldset>
+
 </body>
 
 </html>

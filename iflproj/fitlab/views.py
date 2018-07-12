@@ -21,9 +21,9 @@ def index(req):
     req.session['username'] = username
     
     # get graph session ids
-    session_ids = [obj.id for obj in GraphSession.objects.filter(username=username)]
-    
-    return render(req, "fitlab/dashboard.html", context={ "session_ids" : session_ids })
+    objs = GraphSession.objects.filter(username=username)
+    session_ids_titles = [[obj.id, obj.title] for obj in objs]
+    return render(req, "fitlab/dashboard.html", context={ "username" : username, "session_ids_titles" : session_ids_titles })
     return HttpResponse("logged in as admin... <br><a href='/ifl/graphsession/1'>open hardcoded gs</a>")
 
 @login_required
