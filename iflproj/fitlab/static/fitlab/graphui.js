@@ -1928,6 +1928,11 @@ class NodeTypeMenu {
     this.root = d3.select("#"+rootelementid);
     this.selectConfCB = selectConfCB;
 
+    this.root
+      .append("div")
+      .attr("style","background-color:white;font-size:small;text-align:center;")
+      .html(branchname.toUpperCase());
+
     let address = null;
     let conf = null;
     let c = null;
@@ -1942,7 +1947,8 @@ class NodeTypeMenu {
     // this draws a line under the lat menu item, which would otherwise be clipped by the container
     this.root
       .append("div")
-      .classed("menuItem", true);  }
+      .classed("menuItem", true);
+  }
   // single-read getter
   get selectedConf() {
     let ans = this._selectedConf;
@@ -1962,6 +1968,7 @@ class NodeTypeMenu {
       .style('height', "100px")
       .classed("menuItem", true)
       .append("svg")
+      .attr("style", "background-color:white;")
       .attr("width", 100)
       .attr("height", 100)
       .datum(conf)
