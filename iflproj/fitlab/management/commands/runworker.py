@@ -385,6 +385,7 @@ class Workers:
                     graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id )
                     graphreply.save()
 
+                # clone
                 elif task.cmd == "clone":
                     newobj = GraphSession()
                     newobj.username = task.username
@@ -412,6 +413,7 @@ class Workers:
                     graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id )
                     graphreply.save()
 
+                # delete
                 elif task.cmd == "delete":
                     self.shutdown_task(task)
 

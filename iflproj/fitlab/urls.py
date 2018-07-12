@@ -6,6 +6,7 @@ from . import views
 urlpatterns = [
     path('', views.index, name='index'),
     url(r'^new/?$', views.new_session),
+    url(r'^newopen/?$', views.new_session_and_open),
     url(r'^clone/(?P<gs_id>[\w0-9]+)/?$', views.clone_session),
     url(r'^delete/(?P<gs_id>[\w0-9]+)/?$', views.delete_session),
     url(r'^logout/?$', views.logout_user),
