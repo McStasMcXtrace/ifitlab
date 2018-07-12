@@ -9,9 +9,7 @@ import enginterface
 import fitlab.models
 from .models import GraphUiRequest, GraphReply
 from fitlab.models import GraphSession
-from iflproj.settings import UI_COORDS_UPDATE_INTERVAL_MS
-
-GS_REQ_TIMEOUT = 30
+from iflproj.settings import UI_COORDS_UPDATE_INTERVAL_MS, AJAX_REQ_TIMEOUT_S
 
 def index(req):
     # TEMP auto-login as admin
@@ -124,7 +122,7 @@ def _command(username, gs_id, cmd, syncset, nowait=False):
         elapsed = time.time() - t
 
         # timeout
-        if elapsed > GS_REQ_TIMEOUT and GS_REQ_TIMEOUT > 0:
+        if elapsed > AJAX_REQ_TIMEOUT_S and AJAX_REQ_TIMEOUT_S > 0:
             # clean up the request if it still exists
             lst = GraphUiRequest.objects.filter(id=uireq.id)
             if len(lst)==1:

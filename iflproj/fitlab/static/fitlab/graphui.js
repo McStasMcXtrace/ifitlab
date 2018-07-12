@@ -36,6 +36,7 @@ function simpleajax(url, d, success_cb, fail_cb=null) {
   })
   .fail(function(xhr, statusText, errorThrown) {
     if (fail_cb) fail_cb();
+    $("body").css("cursor", "default");
     $(window.open().document.body).html(errorThrown + xhr.status + xhr.responseText);
   })
   .success(success_cb);
@@ -1603,26 +1604,32 @@ class GraphInterface {
     console.log("revert has not been implemented")
   }
   loadSession() {
+    $("body").css("cursor", "wait");
     simpleajax('/ifl/ajax_load_session/' + this.gs_id, "", function(msg) {
       this.reset();
       let obj = JSON.parse(msg);
       this.injectGraphDefinition(obj["graphdef"]);
       this._update(obj["update"]);
+      $("body").css("cursor", "default");
     }.bind(this));
   }
   revertSession() {
+    $("body").css("cursor", "wait");
     simpleajax('/ifl/ajax_revert_session/' + this.gs_id, "", function(msg) {
       this.reset();
       let obj = JSON.parse(msg);
       this.injectGraphDefinition(obj["graphdef"]);
       this._update(obj["update"]);
+      $("body").css("cursor", "default");
     }.bind(this));
   }
   saveSession() {
+    $("body").css("cursor", "wait");
     let coords = this.graphData.getCoords();
     let post_data = { json_str : JSON.stringify({ "update" : this.undoredo.getSyncSet(), "coords" : coords }) };
     simpleajax('/ifl/ajax_save_session/' + this.gs_id, post_data, function(msg) {
       //
+      $("body").css("cursor", "default");
     }.bind(this));
   }
   update() {
