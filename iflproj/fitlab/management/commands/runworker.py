@@ -322,10 +322,11 @@ class Workers:
                 elif task.cmd == "save":
                     session = self.get_soft_session(task)
 
-                    anyerrors = session.graph.graph_update(task.sync_obj)
+                    anyerrors = session.graph.graph_update(task.sync_obj['update'])
                     if anyerrors:
                         raise Exception("errors encountered during sync")
 
+                    session.graph.graph_coords(task.sync_obj['coords'])
                     self.quicksave(session)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
@@ -349,10 +350,11 @@ class Workers:
                     if not session:
                         raise Exception("update failed: session was not alive")
                     
-                    error = session.graph.graph_update(task.sync_obj['update'])
-                    error = session.graph.graph_coords(task.sync_obj['coords'])
-
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(error))
+                    error1 = session.graph.graph_update(task.sync_obj['update'])
+                    error2 = session.graph.graph_coords(task.sync_obj['coords'])
+                    
+                    # TODO: fix the error1 vs. error2 mess
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(error1))
                     graphreply.save()
 
                 # save & shutdown

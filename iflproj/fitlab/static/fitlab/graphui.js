@@ -1619,8 +1619,9 @@ class GraphInterface {
     }.bind(this));
   }
   saveSession() {
-    let post_data = { "sync" : JSON.stringify(this.undoredo.getSyncSet()) };
-    simpleajax('/ifl/ajax_save_session/' + gs_id, post_data, function(msg) {
+    let coords = this.graphData.getCoords();
+    let post_data = { json_str : JSON.stringify({ "update" : this.undoredo.getSyncSet(), "coords" : coords }) };
+    simpleajax('/ifl/ajax_save_session/' + this.gs_id, post_data, function(msg) {
       //
     }.bind(this));
   }

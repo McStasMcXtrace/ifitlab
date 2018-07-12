@@ -146,9 +146,9 @@ def ajax_load_session(req, gs_id):
 def ajax_save_session(req, gs_id):
     username = req.session['username']
     cmd = "save"
-    syncset = req.POST.get('sync')
+    syncset = req.POST.get('json_str')
 
-    print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, str(syncset)))
+    print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, syncset))
 
     rep, err = _command(username, gs_id, cmd, syncset)
     return _reply(rep, err)
