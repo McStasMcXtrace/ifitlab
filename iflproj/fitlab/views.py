@@ -1,9 +1,12 @@
+import time
+
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, logout
+from django.contrib.auth import login as login_native
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-import time
+from django.contrib.auth.models import User
 
 import enginterface
 import fitlab.models
@@ -12,21 +15,47 @@ from fitlab.models import GraphSession
 from iflproj.settings import UI_COORDS_UPDATE_INTERVAL_MS, AJAX_REQ_TIMEOUT_S
 
 def index(req):
-    # TEMP auto-login as admin
-    username = 'admin'
-    password = 'admin123'
+    if not req.user.is_authenticated:
+        return redirect("/ifl/login")
 
-    user = authenticate(username=username, password=password)
-    login(req, user)
-    req.session['username'] = username
+    username = req.session["username"]
 
-    # get graph session ids
     objs = GraphSession.objects.filter(username=username)
     examples = GraphSession.objects.filter(username="admin", example=True)
     session_ids_titles = [[obj.id, obj.title] for obj in objs]
     example_ids_titles = [[obj.id, obj.title] for obj in examples]
     ctx = { "username" : username, "session_ids_titles" : session_ids_titles, "example_ids_titles" : example_ids_titles }
+
     return render(req, "fitlab/dashboard.html", context=ctx)
+
+def login_debuguser(req):
+    # DEBUG MODE: auto-login as admin
+    username = 'admin'
+    password = 'admin123'
+
+    user = authenticate(username=username, password=password)
+    login_native(req, user)
+    req.session['username'] = username
+
+    return redirect("/ifl/")
+
+def signup(req):
+    return render(req, "fitlab/signup.html")
+
+def signup_submit(req):
+    User.objects.create_user(username=req.POST["username"], email='', password=req.POST["password"])
+    return redirect("/ifl/login")
+
+def login(req):
+    return render(req, "fitlab/login.html")
+
+def login_submit(req):
+    username = req.POST["username"]
+    user = authenticate(username=username, password=req.POST["password"])
+    login_native(req, user)
+    req.session['username'] = username
+
+    return redirect("/ifl/")
 
 @login_required
 def graph_session(req, gs_id):
@@ -39,7 +68,11 @@ def graph_session(req, gs_id):
 
 @login_required
 def logout_user(req):
-    username = req.session['username']
+    username = req.session.get('username', None)
+    logout(req)
+    if not username:
+        return redirect("/ifl/")
+
     cmd = "autosave_shutdown"
     syncset = None
 
@@ -47,7 +80,7 @@ def logout_user(req):
     logout(req)
 
     _command(username, "*", cmd, syncset)
-    return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl'>login</a>" % username)
+    return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl/login'>login</a> <a href='/ifl/login_debuguser'>login as debuguser</a>" % username)
 
 @login_required
 def new_session(req):
