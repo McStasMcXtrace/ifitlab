@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import TextField, CharField, DateTimeField
+from django.db.models import TextField, CharField, DateTimeField, BooleanField
 from django.utils import timezone
 
 
@@ -20,6 +20,7 @@ class GraphSession(models.Model):
     created = DateTimeField('created', default=timezone.now)
     title = CharField(max_length=200, default="", blank=True, null=True)
     description = TextField(blank=True, null=True)
+    example = BooleanField(default=False)
     
     username = CharField(max_length=200)
     quicksaved = DateTimeField('quicksaved', blank=True, null=True)

@@ -374,6 +374,7 @@ class Workers:
                 # create / new
                 elif task.cmd == "new":
                     obj = GraphSession()
+                    obj.example=False
                     obj.username = task.username
                     obj.save()
                     session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
@@ -388,6 +389,7 @@ class Workers:
                 # clone
                 elif task.cmd == "clone":
                     newobj = GraphSession()
+                    newobj.example = False
                     newobj.username = task.username
                     newobj.save()
                     newsession = SoftGraphSession(gs_id=str(newobj.id), username=newobj.username)

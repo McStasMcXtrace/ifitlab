@@ -19,12 +19,14 @@ def index(req):
     user = authenticate(username=username, password=password)
     login(req, user)
     req.session['username'] = username
-    
+
     # get graph session ids
     objs = GraphSession.objects.filter(username=username)
+    examples = GraphSession.objects.filter(username="admin", example=True)
     session_ids_titles = [[obj.id, obj.title] for obj in objs]
-    return render(req, "fitlab/dashboard.html", context={ "username" : username, "session_ids_titles" : session_ids_titles })
-    return HttpResponse("logged in as admin... <br><a href='/ifl/graphsession/1'>open hardcoded gs</a>")
+    example_ids_titles = [[obj.id, obj.title] for obj in examples]
+    ctx = { "username" : username, "session_ids_titles" : session_ids_titles, "example_ids_titles" : example_ids_titles }
+    return render(req, "fitlab/dashboard.html", context=ctx)
 
 @login_required
 def graph_session(req, gs_id):
