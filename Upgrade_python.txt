@@ -1,0 +1,18 @@
+The machine has packages from Debian Testing available, do
+
+apt-get install python3.x
+
+Move existing virtualenv to the side, e.g. mv iflvenv iflvenv_3.6
+
+Create a new virtualenv with
+virtualenv --python=python3.x iflvenv
+
+Pip-install needed packages by
+source iflvenv/bin/activate
+pip install `cat venv_python_pkgs.txt`
+
+Install Matlab python engine
+cd /usr/local/MATLAB/R2017b/extern/engines/python
+python setup.py install
+
+Reload uwsgi to use the new version
