@@ -39,6 +39,8 @@ class SoftGraphSession:
         mdl = importlib.import_module(pmod["module"], pmod["package"]) # rewrite fom package = dot ! 
         self.graph = enginterface.FlatGraph(tree, mdl)
 
+        self.touched = timezone.now()
+
     def _loadNodeTypesJsFile(self):
         text = open('fitlab/static/fitlab/nodetypes.js').read()
         m = re.search("var nodeTypes\s=\s([^;]*)", text, re.DOTALL)
@@ -50,6 +52,9 @@ class SoftGraphSession:
         if error:
             return error
         return self.graph.execute_node(runid)
+
+    def touch(self):
+        self.touched = timezone.now()
 
     def test(self):
         cmds = json.loads('[[["node_add",454.25,401.3333333333333,"o0","","","obj"],["node_rm","o0"]],[["node_add",382.75,281.3333333333333,"o1","","","Pars"],["node_rm","o1"]],[["node_add",348,367.3333333333333,"f0","","C","Colour"],["node_rm","f0"]],[["link_add","o1",0,"f0",0,0],["link_rm","o1",0,"f0",0,0]],[["link_add","f0",0,"o0",0,0],["link_rm","f0",0,"o0",0,0]],[["node_data","o1","\\"red\\""],["node_data","o1",{}]]]')
@@ -102,21 +107,64 @@ class Workers:
             t.setName('%s' % (t.getName().replace('Thread-','T')))
             t.start()
             self.threads.append(t)
+        
+        self.tcln = threading.Thread(target=self.cleanupwork)
+        self.tcln.setDaemon(True)
+        self.tcln.setName('%s' % (self.tcln.getName().replace('Thread-','T')))
+        self.tcln.start()
+        
+        self.shutdownlock = threading.Lock()
+
+    def cleanupwork(self):
+        ''' cleanup thread - retires sessions that are touched longer ago than settings timeout'''
+        while not self.terminated:
+            now = timezone.now()
+
+            for key in self.sessions.keys():
+                ses = self.sessions.get(key, None) # thread safe way
+                if not ses:
+                    continue
+                timedelta = ses.touched - now
+                if timedelta.seconds > settings.WRK_SESSION_RETIRE_TIMEOUT_S:
+                    self.shutdown_autosave(ses)
+
+            
+            while not self.terminated and (now - timezone.now()).seconds < settings.WRK_CLEANUP_INTERVAL_S:
+                time.sleep(1)
+                continue
 
     def get_soft_session(self, task):
         ''' if this returns None, a session must be created or loaded '''
-        return self.sessions.get(task.gs_id, None)
+        s = self.sessions.get(task.gs_id, None)
+        if s:
+            s.touch()
+        return s
 
-    def shutdown_task(self, task):
-        ''' a hard shutdown, nothing is saved '''
+    def shutdown_hard(self, task):
+        ''' hard shutdown (nothing is saved) by task '''
+        self.shutdownlock.acquire()
+
         session = self.sessions.get(task.gs_id, None)
         if session:
             session.graph.shutdown()
             del self.sessions[task.gs_id]
 
-    def shutdown_session(self, session):
-        session.graph.shutdown()
-        del self.sessions[session.gs_id]
+        self.shutdownlock.release()
+
+    def shutdown_autosave(self, gs_id):
+        ''' hard shutdown (nothing is saved) by task '''
+        self.shutdownlock.acquire()
+
+        session = self.sessions.get(gs_id, None)
+        if session:
+            self.autosave(session)
+            session.graph.shutdown()
+            del self.sessions[gs_id]
+
+        self.shutdownlock.release()
+
+    def load_from_stashed_graphdef(self, task):
+        pass
 
     def quickload_repair_and_reset_nonliteral_data(self, task):
         '''
@@ -241,22 +289,19 @@ class Workers:
         ses = self.sessions
         return [ses[key] for key in ses.keys() if ses[key].username == task.username]
 
-        #for key in self.sessions.keys():
-        #    ses = self.sessions[key]
-        #    if ses
-        #return lst
-
     def mainwork(self):
         ''' Process a batch of UIRequest objects. Called from the main thread. '''
         for uireq in GraphUiRequest.objects.all():
             self.taskqueue.put(Task(uireq.username, uireq.gs_id, uireq.syncset, uireq.id, uireq.cmd))
             uireq.delete()
+
+        # debug mode
         if not self.threaded:
             self.threadwork()
 
     def terminate(self):
         self.terminated = True
-        # TODO: introduce a thread.wait at the end here
+        # TODO: implement
 
     def threadwork(self):
         # check for the self.terminated=True signal every timeout seconds
@@ -297,7 +342,7 @@ class Workers:
                 # revert AKA "manual" load
                 elif task.cmd == "revert":
                     # cleanup & remove any active session
-                    self.shutdown_task(task)
+                    self.shutdown_hard(task)
                     
                     # autoload the session AKA revert
                     session = self.quickload_session(task)
@@ -360,8 +405,7 @@ class Workers:
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":
                     for session in self.get_user_softsessions(task):
-                        self.autosave(session)
-                        self.shutdown_session(session)
+                        self.shutdown_autosave(task.gs_id)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
                     graphreply.save()
@@ -417,7 +461,7 @@ class Workers:
 
                 # delete
                 elif task.cmd == "delete":
-                    self.shutdown_task(task)
+                    self.shutdown_hard(task)
 
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
                     if os.path.exists(obj.stashed_matfile):
