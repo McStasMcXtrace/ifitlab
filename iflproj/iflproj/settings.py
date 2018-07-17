@@ -17,6 +17,8 @@ IFIT_DIR = "/srv/mcweb/iFit/"
 MATFILES_DIRNAME = "/srv/mcweb/ifitlab/iflproj/matsaves"
 UI_COORDS_UPDATE_INTERVAL_MS = 30000
 AJAX_REQ_TIMEOUT_S = 60
+WRK_CLEANUP_INTERVAL_S = 60
+WRK_SESSION_RETIRE_TIMEOUT_S = 1800
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

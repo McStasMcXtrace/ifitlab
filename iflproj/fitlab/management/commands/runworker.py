@@ -59,6 +59,7 @@ class SoftGraphSession:
     def test(self):
         cmds = json.loads('[[["node_add",454.25,401.3333333333333,"o0","","","obj"],["node_rm","o0"]],[["node_add",382.75,281.3333333333333,"o1","","","Pars"],["node_rm","o1"]],[["node_add",348,367.3333333333333,"f0","","C","Colour"],["node_rm","f0"]],[["link_add","o1",0,"f0",0,0],["link_rm","o1",0,"f0",0,0]],[["link_add","f0",0,"o0",0,0],["link_rm","f0",0,"o0",0,0]],[["node_data","o1","\\"red\\""],["node_data","o1",{}]]]')
 
+
         self.graph.graph_change(cmds)
         self.graph.execute_node("o0")
 
@@ -94,44 +95,66 @@ class Workers:
     '''
     Represents a pool of worker threads.
     '''
-    def __init__(self, threaded=True):
+    def __init__(self):
         self.taskqueue = Queue()
         self.sessions = {}
         self.terminated = False
-        self.threaded = threaded
 
         self.threads = []
+        self.termination_events = {}
         for i in range(NUM_THREADS):
             t = threading.Thread(target=self.threadwork)
             t.setDaemon(True)
             t.setName('%s' % (t.getName().replace('Thread-','T')))
             t.start()
             self.threads.append(t)
-        
+            self.termination_events[t.getName()] = threading.Event()
+
         self.tcln = threading.Thread(target=self.cleanupwork)
         self.tcln.setDaemon(True)
         self.tcln.setName('%s' % (self.tcln.getName().replace('Thread-','T')))
         self.tcln.start()
         
+        self.termination_events[self.tcln.getName()] = threading.Event()
+        
         self.shutdownlock = threading.Lock()
+        self.waiting_for_termination = threading.Event()
+        self.waiting_for_termination.clear()
+
+    def terminate(self):
+        self.terminated = True
+        for key in self.termination_events.keys():
+            e = self.termination_events[key]
+            e.wait()
 
     def cleanupwork(self):
         ''' cleanup thread - retires sessions that are touched longer ago than settings timeout'''
-        while not self.terminated:
-            now = timezone.now()
+        try:
+            while not self.terminated:
+                now = timezone.now()
 
-            for key in self.sessions.keys():
+                while not self.terminated and (timezone.now() - now).seconds < settings.WRK_CLEANUP_INTERVAL_S:
+                    time.sleep(1)
+
+                logging.info("cleaning up sessions...")
+                keys = [key for key in self.sessions.keys()]
+                for key in keys:
+                    ses = self.sessions.get(key, None) # thread safe way
+                    if not ses:
+                        continue
+                    if (ses.touched - timezone.now()).seconds > settings.WRK_SESSION_RETIRE_TIMEOUT_S:
+                        self.shutdown_autosave(ses.gs_id)
+    
+            logging.info("clean up retiring sessions...")
+            keys = [key for key in self.sessions.keys()]
+            for key in keys:
                 ses = self.sessions.get(key, None) # thread safe way
                 if not ses:
                     continue
-                timedelta = ses.touched - now
-                if timedelta.seconds > settings.WRK_SESSION_RETIRE_TIMEOUT_S:
-                    self.shutdown_autosave(ses)
+                self.shutdown_autosave(ses)
 
-            
-            while not self.terminated and (now - timezone.now()).seconds < settings.WRK_CLEANUP_INTERVAL_S:
-                time.sleep(1)
-                continue
+        finally:
+            self.termination_events[self.tcln.getName()].set()
 
     def get_soft_session(self, task):
         ''' if this returns None, a session must be created or loaded '''
@@ -142,6 +165,7 @@ class Workers:
 
     def shutdown_hard(self, task):
         ''' hard shutdown (nothing is saved) by task '''
+        logging.info("shutting down session %s (no save)" % task.gs_id)
         self.shutdownlock.acquire()
 
         session = self.sessions.get(task.gs_id, None)
@@ -152,7 +176,8 @@ class Workers:
         self.shutdownlock.release()
 
     def shutdown_autosave(self, gs_id):
-        ''' hard shutdown (nothing is saved) by task '''
+        '''  '''
+        logging.info("retiring session %s" % gs_id)
         self.shutdownlock.acquire()
 
         session = self.sessions.get(gs_id, None)
@@ -233,7 +258,7 @@ class Workers:
         try:
             obj = GraphSession.objects.filter(id=task.gs_id)[0]
         except:
-            raise Exception("requested gs_id yielded no soft graph session or db object")
+            raise Exception("requested gs_id yielded no db object")
         if obj.username != task.username:
             raise Exception("username validation failed for session id: %s, sender: %s" % (obj.username, task.username))
 
@@ -295,14 +320,6 @@ class Workers:
             self.taskqueue.put(Task(uireq.username, uireq.gs_id, uireq.syncset, uireq.id, uireq.cmd))
             uireq.delete()
 
-        # debug mode
-        if not self.threaded:
-            self.threadwork()
-
-    def terminate(self):
-        self.terminated = True
-        # TODO: implement
-
     def threadwork(self):
         # check for the self.terminated=True signal every timeout seconds
         task = None
@@ -312,9 +329,6 @@ class Workers:
             except Empty:
                 task = None
             if not task:
-                # sigle run (debug mode, not threaded)
-                if not self.threaded:
-                    return
                 continue
 
             logging.info("doing task '%s', session id: %s" % (task.cmd, task.gs_id))
@@ -449,8 +463,6 @@ class Workers:
                         gd = session.graph.extract_graphdef()
                     newsession.graph.inject_graphdef(gd)
 
-                    # TODO: implement some kind of ML-Python magic to clone data objects
-
                     # finalize
                     self.quicksave(newsession)
                     self.autosave(newsession)
@@ -484,19 +496,17 @@ class Workers:
                 graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "error" : str(e) } ))
                 graphreply.save()
 
+        logging.info("exit")
+        self.termination_events[threading.current_thread().getName()].set()
 
 class Command(BaseCommand):
-    help = 'start this in a separate process, it is required for any work to be done'
-
-    def add_arguments(self, parser):
-        parser.add_argument('--debug', action='store_true', help="run work() only once using main thread")
-        parser.add_argument('--singlethreaded', action='store_true', help="run work() using main thread only")
+    help = 'started in a separate process, required for any work to be done'
 
     def handle(self, *args, **options):
         logging.basicConfig(level=logging.INFO, format='%(threadName)-3s: %(message)s' )
 
         logging.info("looking for tasks...")
-        workers = Workers(threaded=True)
+        workers = Workers()
         try:
             while True:
                 workers.mainwork()

@@ -18,8 +18,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         uireqs = GraphUiRequest.objects.all()
         replies = GraphReply.objects.all()
-        print("flushing uirequests: %d objects" % len(uireqs))
-        print("flushing graphreplies: %d objects" % len(replies))
+        print("purging uirequests: %d objects" % len(uireqs))
+        print("purging graphreplies: %d objects" % len(replies))
         for uireq in uireqs:
             uireq.delete()
         for reply in replies:
