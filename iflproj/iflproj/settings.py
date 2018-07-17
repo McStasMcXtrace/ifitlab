@@ -14,7 +14,7 @@ import os
 
 # home-made settings
 IFIT_DIR = "/srv/mcweb/iFit/"
-MATFILES_DIRNAME = "/home/jaga/source/ifitlab/iflproj/matsaves"
+MATFILES_DIRNAME = "/srv/mcweb/ifitlab/iflproj/matsaves"
 UI_COORDS_UPDATE_INTERVAL_MS = 30000
 AJAX_REQ_TIMEOUT_S = 60
 
