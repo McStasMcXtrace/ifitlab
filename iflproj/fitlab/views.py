@@ -218,7 +218,7 @@ def ajax_update(req, gs_id):
     print('ajax_update for user: %s, gs_id: %s ...' % (username, gs_id))
 
     _command(username, gs_id, cmd, syncset, nowait=True)
-    return HttpResponse("update received")
+    return HttpResponse('{"message" : "coords update received"}')
     
 @login_required
 def ajax_revert_session(req, gs_id):

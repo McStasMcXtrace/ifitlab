@@ -47,7 +47,7 @@ function simpleajax(url, d, success_cb, fail_cb=null) {
     }
     catch(error) {
       console.log("JSON.parse error on string: ", msg);
-      alert("uncomprehensible server response");
+      alert("uncomprehensible server response: ", msg);
       selfref.graphData._updateNodeState(n);
       selfref.updateUi();
       throw error;

@@ -530,4 +530,3 @@ class Command(BaseCommand):
             workers.terminate()
             print("")
 
-

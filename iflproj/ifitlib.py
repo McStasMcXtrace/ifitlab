@@ -154,7 +154,7 @@ class IData(enginterface.ObjReprJson):
         else:
             create_idata(self.varname, url)
     
-    def __del__(self, exc_type, exc_value, traceback):
+    def __del__(self):
         _eval("clear %s;" % self.varname, nargout=0)
 
     def _get_datashape(self):
@@ -462,7 +462,7 @@ class IFunc(enginterface.ObjReprJson):
         else:
             create_ifunc(self.varname, symbol)
 
-    def __del__(self, exc_type, exc_value, traceback):
+    def __del__(self):
         _eval("clear %s;" % self.varname, nargout=0)
 
     def _clear_plotaxes(self):
