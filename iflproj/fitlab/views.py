@@ -170,7 +170,7 @@ def _reply(reply_json, error_json):
             return HttpResponse(error_json)
         return HttpResponse(reply_json)
     else:
-        return HttpResponse('{"error" : { "message" : "graph session request timed out" }}')
+        return HttpResponse('{"timeout" : { "message" : "graph session request timed out" }}')
 
 #######################
 #    AJAx handlers    #

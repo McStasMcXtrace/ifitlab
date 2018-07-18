@@ -281,7 +281,7 @@ class FlatGraph:
                 getattr(self, cmd)(*args)
             except Exception as e:
                 _log('graph update failed: "%s"' % redo)
-                return {'error' : {'message' : "Graph update exc.: %s" % str(e)}}
+                return {'error' : "Graph update exc.: %s" % str(e)}
 
     def graph_coords(self, coords):
         ''' updates the cached node_add commands x- and y-coordinate entries '''
@@ -290,7 +290,7 @@ class FlatGraph:
             coord = coords[key]
             cached_cmd = self.node_cmds_cache[key]
             self.node_cmds_cache[key] = (coord[0], coord[1], cached_cmd[2], cached_cmd[3], cached_cmd[4], cached_cmd[5])
-        _log('graph coords: %d updates' % len(keys))
+        _log('graph coords: %d coordinate sets' % len(keys))
 
     def execute_node(self, id):
         ''' execute a node and return a json representation of the result '''
@@ -303,7 +303,7 @@ class FlatGraph:
             
             self.middleware.register(obj)
             
-            retobj = {'update':{}}
+            retobj = {'dataupdate': {} }
             update_lst = [id]
             if type(n) in (MethodAsFunctionNode, ):
                 update_lst.append([o[0].name for o in n.parents if type(o[0])==ObjNode ][0]) # find "owner" id...
@@ -311,29 +311,29 @@ class FlatGraph:
                 raise Exception("MethodNode is not suppoted")
             for key in update_lst:
                 try:
-                    retobj['update'][key] = None
+                    retobj['dataupdate'][key] = None
                     m = self.root.subnodes[key]
                     if m.exemodel().can_assign():
                         objm = m.get_object()
                         if objm:
-                            retobj['update'][key] = objm.get_repr()
+                            retobj['dataupdate'][key] = objm.get_repr()
                 except Exception as e:
                     raise ObjectRepresentationException(str(e))
             return retobj
 
         except InternalExecutionException as e:
             _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
-            return {'error' : {'message' : "Run exc.: %s" % str(e), 'source-id' : e.name}}
+            return {'error' : "Run exc.: %s" % str(e), 'errorid' : e.name}
         except NodeNotExecutableException as e:
             _log("exe %s yields: Node is not executable" % id)
-            return {'error' : {'message' : "Not executable: %s, %s" % (str(e), id)}}
+            return {'error' : "Not executable: %s, %s" % (str(e), id)}
         except Exception as e:
             _log("exe %s engine error: %s" % (id, str(e)))
-            return {'error' : {'message' : "Engine exc.: %s %s" % (type(e).__name__, str(e))}}
+            return {'error' : "Engine exc.: %s %s" % (type(e).__name__, str(e))}
         except ObjectRepresentationException as e:
             # TODO: implement this branch
             _log("object representation error...")
-            return {'error' : {'message' : "Repr. exc.: %s" % str(e)}}
+            return {'error' : "Repr. exc.: %s" % str(e)}
 
     def reset_all_objs(self):
         for key in self.root.subnodes.keys():
@@ -368,8 +368,6 @@ class FlatGraph:
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition, using the x_y field to insert these into the gd '''
-        # TODO: put data from self.x_y and label changes into the graph def
-        
         _log("extracting graph def...")
         gdef = {}
         gdef["nodes"] = {}
@@ -386,6 +384,7 @@ class FlatGraph:
             except:
                 pass # not all nodes have outgoing links...
             # labels
+            # TODO: impl. if we get some use case for this (labels are usually created client-side)
 
             # data
             n = self.root.subnodes[key]
@@ -393,23 +392,11 @@ class FlatGraph:
             if obj != None and type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode,  ):
                 gdef["datas"][key] = str( base64.b64encode( json.dumps(obj).encode('utf-8') ))[2:-1]
 
-        # TODO: update node x and y by means of the coords info
-        # UNTESTED
-        '''
-        keys = self.coords[0]
-        x_y = self.coords[1]
-        node_cmds = gdef["nodes"]
-        for i in range(len(keys)): # if self.x_y is a tupple of two list ... 
-            key = keys[i]
-            node_cmds[key][0] = x_y[2*i]
-            node_cmds[key][1] = x_y[2*i+1]
-        '''
-
         return gdef
 
     def extract_update(self):
         ''' an "update" is a set of non-literal data representations '''
-        _log("extracting update...")
+        _log("extracting data update...")
         update = {}
         for key in self.root.subnodes.keys():
             n = self.root.subnodes[key]

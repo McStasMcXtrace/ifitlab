@@ -21,6 +21,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 from iflproj import settings
 from fitlab.models import GraphUiRequest, GraphReply, GraphSession
 import enginterface
+from fitlab.management.commands import purgemessages
 
 NUM_THREADS = 4
 
@@ -168,12 +169,15 @@ class Workers:
         logging.info("shutting down session %s (no save)" % task.gs_id)
         self.shutdownlock.acquire()
 
-        session = self.sessions.get(task.gs_id, None)
-        if session:
-            session.graph.shutdown()
-            del self.sessions[task.gs_id]
-
-        self.shutdownlock.release()
+        try:
+            session = self.sessions.get(task.gs_id, None)
+            if session:
+                session.graph.shutdown()
+                del self.sessions[task.gs_id]
+        except Exception as e:
+            logging.error("error: " + str(e))
+        finally:
+            self.shutdownlock.release()
 
     def shutdown_autosave(self, gs_id):
         '''  '''
@@ -181,12 +185,15 @@ class Workers:
         self.shutdownlock.acquire()
 
         session = self.sessions.get(gs_id, None)
-        if session:
-            self.autosave(session)
-            session.graph.shutdown()
-            del self.sessions[gs_id]
-
-        self.shutdownlock.release()
+        try:
+            if session:
+                self.autosave(session)
+                session.graph.shutdown()
+                del self.sessions[gs_id]
+        except Exception as e:
+            logging.error("error: " + str(e))
+        finally:
+            self.shutdownlock.release()
 
     def load_from_stashed_graphdef(self, task):
         pass
@@ -345,7 +352,7 @@ class Workers:
                         gd = session.graph.extract_graphdef()
                         update = session.graph.extract_update()
                         
-                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
+                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "dataupdate" : update} ))
                         graphreply.save()
                     except:
                         # revert as autoload fallback (?)
@@ -374,14 +381,14 @@ class Workers:
                             raise Exception("session could not be loaded: %s" % task.gs_id)
                         gd = session.graph.extract_graphdef()
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "update" : update} ))
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "dataupdate" : update} ))
                     graphreply.save()
 
                 # save
                 elif task.cmd == "save":
                     session = self.get_soft_session(task)
 
-                    anyerrors = session.graph.graph_update(task.sync_obj['update'])
+                    anyerrors = session.graph.graph_update(task.sync_obj['sync'])
                     if anyerrors:
                         raise Exception("errors encountered during sync")
 
@@ -409,7 +416,7 @@ class Workers:
                     if not session:
                         raise Exception("update failed: session was not alive")
                     
-                    error1 = session.graph.graph_update(task.sync_obj['update'])
+                    error1 = session.graph.graph_update(task.sync_obj['sync'])
                     error2 = session.graph.graph_coords(task.sync_obj['coords'])
                     
                     # TODO: fix the error1 vs. error2 mess
@@ -491,9 +498,9 @@ class Workers:
                 logging.info("task done")
 
             except Exception as e:
-                logging.error("fail: " + str(e))
+                logging.error("fatal error: " + str(e))
 
-                graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "error" : str(e) } ))
+                graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "fatal" : str(e) } ))
                 graphreply.save()
 
         logging.info("exit")
@@ -505,7 +512,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         logging.basicConfig(level=logging.INFO, format='%(threadName)-3s: %(message)s' )
 
+        logging.info("starting workers...")
+        c = purgemessages.Command()
+        c.handle()
         logging.info("looking for tasks...")
+
         workers = Workers()
         try:
             while True:
