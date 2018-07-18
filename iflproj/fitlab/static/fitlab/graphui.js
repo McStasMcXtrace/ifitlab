@@ -40,9 +40,35 @@ function simpleajax(url, d, success_cb, fail_cb=null) {
     $(window.open().document.body).html(errorThrown + xhr.status + xhr.responseText);
   })
   .success(function(msg) {
-    // TODO: handle 'fatalerror'
-    // TODO: handle 'timeout'
-    success_cb(msg)
+    // parse & json errors
+    let obj = null;
+    try {
+      obj = JSON.parse(msg);
+    }
+    catch(error) {
+      console.log("JSON.parse error on string: ", msg);
+      alert("uncomprehensible server response");
+      selfref.graphData._updateNodeState(n);
+      selfref.updateUi();
+      throw error;
+    }
+
+    // fatal errors
+    let fatalerror = obj["fatalerror"];
+    if (fatalerror) {
+      alert("fatal error: " + fatalerror);
+      location.reload();
+      close()
+    }
+
+    // timeouts
+    let timeout = obj["timeout"];
+    if (timeout) {
+      alert("timeout: " + timeout);
+    }
+
+    // pass it on
+    success_cb(obj)
   });
 }
 function noerrorajax(url, d, success_cb) {
@@ -1606,9 +1632,8 @@ class GraphInterface {
   }
   loadSession() {
     $("body").css("cursor", "wait");
-    simpleajax('/ifl/ajax_load_session/' + this.gs_id, "", function(msg) {
+    simpleajax('/ifl/ajax_load_session/' + this.gs_id, "", function(obj) {
       this.reset();
-      let obj = JSON.parse(msg);
       this.injectGraphDefinition(obj["graphdef"]);
       this._update(obj["dataupdate"]);
       $("body").css("cursor", "default");
@@ -1616,9 +1641,8 @@ class GraphInterface {
   }
   revertSession() {
     $("body").css("cursor", "wait");
-    simpleajax('/ifl/ajax_revert_session/' + this.gs_id, "", function(msg) {
+    simpleajax('/ifl/ajax_revert_session/' + this.gs_id, "", function(obj) {
       this.reset();
-      let obj = JSON.parse(msg);
       this.injectGraphDefinition(obj["graphdef"]);
       this._update(obj["dataupdate"]);
       $("body").css("cursor", "default");
@@ -1628,7 +1652,7 @@ class GraphInterface {
     $("body").css("cursor", "wait");
     let coords = this.graphData.getCoords();
     let post_data = { "sync" : this.undoredo.getSyncSet(), "coords" : coords };
-    simpleajax('/ifl/ajax_save_session/' + this.gs_id, post_data, function(msg) {
+    simpleajax('/ifl/ajax_save_session/' + this.gs_id, post_data, function(obj) {
       //
       $("body").css("cursor", "default");
     }.bind(this));
@@ -1636,7 +1660,7 @@ class GraphInterface {
   update() {
     let coords = this.graphData.getCoords();
     let post_data = { "sync" : this.undoredo.getSyncSet(), "coords" : coords };
-    noerrorajax('/ifl/ajax_update/' + this.gs_id, post_data, function(msg) {
+    simpleajax('/ifl/ajax_update/' + this.gs_id, post_data, function(obj) {
       //
     }.bind(this));
   }
@@ -1664,35 +1688,22 @@ class GraphInterface {
 
     let syncset = this.undoredo.getSyncSet();
     let post_data = { "run_id": id, "sync": syncset };
-    let selfref = this; // replace this with the .bind(this) method on a func object
 
     simpleajax('/ifl/ajax_run_node/' + this.gs_id, post_data,
-      function(msg) {
-        selfref.lock = false;
-
-        let retobj = null;
-        try {
-          retobj = JSON.parse(msg);
-        }
-        catch(error) {
-          console.log("JSON.parse error on string: ", msg);
-          alert("uncomprehensible server response");
-          selfref.graphData._updateNodeState(n);
-          selfref.updateUi();
-          throw error
-        }
+      function(obj) {
+        this.lock = false;
 
         // fail section
-        let failmsg = retobj['error'];
+        let failmsg = obj['error'];
         if (failmsg != null) {
-          selfref.graphData._updateNodeState(n);
-          let sourceid = retobj['errorid'];
+          this.graphData._updateNodeState(n);
+          let sourceid = obj['errorid'];
           if (sourceid) {
-            let m = selfref.graphData.getNode(sourceid);
-            selfref._errorNode = m;
+            let m = this.graphData.getNode(sourceid);
+            this._errorNode = m;
             m.gNode.state = NodeState.FAIL;
             m.info = failmsg;
-            selfref.updateUi();
+            this.updateUi();
             alert(m.label + " " + sourceid + " " + failmsg);
           }
           else {
@@ -1701,15 +1712,15 @@ class GraphInterface {
         }
 
         // success section
-        let datasets = retobj['dataupdate'];
-        selfref._update(datasets);
-      },
+        let datasets = obj['dataupdate'];
+        this._update(datasets);
+      }.bind(this),
       function() {
         // unhandled server exception section
-        selfref.lock = false;
-        selfref.graphData._updateNodeState(n);
-        selfref.updateUi();
-      }
+        this.lock = false;
+        this.graphData._updateNodeState(n);
+        this.updateUi();
+      }.bind(this)
     );
   }
   _update(update) {

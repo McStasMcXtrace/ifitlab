@@ -152,7 +152,7 @@ def _command(username, gs_id, cmd, syncset, nowait=False):
             # success
             return answer, error
         if len(lst) > 1:
-            raise Exception("more than one reply for single request - multi-processing issue detected")
+            raise Exception("more than one reply for single request")
         time.sleep(0.1)
         elapsed = time.time() - t
 
@@ -162,7 +162,7 @@ def _command(username, gs_id, cmd, syncset, nowait=False):
             lst = GraphUiRequest.objects.filter(id=uireq.id)
             if len(lst)==1:
                 lst[0].delete()
-            return None
+            return None, None
 
 def _reply(reply_json, error_json):
     if reply_json:
@@ -170,7 +170,7 @@ def _reply(reply_json, error_json):
             return HttpResponse(error_json)
         return HttpResponse(reply_json)
     else:
-        return HttpResponse('{"timeout" : { "message" : "graph session request timed out" }}')
+        return HttpResponse('{"timeout" : "session request timed out" }')
 
 #######################
 #    AJAx handlers    #

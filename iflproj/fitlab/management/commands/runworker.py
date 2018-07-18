@@ -500,7 +500,7 @@ class Workers:
             except Exception as e:
                 logging.error("fatal error: " + str(e))
 
-                graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "fatal" : str(e) } ))
+                graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "fatalerror" : str(e) } ))
                 graphreply.save()
 
         logging.info("exit")
