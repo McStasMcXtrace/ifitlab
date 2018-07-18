@@ -85,7 +85,7 @@ class Task:
         self.reqid = reqid
         self.sync_obj = None
         if sync_obj_str:
-            self.sync_obj = json.loads(sync_obj_str)
+            self.sync_obj = sync_obj_str
         self.cmd = cmd
 
 '''

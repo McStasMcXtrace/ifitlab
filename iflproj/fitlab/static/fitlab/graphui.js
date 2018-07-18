@@ -1627,7 +1627,7 @@ class GraphInterface {
   saveSession() {
     $("body").css("cursor", "wait");
     let coords = this.graphData.getCoords();
-    let post_data = { json_str : JSON.stringify({ "sync" : this.undoredo.getSyncSet(), "coords" : coords }) };
+    let post_data = { "sync" : this.undoredo.getSyncSet(), "coords" : coords };
     simpleajax('/ifl/ajax_save_session/' + this.gs_id, post_data, function(msg) {
       //
       $("body").css("cursor", "default");
@@ -1635,7 +1635,7 @@ class GraphInterface {
   }
   update() {
     let coords = this.graphData.getCoords();
-    let post_data = { json_str: JSON.stringify({ "sync" : this.undoredo.getSyncSet(), "coords" : coords }) };
+    let post_data = { "sync" : this.undoredo.getSyncSet(), "coords" : coords };
     noerrorajax('/ifl/ajax_update/' + this.gs_id, post_data, function(msg) {
       //
     }.bind(this));
@@ -1663,7 +1663,7 @@ class GraphInterface {
     this.updateUi();
 
     let syncset = this.undoredo.getSyncSet();
-    let post_data = { json_str: JSON.stringify({ "run_id": id, "sync": syncset }) };
+    let post_data = { "run_id": id, "sync": syncset };
     let selfref = this; // replace this with the .bind(this) method on a func object
 
     simpleajax('/ifl/ajax_run_node/' + this.gs_id, post_data,

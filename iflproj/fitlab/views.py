@@ -191,7 +191,7 @@ def ajax_load_session(req, gs_id):
 def ajax_save_session(req, gs_id):
     username = req.session['username']
     cmd = "save"
-    syncset = req.POST.get('json_str')
+    syncset = req.POST
 
     print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, syncset))
 
@@ -202,7 +202,7 @@ def ajax_save_session(req, gs_id):
 def ajax_run_node(req, gs_id):
     username = req.session['username']
     cmd = "update_run"
-    syncset = req.POST.get('json_str')
+    syncset = req.POST
 
     print('ajax_run_node for user: %s, gs_id: %s ...' % (username, gs_id))
 
@@ -213,7 +213,7 @@ def ajax_run_node(req, gs_id):
 def ajax_update(req, gs_id):
     username = req.session['username']
     cmd = "update"
-    syncset = req.POST.get('json_str')
+    syncset = req.POST
 
     print('ajax_update for user: %s, gs_id: %s ...' % (username, gs_id))
 
