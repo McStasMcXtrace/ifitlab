@@ -9,9 +9,7 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 
 import enginterface
-import fitlab.models
-from .models import GraphUiRequest, GraphReply
-from fitlab.models import GraphSession
+from .models import GraphSession, GraphUiRequest, GraphReply, TabId
 from iflproj.settings import UI_COORDS_UPDATE_INTERVAL_MS, AJAX_REQ_TIMEOUT_S
 
 def index(req):
@@ -59,12 +57,16 @@ def login_submit(req):
 
 @login_required
 def graph_session(req, gs_id):
-    # TODO: here, we need to put an "attach" which can be a "load_attach" (we don't know which one at this level)
-
-    if not fitlab.models.GraphSession.objects.filter(id=gs_id).exists():
+    # check for open sessions with the same username and gs_id
+    if not GraphSession.objects.filter(id=gs_id).exists():
         print("redirecting missing graph session to index...")
         return redirect(index)
-    return render(req, "fitlab/main.html", context={ "gs_id" : gs_id, "update_interval" : UI_COORDS_UPDATE_INTERVAL_MS })
+
+    tabid = TabId()
+    tabid.gs_id = gs_id
+    tabid.save()
+    ct = { "gs_id" : gs_id, "update_interval" : UI_COORDS_UPDATE_INTERVAL_MS, "tab_id" : tabid.id }
+    return render(req, "fitlab/main.html", context=ct)
 
 @login_required
 def logout_user(req):
@@ -131,6 +133,28 @@ def delete_session(req, gs_id):
 #################
 #    Utility    #
 #################
+
+def _tabvalidation(req):
+    gs_id = req.POST.get("gs_id")
+    tab_id = req.POST.get("tab_id")
+    tabs = TabId.objects.filter(gs_id=gs_id)
+    if len(tabs) > 1:
+        raise Exception("multiple tab id's exist for the same graph session")
+
+    return bool(len(tabs)) and tabs[0].tab_id == tab_id
+
+def _tabtakeover(req):
+    gs_id = req.POST.get("gs_id")
+    tab_id = req.POST.get("tab_id")
+    tabs = TabId.objects.filter(gs_id=gs_id)
+    if len(tabs) > 1:
+        raise Exception("multiple tab id's exist for the same graph session")
+
+    tabs[0].delete()
+    ntab = TabId()
+    ntab.gs_id = gs_id
+    ntab.tab_id = tab_id
+    ntab.save()
 
 def _command(username, gs_id, cmd, syncset, nowait=False):
     ''' blocking with timeout, waits for workers to execute and returns the reply or None if timed out. '''

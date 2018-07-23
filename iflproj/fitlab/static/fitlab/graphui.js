@@ -1397,8 +1397,9 @@ class NodeFunctional extends Node {
 // high/user-level interface to graph data and drawing
 //
 class GraphInterface {
-  constructor(gs_id) {
+  constructor(gs_id, tab_id) {
     this.gs_id = gs_id;
+    this.tab_id = tab_id;
 
     this.graphData = new GraphTree(ConnRulesBasic);
     let linkCB = this._tryCreateLink.bind(this);

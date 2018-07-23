@@ -265,7 +265,7 @@ class Workers:
         try:
             obj = GraphSession.objects.filter(id=task.gs_id)[0]
         except:
-            raise Exception("requested gs_id yielded no db object")
+            raise Exception("requested gs_id yielded no db object: %s" % task.gs_id)
         if obj.username != task.username:
             raise Exception("username validation failed for session id: %s, sender: %s" % (obj.username, task.username))
 

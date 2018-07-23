@@ -2,6 +2,9 @@ from django.db import models
 from django.db.models import TextField, CharField, DateTimeField, BooleanField
 from django.utils import timezone
 
+class TabId(models.Model):
+    created = DateTimeField('created', default=timezone.now)
+    gs_id = CharField(max_length=200)
 
 class GraphUiRequest(models.Model):
     created = DateTimeField('created', default=timezone.now)

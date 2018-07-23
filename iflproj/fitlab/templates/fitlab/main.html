@@ -133,6 +133,8 @@
 
 <!-- graph session key, must be sent along with every ajax call -->
 <input id="gs_id" type="hidden" value="{{ gs_id }}">
+<!-- graph session key, must be sent along with every ajax call -->
+<input id="tab_id" type="hidden" value="{{ tab_id }}">
 <!-- update coords call time interval -->
 <input id="update_interval" type="hidden" value="{{ update_interval }}">
 </body>
@@ -276,16 +278,17 @@ $(document).ready(() => {
   // set up events
   $("#btnUndo").click( () => { intface.undo() });
   $("#btnRedo").click( () => { intface.redo() });
-  $("#btnRun").click( () => { intface.runSelectedNode($("body > #gs_id")[0].value) });
+  $("#btnRun").click( () => { intface.runSelectedNode() });
   $("#btnPlot").click( () => { plthandler.newPlotwindow(480, 100); });
-  $("#btnSave").click( () => { intface.saveSession($("body > #gs_id")[0].value) });
-  $("#btnRevert").click( () => { intface.revertSession($("body > #gs_id")[0].value) })
+  $("#btnSave").click( () => { intface.saveSession() });
+  $("#btnRevert").click( () => { intface.revertSession() })
   $("#btnClear").click( () => { intface.reset() });
   clearUserDataPanel();
 
   // construct graph engine and add listeners
   let gs_id = $("body > #gs_id")[0].value;
-  intface = new GraphInterface(gs_id);
+  let tab_id = $("body > #tab_id")[0].value;
+  intface = new GraphInterface(gs_id, tab_id);
   intface.addNodeRunReturnListener( (node) => {
     // clear previous subwindow elements with this id
     let x_y = plthandler.removePlots(node.id);
