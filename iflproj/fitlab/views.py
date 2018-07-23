@@ -1,4 +1,5 @@
 import time
+import json
 
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
@@ -130,9 +131,9 @@ def delete_session(req, gs_id):
     return redirect("index")
 
 
-#################
-#    Utility    #
-#################
+############################
+#    Utility / Privates    #
+############################
 
 def _tabvalidation(req):
     gs_id = req.POST.get("gs_id")
@@ -156,8 +157,15 @@ def _tabtakeover(req):
     ntab.tab_id = tab_id
     ntab.save()
 
-def _command(username, gs_id, cmd, syncset, nowait=False):
+def _command(req, cmd, nowait=False):
     ''' blocking with timeout, waits for workers to execute and returns the reply or None if timed out. '''
+    username = req.session["username"]
+    gs_id = req.POST["gs_id"]
+    tab_id = req.POST["tab_id"]
+    syncset = req.POST["data_str"]
+
+    print('ajax "%s" for user: %s, gs_id: %s ...' % (cmd, username, gs_id))    
+    
     # file the request
     uireq = GraphUiRequest(username=username, gs_id=gs_id, cmd=cmd, syncset=syncset)
     uireq.save()
@@ -201,58 +209,28 @@ def _reply(reply_json, error_json):
 #######################
 
 @login_required
-def ajax_load_session(req, gs_id):
-    username = req.session['username']
-    cmd = "load"
-    syncset = None
-
-    print('ajax_load_session for user: %s, gs_id: %s ...' % (username, gs_id))
-
-    rep, err = _command(username, gs_id, cmd, syncset)
+def ajax_load_session(req):
+    rep, err = _command(req, "load")
     return _reply(rep, err)
 
 @login_required
-def ajax_save_session(req, gs_id):
-    username = req.session['username']
-    cmd = "save"
-    syncset = req.POST
-
-    print("ajax_save_session, user: %s, gs_id: %s, sync: %s" % (username, gs_id, syncset))
-
-    rep, err = _command(username, gs_id, cmd, syncset)
+def ajax_save_session(req):
+    rep, err = _command(req, "save")
     return _reply(rep, err)
 
 @login_required
-def ajax_run_node(req, gs_id):
-    username = req.session['username']
-    cmd = "update_run"
-    syncset = req.POST
-
-    print('ajax_run_node for user: %s, gs_id: %s ...' % (username, gs_id))
-
-    rep, err = _command(username, gs_id, cmd, syncset)
+def ajax_run_node(req):
+    rep, err = _command(req, "update_run")
     return _reply(rep, err)
 
 @login_required
-def ajax_update(req, gs_id):
-    username = req.session['username']
-    cmd = "update"
-    syncset = req.POST
-
-    print('ajax_update for user: %s, gs_id: %s ...' % (username, gs_id))
-
-    _command(username, gs_id, cmd, syncset, nowait=True)
+def ajax_update(req):
+    _command(req, "update", nowait=True)
     return HttpResponse('{"message" : "coords update received"}')
     
 @login_required
-def ajax_revert_session(req, gs_id):
-    username = req.session['username']
-    cmd = "revert"
-    syncset = None
-
-    print('ajax_revert_session for user: %s, gs_id: %s ...' % (username, gs_id))
-
-    rep, err = _command(username, gs_id, cmd, syncset)
+def ajax_revert_session(req):
+    rep, err = _command(req, "revert")
     return _reply(rep, err)
 
 

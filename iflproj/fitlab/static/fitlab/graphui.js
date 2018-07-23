@@ -28,11 +28,14 @@ function remove(lst, element) {
     lst.splice(index, 1);
   }
 }
-function simpleajax(url, d, success_cb, fail_cb=null) {
+function wrap_ajax_validation_ids(gs_id, tab_id) {
+  return { "gs_id" : gs_id, "tab_id" : tab_id };
+}
+function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null) {
   return $.ajax({
-    type: 'POST',
+    type: "POST",
     url: url,
-    data: d,
+    data: { "gs_id": gs_id, "tab_id": tab_id, "data_str" : JSON.stringify(data) },
   })
   .fail(function(xhr, statusText, errorThrown) {
     if (fail_cb) fail_cb();
@@ -71,11 +74,11 @@ function simpleajax(url, d, success_cb, fail_cb=null) {
     success_cb(obj)
   });
 }
-function noerrorajax(url, d, success_cb) {
+function noerrorajax(url, data, gs_id, tab_id, success_cb) {
   return $.ajax({
     type: 'POST',
     url: url,
-    data: d,
+    data: { "gs_id": gs_id, "tab_id": tab_id, "data_str" : JSON.stringify(data) },
   })
   .fail(function(xhr, statusText, errorThrown) {
     //
@@ -1631,9 +1634,16 @@ class GraphInterface {
     //console.log(JSON.stringify(lst, null, 2));
     console.log(JSON.stringify(lst));
   }
+  ajaxcall(url, data, success_cb, fail_cb=null) {
+    simpleajax(url, data, this.gs_id, this.tab_id, success_cb, fail_cb)
+  }
+  ajaxcall_noerror(url, data, success_cb) {
+    noerrorajax(url, data, this.gs_id, this.tab_id, success_cb, null)
+  }
   loadSession() {
     $("body").css("cursor", "wait");
-    simpleajax('/ifl/ajax_load_session/' + this.gs_id, "", function(obj) {
+
+    this.ajaxcall("/ifl/ajax_load_session/", null, function(obj) {
       this.reset();
       this.injectGraphDefinition(obj["graphdef"]);
       this._update(obj["dataupdate"]);
@@ -1642,7 +1652,8 @@ class GraphInterface {
   }
   revertSession() {
     $("body").css("cursor", "wait");
-    simpleajax('/ifl/ajax_revert_session/' + this.gs_id, "", function(obj) {
+
+    this.ajaxcall("/ifl/ajax_revert_session/", null, function(obj) {
       this.reset();
       this.injectGraphDefinition(obj["graphdef"]);
       this._update(obj["dataupdate"]);
@@ -1651,17 +1662,22 @@ class GraphInterface {
   }
   saveSession() {
     $("body").css("cursor", "wait");
-    let coords = this.graphData.getCoords();
-    let post_data = { "sync" : this.undoredo.getSyncSet(), "coords" : coords };
-    simpleajax('/ifl/ajax_save_session/' + this.gs_id, post_data, function(obj) {
+
+    let post_data = {};
+    post_data["sync"] = this.undoredo.getSyncSet();
+    post_data["coords"] =  this.graphData.getCoords();
+
+    this.ajaxcall("/ifl/ajax_save_session/", post_data, function(obj) {
       //
       $("body").css("cursor", "default");
     }.bind(this));
   }
   update() {
-    let coords = this.graphData.getCoords();
-    let post_data = { "sync" : this.undoredo.getSyncSet(), "coords" : coords };
-    simpleajax('/ifl/ajax_update/' + this.gs_id, post_data, function(obj) {
+    let post_data = {};
+    post_data["sync"] = this.undoredo.getSyncSet();
+    post_data["coords"] =  this.graphData.getCoords();
+
+    this.ajaxcall_noerror("/ifl/ajax_update/", post_data, function(obj) {
       //
     }.bind(this));
   }
@@ -1687,10 +1703,11 @@ class GraphInterface {
     n.gNode.state = NodeState.RUNNING;
     this.updateUi();
 
-    let syncset = this.undoredo.getSyncSet();
-    let post_data = { "run_id": id, "sync": syncset };
+    let post_data = {};
+    post_data["sync"] = this.undoredo.getSyncSet();
+    post_data["run_id"] = id;
 
-    simpleajax('/ifl/ajax_run_node/' + this.gs_id, post_data,
+    this.ajaxcall("/ifl/ajax_run_node/", post_data,
       function(obj) {
         this.lock = false;
 
