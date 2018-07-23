@@ -324,10 +324,10 @@ $(document).ready(() => {
 
   // update server, before window close
   $(window).bind('beforeunload', () => {
-    intface.update();
+    intface.updateSession();
   });
   // update server, timed
-  setInterval(function() { intface.update(); }.bind(intface), $("body > #update_interval")[0].value);
+  setInterval(function() { intface.updateSession(); }.bind(intface), $("body > #update_interval")[0].value);
 
   // lines from nodes to plotwindows handler
   plotlines = new PlotLines(intface.draw.svg);

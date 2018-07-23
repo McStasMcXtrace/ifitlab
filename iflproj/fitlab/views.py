@@ -63,10 +63,8 @@ def graph_session(req, gs_id):
         print("redirecting missing graph session to index...")
         return redirect(index)
 
-    tabid = TabId()
-    tabid.gs_id = gs_id
-    tabid.save()
-    ct = { "gs_id" : gs_id, "update_interval" : UI_COORDS_UPDATE_INTERVAL_MS, "tab_id" : tabid.id }
+    tab_id = _tabcreate(gs_id)
+    ct = { "gs_id" : gs_id, "update_interval" : UI_COORDS_UPDATE_INTERVAL_MS, "tab_id" : tab_id }
     return render(req, "fitlab/main.html", context=ct)
 
 @login_required
@@ -138,40 +136,61 @@ def delete_session(req, gs_id):
 def _tabvalidation(req):
     gs_id = req.POST.get("gs_id")
     tab_id = req.POST.get("tab_id")
-    tabs = TabId.objects.filter(gs_id=gs_id)
-    if len(tabs) > 1:
-        raise Exception("multiple tab id's exist for the same graph session")
+    print("tab validate: %s, %s" % (gs_id, tab_id))
+    # check for existence
+    tablst = TabId.objects.filter(gs_id=gs_id, id=tab_id)
+    if len(tablst) == 0:
+        return False
+    tab = tablst[0]
+    # check for newer
+    for other in TabId.objects.filter(gs_id=gs_id).exclude(id=tab_id):
+        if other.created > tab.created:
+            print("deleting tab, gs_id: %s, tab_id: %s" % (gs_id, tab.id))
+            tab.delete()
+            return False
+    # positive match
+    return True
 
-    return bool(len(tabs)) and tabs[0].tab_id == tab_id
+def _tabcreate(gs_id):
+    ntab = TabId()
+    ntab.gs_id = gs_id
+    ntab.save()
+    print("tab create: %s, %s" % (gs_id, ntab.id))
+    return ntab.id
 
 def _tabtakeover(req):
     gs_id = req.POST.get("gs_id")
     tab_id = req.POST.get("tab_id")
-    tabs = TabId.objects.filter(gs_id=gs_id)
-    if len(tabs) > 1:
-        raise Exception("multiple tab id's exist for the same graph session")
-
-    tabs[0].delete()
-    ntab = TabId()
-    ntab.gs_id = gs_id
-    ntab.tab_id = tab_id
-    ntab.save()
+    print("tab id takeover")
+    # delete all tabs of this session
+    for sometab in TabId.objects.filter(gs_id=gs_id).exclude(id=tab_id):
+        print("takeover deleting tab, gs_id: %s, tab_id: %s" % (sometab.gs_id, sometab.id))
+        sometab.delete()
 
 def _command(req, cmd, nowait=False):
-    ''' blocking with timeout, waits for workers to execute and returns the reply or None if timed out. '''
+    '''
+    Command funnel, blocking with timeout.
+
+    Returns workers' (reply, None) to executed request object, or (None, None) if a timeout occurs.
+
+    Validates all calls using gs_id, tab_id and the current db state.
+    '''
+    if not _tabvalidation(req):
+        return None, '{"fatalerror" : "Session ownership was taken over by another window."}'
+
     username = req.session["username"]
     gs_id = req.POST["gs_id"]
     tab_id = req.POST["tab_id"]
     syncset = req.POST["data_str"]
 
-    print('ajax "%s" for user: %s, gs_id: %s ...' % (cmd, username, gs_id))    
-    
+    print('ajax "%s" for user: %s, gs_id: %s, tab_id: %s' % (cmd, username, gs_id, tab_id))    
+
     # file the request
     uireq = GraphUiRequest(username=username, gs_id=gs_id, cmd=cmd, syncset=syncset)
     uireq.save()
-    
+
     if nowait:
-        return
+        return None, None
 
     # poll db
     t = time.time()
@@ -194,15 +213,12 @@ def _command(req, cmd, nowait=False):
             lst = GraphUiRequest.objects.filter(id=uireq.id)
             if len(lst)==1:
                 lst[0].delete()
-            return None, None
+            return None, '{"timeout" : "session request timed out" }'
 
-def _reply(reply_json, error_json):
-    if reply_json:
-        if error_json != None:
-            return HttpResponse(error_json)
-        return HttpResponse(reply_json)
-    else:
-        return HttpResponse('{"timeout" : "session request timed out" }')
+def _reply(reply_json_str, error_json_str):
+    if error_json_str:
+        return HttpResponse(error_json_str)
+    return HttpResponse(reply_json_str)
 
 #######################
 #    AJAx handlers    #
@@ -211,6 +227,9 @@ def _reply(reply_json, error_json):
 @login_required
 def ajax_load_session(req):
     rep, err = _command(req, "load")
+    # transfer validation to this tab, if load call was successful
+    if rep != None:
+        _tabtakeover(req)
     return _reply(rep, err)
 
 @login_required
@@ -225,12 +244,11 @@ def ajax_run_node(req):
 
 @login_required
 def ajax_update(req):
-    _command(req, "update", nowait=True)
-    return HttpResponse('{"message" : "coords update received"}')
-    
+    rep, err = _command(req, "update", nowait=True)
+    return _reply('{"message" : "coords update received"}', err)
+
 @login_required
 def ajax_revert_session(req):
     rep, err = _command(req, "revert")
     return _reply(rep, err)
-
 

@@ -31,13 +31,15 @@ function remove(lst, element) {
 function wrap_ajax_validation_ids(gs_id, tab_id) {
   return { "gs_id" : gs_id, "tab_id" : tab_id };
 }
-function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null) {
-  return $.ajax({
+function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail=true) {
+  let isalive = true;
+  $.ajax({
     type: "POST",
     url: url,
     data: { "gs_id": gs_id, "tab_id": tab_id, "data_str" : JSON.stringify(data) },
   })
   .fail(function(xhr, statusText, errorThrown) {
+    if (!showfail) return
     if (fail_cb) fail_cb();
     $("body").css("cursor", "default");
     $(window.open().document.body).html(errorThrown + xhr.status + xhr.responseText);
@@ -59,6 +61,7 @@ function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null) {
     // fatal errors
     let fatalerror = obj["fatalerror"];
     if (fatalerror) {
+      isalive = false;
       alert("fatal error: " + fatalerror);
       location.reload();
       close()
@@ -73,17 +76,7 @@ function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null) {
     // pass it on
     success_cb(obj)
   });
-}
-function noerrorajax(url, data, gs_id, tab_id, success_cb) {
-  return $.ajax({
-    type: 'POST',
-    url: url,
-    data: { "gs_id": gs_id, "tab_id": tab_id, "data_str" : JSON.stringify(data) },
-  })
-  .fail(function(xhr, statusText, errorThrown) {
-    //
-  })
-  .success(success_cb);
+  return isalive;
 }
 
 function isString(value) {
@@ -1403,6 +1396,7 @@ class GraphInterface {
   constructor(gs_id, tab_id) {
     this.gs_id = gs_id;
     this.tab_id = tab_id;
+    this.isalive = true;
 
     this.graphData = new GraphTree(ConnRulesBasic);
     let linkCB = this._tryCreateLink.bind(this);
@@ -1635,10 +1629,13 @@ class GraphInterface {
     console.log(JSON.stringify(lst));
   }
   ajaxcall(url, data, success_cb, fail_cb=null) {
-    simpleajax(url, data, this.gs_id, this.tab_id, success_cb, fail_cb)
+    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, fail_cb, true);
+    console.log(this.isalive);
   }
   ajaxcall_noerror(url, data, success_cb) {
-    noerrorajax(url, data, this.gs_id, this.tab_id, success_cb, null)
+    // call with showfail=false, which turns off django and offline fails
+    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, null, false);
+    console.log(this.isalive);
   }
   loadSession() {
     $("body").css("cursor", "wait");
@@ -1672,7 +1669,9 @@ class GraphInterface {
       $("body").css("cursor", "default");
     }.bind(this));
   }
-  update() {
+  updateSession() {
+    if (!this.isalive) return;
+
     let post_data = {};
     post_data["sync"] = this.undoredo.getSyncSet();
     post_data["coords"] =  this.graphData.getCoords();
