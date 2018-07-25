@@ -13,6 +13,7 @@ const anchorRadius = 6;
 const extensionLength = 40;
 const anchSpace = 40;
 const pathChargeStrength = -10;
+const distanceChargeStrength = -10;
 const pathLinkStrength = 1;
 const distance = 20;
 
@@ -140,11 +141,13 @@ class GraphicsNode {
   constructor(owner, label, x, y) {
     this.owner = owner;
     this.label = label;
-    this.x = x;
-    this.y = y;
+    this._x = x;
+    this._y = y;
 
     this.anchors = null;
     this.r = nodeRadius;
+    this.colliderad = this.r;
+
     this.centerAnchor = new CenterAnchor(this);
 
     // graphics switch on this property, which is updated externally according to some rule
@@ -156,6 +159,18 @@ class GraphicsNode {
   setAnchors(anchors) {
     if (this.anchors) throw "anchors only intended to be set once";
     this.anchors = anchors;
+  }
+  get x() {
+    return this._x;
+  }
+  set x(value) {
+    this._x = value;
+  }
+  get y() {
+    return this._y;
+  }
+  set y(value) {
+    this._y = value;
   }
   // level means itypes/otypes == 0/1
   getAnchor(idx, level) {
@@ -178,11 +193,10 @@ class GraphicsNode {
   setOutputAncorTypes(ats) {
     let anchors = this.anchors;
     let a = null;
-    for (var j=0;j<anchors.filter(a => !a.i_o).length;j++) {
-      a = anchors[j];
-      if (a.i_o==false) {
-        a.type = ats[j];
-      }
+    let oanchors = anchors.filter(a => !a.i_o);
+    for (var j=0;j<oanchors.length;j++) {
+      a = oanchors[j];
+      a.type = ats[j];
     }
   }
 }
@@ -240,6 +254,7 @@ class GraphicsNodeHexagonal extends GraphicsNode {
   constructor(owner, label, x, y) {
     super(owner, label, x, y);
     this.r = 1.05 * nodeRadius;
+    this.colliderad = 1.07 * this.r;
   }
   draw(branch, i) {
     let r = 1.1 * this.r;
@@ -268,6 +283,67 @@ class GraphicsNodeFluffy extends GraphicsNode {
     this.numfluff = 14;
     this.fluffrad = 7;
     this.r = 1.05 * nodeRadius;
+    this.colliderad = this.r;
+  }
+  draw(branch, i) {
+    let r = 0.80 * this.r;
+    let alpha;
+    let points = [];
+    for (let j=0; j<this.numfluff; j++) {
+      alpha = j*Math.PI*2/this.numfluff;
+      points.push( {x : r*Math.cos(alpha), y : - r*Math.sin(alpha) } );
+    }
+    branch = super.draw(branch, i);
+    branch.append("g").lower()
+      .append('circle')
+      .attr('r', r)
+      .attr("stroke", "none")
+      .lower();
+    branch.append("g").lower()
+      .selectAll("circle")
+      .data(points)
+      .enter()
+      .append("circle")
+      .attr('r', this.fluffrad)
+      .attr("transform", function(p) { return "translate(" + p.x + "," + p.y + ")" } );
+
+    return branch;
+  }
+}
+
+class GraphicsNodeFluffySmall extends GraphicsNode {
+  constructor(owner, label, x, y) {
+    super(owner, label, x, y);
+    this.numfluff = 5;
+    this.fluffrad = 7;
+    this.r = 0.5 * nodeRadius;
+    this.colliderad = 0.7 * nodeRadius;
+
+    this._attachAnch = null;
+    this._localx = 20;
+    this._localy = -40;
+  }
+  get x() {
+    if (this._attachAnch == null) return this._x;
+    return this._localx + this._attachAnch.x;
+  }
+  set x(value) {
+    if (this._attachAnch == null) this._x = value;
+  }
+  get y() {
+    if (this._attachAnch == null) return this._y;
+    return this._localy + this._attachAnch.y;
+  }
+  set y(value) {
+    if (this._attachAnch == null) this._y = value;
+  }
+  attachMoveTo(d) {
+    this._attachAnch = d;
+    this._localx = d.localx*2;
+    this._localy = d.localy*2;
+  }
+  detachMove() {
+    this._attachAnch = null;
   }
   draw(branch, i) {
     let r = 0.80 * this.r;
@@ -300,6 +376,7 @@ class GraphicsNodeFluffyPad extends GraphicsNode {
     super(owner, label, x, y);
     this.numfluff = 8;
     this.fluffrad = 13;
+    this.colliderad = 1.1 * this.r;
   }
   draw(branch, i) {
     branch = super.draw(branch, i);
@@ -401,6 +478,15 @@ class AnchorCircular extends Anchor {
     let ext_localx = (owner.r + extensionLength) * Math.cos(this.angle/360*2*Math.PI);
     let ext_localy = - (this.owner.r + extensionLength) * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
     this.ext = new ExtensionAnchor(owner, ext_localx, ext_localy);
+  }
+}
+
+class AnchorCircularNoext extends Anchor {
+  constructor(owner, angle, type, parname, i_o, idx) {
+    super(owner, angle, type, parname, i_o, idx);
+    this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
+    this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
+    this.ext = new ExtensionAnchor(owner, this.localx, this.localy);
   }
 }
 
@@ -643,8 +729,7 @@ class GraphDraw {
     // force layout simulations
     this.collideSim = d3.forceSimulation()
       .force("collide",
-        d3.forceCollide(nodeRadius + 3)
-        .iterations(4)
+        d3.forceCollide( function(d) { return d.colliderad; } )
       )
       .stop()
       .on("tick", this.update);
@@ -660,6 +745,7 @@ class GraphDraw {
           .strength(pathLinkStrength)
           .distance( function(d) { return distance; } )
       )
+      // force to keep links out of node centers and anchors
       .force("pathcharge",
         d3.forceManyBody()
           .strength(pathChargeStrength)
@@ -740,7 +826,7 @@ class GraphDraw {
     self.distanceSim = d3.forceSimulation(self.graphData.getGraphicsNodeObjs())
       .force("noderepulsion",
         d3.forceManyBody()
-          .strength( -40 )
+          .strength( distanceChargeStrength )
           .distanceMin(20)
           .distanceMax(100))
       .stop()
@@ -842,8 +928,7 @@ class GraphDraw {
     if (s && s != d && s.owner != d.owner) self.mouseAddLinkCB(s, d);
     self.dragAnchor = null;
 
-    // the s == d case triggers the node drawn to disappear, so redraw
-    //self.drawAll();
+
   }
   showTooltip(x, y, tip) {
     if (tip == '') return;
@@ -1301,13 +1386,14 @@ class NodeObjectLiteral extends Node {
     typeconf.itypes = [];
     typeconf.otypes = ['obj'];
     typeconf.ipars = [''];
+
     super(x, y, id, name, label, typeconf);
   }
   _getGNType() {
-    return GraphicsNodeFluffy;
+    return GraphicsNodeFluffySmall;
   }
   _getAnchorType() {
-    return AnchorCircular;
+    return AnchorCircularNoext;
   }
   isConnected(connectivity) {
     if (connectivity.length > 0) {
@@ -1335,6 +1421,13 @@ class NodeObjectLiteral extends Node {
   }
   set label(value) {
     // just ignore external set-label calls
+  }
+  onConnect(link, isInput) {
+    this.gNode.attachMoveTo(link.d2);
+    link.recalcPathAnchors();
+  }
+  onDisconnect(link, isInput) {
+    this.gNode.detachMove();
   }
 }
 
@@ -1630,12 +1723,10 @@ class GraphInterface {
   }
   ajaxcall(url, data, success_cb, fail_cb=null) {
     this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, fail_cb, true);
-    console.log(this.isalive);
   }
   ajaxcall_noerror(url, data, success_cb) {
     // call with showfail=false, which turns off django and offline fails
     this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, null, false);
-    console.log(this.isalive);
   }
   loadSession() {
     $("body").css("cursor", "wait");

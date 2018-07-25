@@ -278,6 +278,8 @@ class GraphTree {
     // update
     this._updateNodeState(n1);
     this._updateNodeState(n2);
+    n1.gNode.onConnect(l, false);
+    n2.gNode.onConnect(l, true);
     return true;
   }
   linkRm(addr1, idx1, addr2, idx2) {
@@ -320,6 +322,8 @@ class GraphTree {
     // update
     this._updateNodeState(n1);
     this._updateNodeState(n2);
+    n1.gNode.onDisconnect(l, false);
+    n2.gNode.onDisconnect(l, true);
     return true;
   }
   nodeLabel(id, label) {
