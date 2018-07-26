@@ -4,7 +4,6 @@ from django.utils import timezone
 
 class TabId(models.Model):
     created = DateTimeField('created', default=timezone.now)
-    touched = DateTimeField('touched', default=timezone.now)
     gs_id = CharField(max_length=200)
 
 class GraphUiRequest(models.Model):
