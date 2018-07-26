@@ -109,11 +109,8 @@ namecategories = collections.OrderedDict({
 })
 
 class IData(enginterface.ObjReprJson):
+    ''' Creates an IData object using data file located at url. '''
     def __init__(self, url, datashape=None):
-        '''
-        If url is a string datashape must be None.
-        Otherwise, url must be an ndarray (nested json lists) of shape matching datashape.
-        '''
         logging.debug("IData.__init__('%s')" % url)
         self.varname = _get_idata_uuid()
 
@@ -182,13 +179,16 @@ class IData(enginterface.ObjReprJson):
         return retdct
 
     def rmint(self, min, max):
-        ''' removes intervals from idata objects 
+        ''' Remove data from the specified interval. '''
+
+        _
+        ''' 
         NOTE: a (minmax_lst) signatured version of rmint would require a "rank" or "shape" indexing 
         depth parameter (same as combine).
         '''
         def rmint_atomic(vn, start, end):
             _eval("%s = xlim(%s, [%f %f], 'exclude');" % (vn, vn, start, end), nargout=0)
-        
+
         min = _ifregular_squeeze_cast(min)
         max = _ifregular_squeeze_cast(max)
 
@@ -408,7 +408,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     return params
 
 class IFunc(enginterface.ObjReprJson):
-    '''  '''
+    ''' Creates an IFunc object, a flexible fitting model. Use iFit syntax to input a model specification in the "symbol" argument. '''
     def __init__(self, datashape:list=None, symbol='iFunc'):
         logging.debug("%s.__init__" % str(type(self)))
 
@@ -506,7 +506,7 @@ class IFunc(enginterface.ObjReprJson):
         return s
 
     def guess(self, guess: dict):
-        ''' applies a guess to the parameters of this instance '''
+        ''' Applies values to parameters by means of dictionary keys-value pairs. All values must be set simultaneously. '''
 
         def set_parvalues_atomic(vn, dct):
             parameternames = _eval('%s.Parameters;' % vn)
@@ -542,6 +542,7 @@ class IFunc(enginterface.ObjReprJson):
             _vectorized(shape, set_parvalues_atomic, vnargs, args, ndaargs)
 
     def fixpars(self, parnames: list):
+        ''' Fixes parameters with the specified names. Fixed parameters will not be varied during fit optimizations. '''
 
         def fixpars_atomic(vn, fixpars):
             # this hack fixes cases where fixpars_atomic is vectorized, in which case numpy can reduce
@@ -731,7 +732,7 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
 
 
 class PltIter(enginterface.ObjReprJson):
-    ''' extract plotdata at index in vectorized idata '''
+    ''' Iterates through plotdata in a vectorized IData object, at index determined by pltiter, or 0. '''
     def __init__(self, data:IData, pltiter):
         '''
         IData object "data" must be vectorized. PltIter instance "pltiter" can be None
@@ -799,7 +800,7 @@ class PltIter(enginterface.ObjReprJson):
             self.nxt_idx = tuple(nxt_idx)
 
 class FitIter(enginterface.ObjReprJson):
-    ''' extract plotdata at index in vectorized ifunc '''
+    ''' Iterates through plotdata in a vectorized IFunc object, at index determined by fititer, or 0. '''
     def __init__(self, fit:IFunc, fititer):
         self.shape = fit._get_datashape()
         if self.shape in (tuple(), None, ):
@@ -870,12 +871,15 @@ class FitIter(enginterface.ObjReprJson):
 constructor functions for various models, substitutes for class constructors
 '''
 def Gauss(datashape:list=None) -> IFunc:
+    ''' Creates a Gauss IFunc model object. '''
     return IFunc(datashape, 'gauss')
 
 def Lorentz(datashape:list=None) -> IFunc:
+    ''' Creates a Lorentz IFunc model object. '''
     return IFunc(datashape, 'lorz')
 
 def Lin(datashape:list=None) -> IFunc:
+    ''' Creates a Linear IFunc model object. '''
     return IFunc(datashape, 'strline')
 
 
@@ -884,7 +888,7 @@ ifunc combination functions / operators
 '''
 
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    ''' returns the ifunc-addition of two IFunc objects '''
+    ''' Outputs the sum of two IFunc model objects. '''
     # check datashape
     shape = ifunc_a._get_datashape()
     shape2 = ifunc_b._get_datashape()
@@ -905,7 +909,7 @@ def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     return retobj
 
 def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    ''' multiplies '''
+    ''' Outputs the multiplication of two IFunc model objects '''
     # check datashape
     shape = ifunc_a._get_datashape()
     shape2 = ifunc_b._get_datashape()
@@ -925,22 +929,13 @@ def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
         mult_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
     return retobj
 
-'''
-def trapz(ifunc: IFunc) -> IFunc:
-    logging.debug("trapz: %s" % ifunc)
-    vn_old = ifunc.varname
-    obj = IFunc()
-    vn_new = obj.varname
-    _eval('%s = trapz(%s)' % (vn_new, vn_old))
-    return obj
-'''
 
 '''
 functions (also called "methods" in the ifit documentation
 '''
 
 def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
-    ''' fits ifunc to idata and returns a fitted IFunc object, with plot information matching the axes of idata '''
+    ''' Outputs the fitted model of an IFunc model to an IData object. '''
     logging.debug("fit: %s, %s" % (idata, ifunc))
 
     # TODO: alter the call to 'fits' in a way that respects the current ifunc par values as a guess
@@ -995,7 +990,7 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     return retobj
 
 def combine(filenames:list) -> IData:
-    ''' a data reduce / merge handled by iFit'''
+    ''' Combines and outputs multiple data files into a single IData object '''
     logging.debug("combine")
 
     def combine_atomic(vn, fns):
@@ -1030,17 +1025,17 @@ def combine(filenames:list) -> IData:
     return retobj
 
 def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
+    ''' Extracts parameter values and axis information from fitfunc given the parameters in typefunc. Returns a new IFunc object with that parameter configuration.'''
+
+    _
     '''
-    Extracts parameter values and axis information from fitfunc, given the parameters in typefunc, 
-    returning a new IFunc object of that configuration.
-    
     fitfunc:    object to extract parameter values and axes from
     typefunc:   object whose parameter names and type is used to extract information from 
                 fitfunc, in generating separated output
     pidx:       If fitfunc has more matcheds for some parameters in 
                 typefunc, an index is required to indicate which ones to copy
     '''
-    
+
     def separate_atomic(vn_fitf, vn_outf, typef, idx):
         none, none, userdct = _get_iFunc_repr(vn_fitf, plotaxes=None, plotdims=None)
         none, none, wanted = _get_iFunc_repr(typef.varname, plotaxes=None, plotdims=None)

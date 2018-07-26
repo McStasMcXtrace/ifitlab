@@ -827,8 +827,8 @@ class GraphDraw {
       .force("noderepulsion",
         d3.forceManyBody()
           .strength( distanceChargeStrength )
-          .distanceMin(20)
-          .distanceMax(100))
+          .distanceMin(0)
+          .distanceMax(75))
       .stop()
       .on("tick", self.update);
   }
@@ -1224,15 +1224,16 @@ class Node {
     this.address = typeconf.address;
     this._obj = null; // the data object of this handle
     this.static = typeconf.static != "false";
-    this.executable = typeconf.executable != "false"
-    this.edit = typeconf.edit != "false"
+    this.executable = typeconf.executable != "false";
+    this.edit = typeconf.edit != "false";
+    this.docstring = typeconf.docstring;
 
     // craete the GraphicsNode
     let nt = this._getGNType();
     this.gNode = new nt(this, label, x, y);
 
     let iangles = ConnRulesBasic.getInputAngles(typeconf.itypes.length);
-    let oangles = ConnRulesBasic.getOutputAngles(typeconf.otypes.length)
+    let oangles = ConnRulesBasic.getOutputAngles(typeconf.otypes.length);
 
     let anchors = [];
     let at = this._getAnchorType();

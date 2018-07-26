@@ -452,6 +452,7 @@ def save_modulename_json(module_name, package_name):
 class NodeConfig:
     ''' will be converted to a json record, includes generative funtions for the "special" node confs '''
     def __init__(self):
+        self.docstring = ''
         self.basetype = ''
         self.address = ''
         self.type = ''
@@ -496,6 +497,7 @@ class NodeConfig:
         self.data = data
 
     def make_object(self, branch):
+        self.docstring = "Multipurpose, untyped object handle."
         self.type = 'obj'
         self.address = '.'.join([branch, 'obj'])
         self.basetype = 'object'
@@ -505,6 +507,7 @@ class NodeConfig:
         self.name = 'object'
 
     def make_literal(self, branch):
+        self.docstring = "Literal value handle."
         self.type = 'literal'
         self.address = '.'.join([branch, 'literal'])
         self.basetype = 'object_literal'
@@ -533,6 +536,7 @@ class NodeConfig:
             ("name", self.name),
             ("label", self.label),
             ("data", self.data),
+            ("docstring", self.docstring),
         ])
         return dct
 
@@ -587,6 +591,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
 
         argspec = inspect.getfullargspec(cls.__init__)
         conf = NodeConfig()
+        conf.docstring = cls.__doc__.strip()
         args, data = get_args_and_data(cls.__init__)
         conf.make_function_like_wtypehints(
             address,
@@ -619,6 +624,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
             
             argspec = inspect.getfullargspec(m)
             conf = NodeConfig()
+            conf.docstring = m.__doc__.strip()
             args, data = get_args_and_data(m)
             conf.make_method_like_wtypehints(
                 address,
@@ -628,7 +634,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
                 clsobj=cls,
                 data=data)
             conf.basetype = "method_as_function"
-
+            
             tree.put(path, conf.get_repr(), get_key)
             addrss.append((address, inputnames.index(keyname)))
             categories[category] = ""
@@ -643,6 +649,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
         
         argspec = inspect.getfullargspec(f)
         conf = NodeConfig()
+        conf.docstring = f.__doc__.strip()
         args, data = get_args_and_data(f)
         # "functions" which are capitalized are assumed to be substitutes for class constructors
         # ..now that the system isn't polymorphic really

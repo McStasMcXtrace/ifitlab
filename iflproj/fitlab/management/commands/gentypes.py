@@ -19,6 +19,7 @@ def ctypeconf_ifitlib(tree, addrss):
 
     # object_idata
     idata = enginterface.NodeConfig()
+    idata.docstring = "IData object handle."
     idata.type = 'idata'
     idata.address = '.'.join(['handles', 'idata'])
     idata.basetype = 'object_idata'
@@ -35,6 +36,7 @@ def ctypeconf_ifitlib(tree, addrss):
 
     # object_ifunc
     ifunc = enginterface.NodeConfig()
+    ifunc.docstring = "IFunc object handle."
     ifunc.type = 'ifunc'
     ifunc.address = '.'.join(['handles', 'ifunc'])
     ifunc.basetype = 'object_ifunc'

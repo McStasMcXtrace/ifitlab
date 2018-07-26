@@ -120,7 +120,8 @@
 
 <div id="divUserData" style="position:absolute;cursor:pointer;background-color:white;top:40px;" class=select><fieldset><legend id="lgndNodeIdNameTypeEtc">userdata</legend>
   <table id="tblUserData" style="width:460px;">
-    <tr><td colspan=2><label id="lblNodeInfo"></label></td></tr>
+    <tr><td colspan=2><label id="lblNodeDocs"></label></td></tr>
+    <tr><td colspan=2><label style="font-style:italic;" id="lblNodeInfo"></label></td></tr>
     <tr><td><label>Label:</label></td><td><input type="text" id="tbxNodeLabel" style="width:380px;"/></td></tr>
     <tr><td><label>Colour:</label></td><td><input type="text" id="tbxColour" style="width:380px;"/></td></tr>
   </table>
@@ -128,7 +129,7 @@
 
 <link rel="stylesheet" href="/ifl/ifl-static/fitlab/jquery-ui.css">
 <div id="dialog" title="How to use iFitLab:">
-  <ul><li><b>create</b>: click template node, click work-area</li><li><b>delete</b>: ctr-click node</li><li><b>select</b>: click a node</li><li><b>move</b>: mouse-drag node</li><li><b>connect</b>: mouse-drag anchors (even if a link exists)</li><li><b>run</b>: double-click node</li>
+  <ul><li><b>create</b>: click template click work area</li><li><b>delete</b>: control click node</li><li><b>select</b>: click node</li><li><b>move</b>: mouse drag node</li><li><b>connect</b>: mouse drag anchors (even if a link exists)</li><li><b>run</b>: double click node</li>
   </ul>
 </div>
 
@@ -165,7 +166,8 @@ setUserData = function(node) {
   if (node.info) $("#lblNodeInfo").text("Info: " + JSON.stringify(node.info));
   $("#tbxNodeLabel").val(node.label);
   $("#tbxColour").val(node.gNode.colour);
-  $("#lgndNodeIdNameTypeEtc").html(node.id+" - "+node.type+"");
+  $("#lgndNodeIdNameTypeEtc").html(node.type+" "+node.id);
+  $('#lblNodeDocs').html(node.docstring);
 
   // Why does "literal" node type get special treatment?
   // Because, it is currently the only way we have of entering actual JSON data into the graph environment...
