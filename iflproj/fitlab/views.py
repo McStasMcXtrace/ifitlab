@@ -230,6 +230,11 @@ def ajax_run_node(req):
 @login_required
 def ajax_update(req):
     rep, err = _command(req, "update", nowait=True)
+
+    gs_id = req.POST["gs_id"]
+    if not GraphSession.objects.filter(id=gs_id).exists():
+        return _reply(rep, '{"fatalerror" : "Session does not exist."}')
+
     return _reply('{"message" : "coords update received"}', err)
 
 @login_required
