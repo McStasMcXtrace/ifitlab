@@ -17,6 +17,7 @@ urlpatterns = [
     url(r'^logout/?$', views.logout_user),
     url(r'^graphsession/(?P<gs_id>[\w0-9]+)/?$', views.graph_session),
     url('^ajax_run_node/?$', views.ajax_run_node),
+    url('^ajax_clear_data/?$', views.ajax_clear_data),
     url('^ajax_update/?$', views.ajax_update),
     url('^ajax_save_session/?$', views.ajax_save_session),
     url('^ajax_load_session/?$', views.ajax_load_session),

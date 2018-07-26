@@ -404,9 +404,11 @@ class FlatGraph:
                 obj = n.get_object()
                 if obj:
                     update[key] = obj.get_repr()
+                else:
+                    update[key] = None
 
         return update
-    
+
     def shutdown(self):
         self.middleware.finalise()
 

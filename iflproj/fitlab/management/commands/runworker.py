@@ -423,6 +423,18 @@ class Workers:
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(error1))
                     graphreply.save()
 
+                # clear objects
+                elif task.cmd == "clear_data":
+                    session = self.get_soft_session(task)
+                    if not session:
+                        raise Exception("clear_data failed: session was not alive")
+
+                    session.graph.reset_all_objs()
+                    update = session.graph.extract_update()
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
+                    graphreply.save()
+
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":
                     for session in self.get_user_softsessions(task):

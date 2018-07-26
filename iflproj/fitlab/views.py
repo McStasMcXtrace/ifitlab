@@ -228,6 +228,11 @@ def ajax_run_node(req):
     return _reply(rep, err)
 
 @login_required
+def ajax_clear_data(req):
+    rep, err = _command(req, "clear_data")
+    return _reply(rep, err)
+
+@login_required
 def ajax_update(req):
     rep, err = _command(req, "update", nowait=True)
 

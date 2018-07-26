@@ -1756,7 +1756,14 @@ class GraphInterface {
     post_data["coords"] =  this.graphData.getCoords();
 
     this.ajaxcall("/ifl/ajax_save_session/", post_data, function(obj) {
-      //
+      $("body").css("cursor", "default");
+    }.bind(this));
+  }
+  clearSessionData() {
+    $("body").css("cursor", "wait");
+
+    this.ajaxcall("/ifl/ajax_clear_data/", null, function(obj) {
+      this._update(obj["dataupdate"]);
       $("body").css("cursor", "default");
     }.bind(this));
   }
@@ -1815,7 +1822,8 @@ class GraphInterface {
             alert(m.label + " " + sourceid + " " + failmsg);
           }
           else {
-            alert(fail['message']);
+            console.log("fallback alert used")
+            alert(failmsg);
           }
         }
 
@@ -1838,9 +1846,12 @@ class GraphInterface {
       let m = this.graphData.getNode(key);
       if (obj != null) {
         this.node_data(key, JSON.stringify(obj.userdata));
-        m.obj = obj; // (re)set all data
-        this.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
       }
+      else {
+        this.node_data(key, "null");
+      }
+      m.obj = obj; // (re)set all data
+      this.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
       this.graphData._updateNodeState(m);
       this._fireEvents(this._nodeRunReturnListn, [m]);
     }

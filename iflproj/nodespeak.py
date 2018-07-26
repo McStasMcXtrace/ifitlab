@@ -372,9 +372,8 @@ class FuncNode(Node):
 
 class MethodNode(Node):
     ''' Represents a method reference on some object, requires an ObjNode owner. '''
-    class OwnerNotAssignedException(Exception): pass
-    class NoMethodOfThatNameException(Exception): pass
-    class AssignException(Exception): pass
+    class NoMethodOfThatNameException(InternalExecutionException): pass
+    class AssignException(InternalExecutionException): pass
     class ExeModel(ExecutionModel):
         def order(self):
             return 0
@@ -391,7 +390,7 @@ class MethodNode(Node):
         self.methodname = methodname
         super().__init__(name, exe_model=MethodNode.ExeModel())
     def assign(self, obj):
-        raise MethodNode.AssignException()
+        raise MethodNode.AssignException(self.name, "can not assign to method nodes")
     def call(self, *args):
         ''' returns None if the owner node's object is None '''
         last = None
@@ -401,7 +400,7 @@ class MethodNode(Node):
                 try:
                     method = getattr(o.get_object(), self.methodname)
                 except:
-                    raise MethodNode.NoMethodOfThatNameException()
+                    raise MethodNode.NoMethodOfThatNameException(self.name, "no method of that name")
                 try:
                     last = method(*args)
                 except Exception as e:
@@ -426,7 +425,7 @@ class MethodAsFunctionNode(Node):
         self.defaults = {}
     def assign(self, obj):
         if type(obj) not in (dict, ):
-            raise Exception("only do call MethodAsFunctionNode.assign with a dict (%s)" % str(obj))
+            raise InternalExecutionException(self.name, "only do call MethodAsFunctionNode.assign with a dict (%s)" % str(obj))
         for k in obj.keys():
             # we have to assume that they are assigning something meaningful - otherwise call() will fail (a check could be implemented though)
             self.defaults[k] = obj[k]
@@ -444,7 +443,7 @@ class MethodAsFunctionNode(Node):
                     if par._name not in self.defaults.keys():
                         self.defaults[k] = par.default
         except:
-            raise MethodNode.NoMethodOfThatNameException()
+            raise MethodNode.NoMethodOfThatNameException(self.name, "no method of that name")
         try:
             return method(*realargs, **self.defaults)
         except Exception as e:
