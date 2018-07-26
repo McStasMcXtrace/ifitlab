@@ -80,7 +80,7 @@ def logout_user(req):
     print('loging out user: %s' % username)
     logout(req)
 
-    _command(username, "*", cmd, syncset)
+    _command(req, cmd, validate=False)
     return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl/login'>login</a> <a href='/ifl/login_debuguser'>login as debuguser</a>" % username)
 
 @login_required
@@ -91,7 +91,7 @@ def new_session(req):
 
     print('creating new graph session for user: %s' % (username))
 
-    _command(username, "", cmd, syncset)
+    _command(req, cmd, validate=False)
     return redirect("index")
 
 @login_required
@@ -102,7 +102,7 @@ def new_session_and_open(req):
 
     print('creating new graph session for user: %s' % (username))
 
-    ans, err = _command(username, "", cmd, syncset)
+    ans, err = _command(req, cmd, validate=False)
     
     return redirect("/ifl/graphsession/%s" % ans)
 
@@ -114,7 +114,7 @@ def clone_session(req, gs_id):
 
     print('cloning graph session for user: %s, gs_id: %s' % (username, gs_id))
 
-    _command(username, gs_id, cmd, syncset)
+    _command(req, cmd, validate=False, gs_id=gs_id)
     return redirect("index")
 
 @login_required
@@ -125,7 +125,7 @@ def delete_session(req, gs_id):
 
     print('deleting graph session for user: %s, gs_id: %s' % (username, gs_id))
 
-    _command(username, gs_id, cmd, syncset)
+    _command(req, cmd, validate=False, gs_id=gs_id)
     return redirect("index")
 
 
@@ -167,21 +167,21 @@ def _tabtakeover(req):
         print("takeover deleting tab, gs_id: %s, tab_id: %s" % (sometab.gs_id, sometab.id))
         sometab.delete()
 
-def _command(req, cmd, nowait=False):
+def _command(req, cmd, nowait=False, validate=True, gs_id=""):
     '''
-    Command funnel, blocking with timeout.
+    Ajax command funnel, blocking with timeout.
 
     Returns workers' (reply, None) to executed request object, or (None, None) if a timeout occurs.
 
     Validates all calls using gs_id, tab_id and the current db state.
     '''
-    if not _tabvalidation(req):
+    if validate and not _tabvalidation(req):
         return None, '{"fatalerror" : "Session ownership was taken over by another window."}'
 
     username = req.session["username"]
-    gs_id = req.POST["gs_id"]
-    tab_id = req.POST["tab_id"]
-    syncset = req.POST["data_str"]
+    gs_id = req.POST.get("gs_id", gs_id)
+    tab_id = req.POST.get("tab_id", "")
+    syncset = req.POST.get("data_str", None)
 
     print('ajax "%s" for user: %s, gs_id: %s, tab_id: %s' % (cmd, username, gs_id, tab_id))    
 
