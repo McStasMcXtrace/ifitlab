@@ -174,6 +174,8 @@ class GraphicsNode {
   }
   // level means itypes/otypes == 0/1
   getAnchor(idx, level) {
+    if (idx == -1) return this.centerAnchor;
+
     let a = null;
     for (var i=0;i<this.anchors.length;i++) {
       a = this.anchors[i];
@@ -181,6 +183,9 @@ class GraphicsNode {
         return a;
     }
     throw "could not get anchor: ", idx, level;
+  }
+  hasCenterConnection() {
+    return this.centerAnchor.numconnections >= 1;
   }
   draw(branch, i) {
     return branch
@@ -429,6 +434,7 @@ class Anchor {
     this.i_o = i_o;
     this.idx = idx;
     this.numconnections = 0;
+    this.type = "Anchor";
   }
   get isLinked() {
     return this.numconnections > 0;
@@ -478,6 +484,7 @@ class AnchorCircular extends Anchor {
     let ext_localx = (owner.r + extensionLength) * Math.cos(this.angle/360*2*Math.PI);
     let ext_localy = - (this.owner.r + extensionLength) * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
     this.ext = new ExtensionAnchor(owner, ext_localx, ext_localy);
+    this.type = "AnchorCircular";
   }
 }
 
@@ -487,6 +494,7 @@ class AnchorCircularNoext extends Anchor {
     this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
     this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
     this.ext = new ExtensionAnchor(owner, this.localx, this.localy);
+    this.type = "AnchorCircularNoext";
   }
 }
 
@@ -522,6 +530,7 @@ class AnchorSquare extends Anchor {
     let ext_localx = this.localx + this.localx/owner.r * extensionLength;
     let ext_localy = this.localy + this.localy/owner.r * extensionLength;
     this.ext = new ExtensionAnchor(owner, ext_localx, ext_localy);
+    this.type = "AnchorSquare";
   }
 }
 
@@ -533,6 +542,7 @@ class ExtensionAnchor {
     this.vy = 0;
     this.localx = localx;
     this.localy = localy;
+    this.type = "ExtensionAnchor";
   }
   get x() { return this.owner.x + this.localx; }
   set x(value) { /* empty:)) */ }
@@ -548,6 +558,7 @@ class PathAnchor {
     this.y = y;
     this.vx = 0;
     this.vy = 0;
+    this.type = "PathAnchor";
   }
 }
 
@@ -559,6 +570,8 @@ class CenterAnchor {
     this.y = 0
     this.vx = 0;
     this.vy = 0;
+    this.idx = -1; // this default index of -1 will accomodate the link_add interface
+    this.type = "CenterAnchor";
   }
   get x() { return new Number(this.owner.x); }
   set x(value) { /* empty:)) */ }
@@ -694,6 +707,94 @@ class LinkDouble extends Link {
   }
 }
 
+class LinkCenter extends Link {
+  constructor(d1, d2) {
+    super(d1, d2);
+  }
+  recalcPathAnchors() {}
+  getAnchors() { return [this.d1, this.d2]; }
+  draw(branch, i) {
+    let anchors = this.getAnchors();
+    branch
+      .append('path')
+      .datum(anchors)
+      .attr("class", "arrowThick")
+      .attr('d', d3.line()
+        .curve(d3.curveBasis)
+        .x( function(p) { return p.x; } )
+        .y( function(p) { return p.y; } )
+      );
+    branch
+      .append('path')
+      .datum(anchors)
+      .attr("class", "arrowThin")
+      .attr('d', d3.line()
+        .curve(d3.curveBasis)
+        .x( function(p) { return p.x; } )
+        .y( function(p) { return p.y; } )
+      );
+    return branch;
+  }
+  update(branch, i) {
+    let anchors = this.getAnchors();
+    branch
+      .select('path')
+      .datum(anchors)
+      .attr('d', d3.line()
+        .curve(d3.curveBasis)
+        .x( function(p) { return p.x; } )
+        .y( function(p) { return p.y; } )
+      );
+    branch
+      .selectAll('path')
+      .filter(function (d, i) { return i === 1; })
+      .datum(anchors)
+      .attr('d', d3.line()
+        .curve(d3.curveBasis)
+        .x( function(p) { return p.x; } )
+        .y( function(p) { return p.y; } )
+      );
+    return branch;
+  }
+}
+
+// helper line draw / register & deregister events
+class LinkHelper {
+  constructor(svgroot, svgbranch, p0, destructor) {
+    svgroot
+      .on("mousemove", function() {
+        // TODO: check mouse button state (down) and elliminate the mouseup event,
+        // since this event can be not caught by the svg
+
+        let m = d3.mouse(svgroot.node());
+        self.linkHelperBranch
+          .select("path")
+          .datum([p0, m])
+          .attr('d', d3.line()
+            .x( function(p) { return p[0]; } )
+            .y( function(p) { return p[1]; } )
+          );
+      } );
+    svgroot
+      .on("mouseup", function() {
+        svgbranch.selectAll("path").remove();
+        svgroot.on("mousemove", null);
+        destructor();
+      } );
+    // draw initial line
+    let m = d3.mouse(svgroot.node());
+    svgbranch
+      .append("path")
+      .classed("linkHelper", true)
+      .datum([p0, m])
+      .attr('d', d3.line()
+        .x( function(p) { return p[0]; } )
+        .y( function(p) { return p[1]; } )
+      );
+    svgbranch.lower();
+  }
+}
+
 // responsible for drawing, and acts as an interface
 class GraphDraw {
   constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB, nodeMouseDownCB) {
@@ -715,6 +816,7 @@ class GraphDraw {
       //.call(d3.zoom().on("zoom", function () {
       //  this.svg.attr("transform", d3.event.transform);
       //}.bind(this)));
+
     this.svg
       .on("click", function() {
         self.graphData.setSelectedNode(null);
@@ -756,7 +858,7 @@ class GraphDraw {
 
     this.draggable = null;
     this.dragAnchor = null;
-    this.temp = null;
+    this.dragNode = null;
 
     // root nodes for various item types (NOTE: the ordering matters)
     this.linkGroup = this.svg.append("g");
@@ -776,7 +878,6 @@ class GraphDraw {
       .attr("text-anchor", "left")
       .attr("dominant-baseline", "middle")
       .attr("x", -23);
-    this.linkHelper = this.svg.append("g");
 
     // svg resize @ window resize
     let wresize = function() {
@@ -791,6 +892,9 @@ class GraphDraw {
     this.paths = null;
     this.anchors = null;
     this.arrowHeads = null;
+
+    this.linkHelperBranch = this.svg.append("g");
+    this.h = null;
 
     // listeners
     this._updateListn = [];
@@ -892,43 +996,13 @@ class GraphDraw {
   }
   anchorMouseDown(d) {
     self.dragAnchor = d;
-
-    self.svg
-      .on("mousemove", function() {
-        let p0 = [self.dragAnchor.x, self.dragAnchor.y];
-        let m = d3.mouse(self.svg.node());
-        self.linkHelper
-          .select("path")
-          .datum([p0, m])
-          .attr('d', d3.line()
-            .x( function(p) { return p[0]; } )
-            .y( function(p) { return p[1]; } )
-          );
-      } );
-    self.svg
-      .on("mouseup", function() {
-        self.linkHelper.selectAll("path").remove();
-        self.svg.on("mousemove", null);
-      } );
-    // draw initial line
-    let p0 = [d.x, d.y];
-    let m = d3.mouse(self.svg.node());
-    self.linkHelper
-      .append("path")
-      .classed("linkHelper", true)
-      .datum([p0, m])
-      .attr('d', d3.line()
-        .x( function(p) { return p[0]; } )
-        .y( function(p) { return p[1]; } )
-      );
+    self.h = new LinkHelper(self.svg, self.linkHelperBranch, [d.x, d.y], function() { self.h = null; }.bind(self) );
   }
   anchorMouseUp(d, branch) {
     let s = self.dragAnchor;
 
     if (s && s != d && s.owner != d.owner) self.mouseAddLinkCB(s, d);
     self.dragAnchor = null;
-
-
   }
   showTooltip(x, y, tip) {
     if (tip == '') return;
@@ -1068,6 +1142,13 @@ class GraphDraw {
       })
       .on("mousedown", function(d) {
         self.nodeMouseDownCB(d);
+        self.dragNode = d;
+        self.h = new LinkHelper(self.svg, self.linkHelperBranch, [d.x, d.y], function() { self.h = null; }.bind(self) );
+      })
+      .on("mouseup", function(d) {
+        let n = self.dragNode;
+        if (n == null || n == d) return;
+        self.mouseAddLinkCB(n.centerAnchor, d.centerAnchor);
       });
 
     self.nodes = GraphDraw.drawNodes(self.draggable);
@@ -1143,6 +1224,13 @@ class ConnRulesBasic {
     } else throw "give a number from 0 to 5";
   }
   static canConnect(a1, a2) {
+    if (a1.idx==-1 && a2.idx==-1) {
+      let t1 = a1.owner.owner.type == NodeMethod;
+      let t2 = a2.owner.owner.type == NodeMethod;
+      // TODO: put more tests here pls
+      return true;
+    }
+
     //  a2 input anchor, a1 output
     let t1 = a2.i_o;
     let t2 = !a1.i_o;
@@ -1330,6 +1418,28 @@ class NodeFunctionNamed extends Node {
   }
   isConnected(connectivity) {
     return connectivity.indexOf(false) == -1;
+  }
+  isActive() {
+    // assumed to be associated with an underlying function object
+    return true;
+  }
+}
+
+class NodeMethod extends Node {
+  static get basetype() { return "method"; }
+  get basetype() { return NodeMethod.basetype; }
+  static get prefix() { return "f"; }
+  constructor(x, y, id, name, label, typeconf) {
+    super(x, y, id, name, label, typeconf);
+  }
+  _getGNType() {
+    return GraphicsNodeHexagonal;
+  }
+  _getAnchorType() {
+    return AnchorCircular;
+  }
+  isConnected(connectivity) {
+    return connectivity.indexOf(false) == -1 && this.gNode.hasCenterConnection();
   }
   isActive() {
     // assumed to be associated with an underlying function object

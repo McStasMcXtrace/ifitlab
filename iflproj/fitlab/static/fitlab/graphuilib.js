@@ -264,7 +264,12 @@ class GraphTree {
     if (!this._connrules.canConnect(a1, a2)) return null;
 
     // create link object
-    let l = new LinkSingle(a1, a2);
+    let l = null;
+    if (idx1 == -1 && idx2 == -1) {
+      console.log("LinCenter created");
+      l = new LinkCenter(a1, a2);
+    }
+    else l = new LinkSingle(a1, a2);
     this._viewLinks.push(l);
     // store link object in connectivity structure, which may have to be updated
     let lks = this._current.links;
