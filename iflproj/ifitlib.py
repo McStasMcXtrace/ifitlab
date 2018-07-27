@@ -181,7 +181,6 @@ class IData(enginterface.ObjReprJson):
     def rmint(self, min, max):
         ''' Remove data from the specified interval. '''
 
-        _
         ''' 
         NOTE: a (minmax_lst) signatured version of rmint would require a "rank" or "shape" indexing 
         depth parameter (same as combine).
@@ -1027,7 +1026,6 @@ def combine(filenames:list) -> IData:
 def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
     ''' Extracts parameter values and axis information from fitfunc given the parameters in typefunc. Returns a new IFunc object with that parameter configuration.'''
 
-    _
     '''
     fitfunc:    object to extract parameter values and axes from
     typefunc:   object whose parameter names and type is used to extract information from 

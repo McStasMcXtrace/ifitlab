@@ -1067,7 +1067,7 @@ class GraphDraw {
         self.executeNodeCB(node);
       })
       .on("mousedown", function(d) {
-        self.nodeMouseDownCB(d.owner.id, d);
+        self.nodeMouseDownCB(d);
       });
 
     self.nodes = GraphDraw.drawNodes(self.draggable);
@@ -1588,9 +1588,9 @@ class GraphInterface {
     this.draw.restartCollideSim();
     this.updateUi();
   }
-  _nodeMouseDownCB(id, x, y) {
-    let n = this.graphData.getNode(id);
-    this._fireEvents(this._nodeMouseDownListn, [id, n.gNode, n.plotdata]);
+  _nodeMouseDownCB(gNode) {
+    let n = gNode.owner;
+    this._fireEvents(this._nodeMouseDownListn, [n.id, n.gNode, n.plotdata]);
   }
   _fireEvents(lst, args=[]) {
     for (var i=0; i<lst.length; i++) {
