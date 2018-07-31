@@ -431,9 +431,13 @@ class Workers:
 
                     session.graph.reset_all_objs()
                     update = session.graph.extract_update()
+                    
+                    # purge previous graph replies (depending on view setting, these may not be read)
+                    # TODO: impl
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
-                    graphreply.save()
+                    # NOTE: at this time, update replies are not read and not needed
+                    #graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
+                    #graphreply.save()
 
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":

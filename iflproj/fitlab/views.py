@@ -235,12 +235,15 @@ def ajax_clear_data(req):
 @login_required
 def ajax_update(req):
     rep, err = _command(req, "update", nowait=True)
+    # NOTE: both of rep and err will be None, since we used nowait=True
+    rep = None
+    err = None
 
     gs_id = req.POST["gs_id"]
     if not GraphSession.objects.filter(id=gs_id).exists():
-        return _reply(rep, '{"fatalerror" : "Session does not exist."}')
+        return _reply(None, '{"fatalerror" : "Session does not exist."}')
 
-    return _reply('{"message" : "coords update received"}', err)
+    return _reply('{"message" : "coords update received"}', None)
 
 @login_required
 def ajax_revert_session(req):
