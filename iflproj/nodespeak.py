@@ -389,10 +389,15 @@ class MethodNode(Node):
     def __init__(self, name, methodname):
         self.methodname = methodname
         super().__init__(name, exe_model=MethodNode.ExeModel())
+        # default value parameters are not represented in the graph as a configuration option
+        self.defaults = {}
     def assign(self, obj):
         raise MethodNode.AssignException(self.name, "can not assign to method nodes")
     def call(self, *args):
         ''' returns None if the owner node's object is None '''
+        
+        # TODO: impl. defaults
+        
         last = None
         for o in self.owners:
             if type(o) is ObjNode:
@@ -406,6 +411,9 @@ class MethodNode(Node):
                 except Exception as e:
                     raise InternalExecutionException(self.name, str(e))
         return last
+
+    def get_object(self):
+        return self.defaults
 
     def _check_subnode(self, node):
         return False
@@ -421,7 +429,7 @@ class MethodAsFunctionNode(Node):
     def __init__(self, name, methodname):
         self.methodname = methodname
         super().__init__(name, exe_model=MethodNode.ExeModel())
-        # default value parameters are not represented in the graph, but as a configuration option
+        # default value parameters are not represented in the graph as a configuration option
         self.defaults = {}
     def assign(self, obj):
         if type(obj) not in (dict, ):

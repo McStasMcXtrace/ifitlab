@@ -267,7 +267,6 @@ class GraphTree {
     // create link object
     let l = null;
     if (idx1 == -1 && idx2 == -1) {
-      console.log("LinCenter created");
       l = new LinkCenter(a1, a2);
     }
     else l = new LinkSingle(a1, a2);

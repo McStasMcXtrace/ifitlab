@@ -201,17 +201,38 @@ class FlatGraph:
     def link_add(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
         n2 = self.root.subnodes[id2]
-        add_connection(n1, idx1, n2, idx2, order)
+        
+        # "method links" are represented in the frontend as idx==-1, but as an owner/subnode relation in nodespeak
+        if idx1 == -1 and idx2 == -1:
+            if type(n1) == ObjNode and type(n2) == MethodNode:
+                add_subnode(n1, n2)
+            elif type(n1) == MethodNode and type(n2) == ObjNode:
+                add_subnode(n2, n1)
+        # all other connections
+        else:
+            add_connection(n1, idx1, n2, idx2, order)
+
         # caching
         if not self.dslinks_cache.get(id1, None):
             self.dslinks_cache[id1] = []
         self.dslinks_cache[id1].append((id1, idx1, id2, idx2, order))
+
         _log("added link from (%s, %d) to (%s, %d)" % (id1, idx1, id2, idx2))
 
     def link_rm(self, id1, idx1, id2, idx2, order=0):
         n1 = self.root.subnodes[id1]
         n2 = self.root.subnodes[id2]
-        remove_connection(n1, idx1, n2, idx2, order)
+        
+        # "method links" are represented in the frontend as idx==-1, but as an owner/subnode relation in nodespeak
+        if False:
+            if type(n1) == ObjNode and type(n2) == MethodNode:
+                remove_subnode(n1, n2)
+            elif type(n1) == MethodNode and type(n2) == ObjNode:
+                remove_subnode(n2, n1)
+        # all other connections
+        else:
+            remove_connection(n1, idx1, n2, idx2, order)
+
         # caching
         lst = self.dslinks_cache[id1]
         idx = lst.index((id1, idx1, id2, idx2, order))
@@ -318,7 +339,7 @@ class FlatGraph:
             if type(n) in (MethodAsFunctionNode, ):
                 update_lst.append([o[0].name for o in n.parents if type(o[0])==ObjNode ][0]) # find "owner" id...
             if type(n) in (MethodNode, ):
-                raise Exception("MethodNode is not suppoted")
+                update_lst.append([o.name for o in n.owners if type(o) == ObjNode][0]) # find "owner" id...
             for key in update_lst:
                 try:
                     retobj['dataupdate'][key] = None

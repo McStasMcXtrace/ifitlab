@@ -569,6 +569,7 @@ class CenterAnchor {
     this.vy = 0;
     this.idx = -1; // this default index of -1 will accomodate the link_add interface
     this.type = "CenterAnchor";
+    this.numconnections = 0;
   }
   get x() { return new Number(this.owner.x); }
   set x(value) { /* empty:)) */ }
@@ -1222,10 +1223,14 @@ class ConnRulesBasic {
   }
   static canConnect(a1, a2) {
     if (a1.idx==-1 && a2.idx==-1) {
-      let t1 = a1.owner.owner.type == NodeMethod;
-      let t2 = a2.owner.owner.type == NodeMethod;
-      // TODO: put more tests here pls
-      return true;
+      let tpe1 = a1.owner.owner.basetype;
+      let tpe2 = a2.owner.owner.basetype;
+      let t1 = ["object_idata", "object_ifunc", "obj"].indexOf(tpe1) != -1 && tpe2 == "method";
+      let t2 = tpe1 == "method" && ["object_idata", "object_ifunc", "obj"].indexOf(tpe2) != -1;
+      let t3 = a1.numconnections == 0;
+      let t4 = a2.numconnections == 0;
+      console.log(t1, t2, a1.numconnections, a2.numconnections);
+      return t1 && t4 || t2 && t3;
     }
 
     //  a2 input anchor, a1 output

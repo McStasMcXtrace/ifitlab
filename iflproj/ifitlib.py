@@ -78,14 +78,22 @@ class _VarnameMiddleware(enginterface.MiddleWare):
     def load(self, filepath):
         _eval("load('%s');" % filepath, nargout=0)
     def save(self, filepath):
-        varnames = "'" + "', '".join(self.varnames) + "'"
-        _eval("save('%s', %s);" % (filepath, varnames), nargout=0)
-    def clear(self, filepath):
-        varnames = ' '.join(self.varnames)
-        _eval("clear %s;" % (filepath, varnames), nargout=0)
+        # filter possibly outdated varnames using who
+        allvars = _eval("who")
+        self.varnames = [v for v in allvars if v in self.varnames]
+        save_str = "'" + "', '".join(self.varnames) + "'"
+        _eval("save('%s', %s);" % (filepath, save_str), nargout=0)
+    def clear(self):
+        todel = []
+        for varname in self.varnames:
+            try:
+                _eval("clear %s;" % varname, nargout=0)
+            except:
+                todel.append(varname)
+        for varname in todel:
+            del self.varnames[varname]
     def finalise(self):
-        for vn in self.varnames:
-            _eval("clear %s;" % vn, nargout=0)
+        self.clear()
 
 def _load_middleware():
     return _VarnameMiddleware()
