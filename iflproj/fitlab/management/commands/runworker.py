@@ -135,7 +135,7 @@ class Workers:
                 now = timezone.now()
 
                 while not self.terminated and (timezone.now() - now).seconds < settings.WRK_CLEANUP_INTERVAL_S:
-                    time.sleep(1)
+                    time.sleep(10)
 
                 logging.info("cleaning up sessions...")
                 keys = [key for key in self.sessions.keys()]
@@ -356,7 +356,7 @@ class Workers:
                         graphreply.save()
                     except:
                         # revert as autoload fallback (?)
-                        logging.info("autoload failed, requiesting fallback cmd='revert', session id: %s" % task.gs_id)
+                        logging.info("autoload failed, requesting fallback cmd='revert', session id: %s" % task.gs_id)
                         task.cmd = "revert"
                         self.taskqueue.put(task)
 
@@ -390,7 +390,7 @@ class Workers:
 
                     anyerrors = session.graph.graph_update(task.sync_obj['sync'])
                     if anyerrors:
-                        raise Exception("errors encountered during sync")
+                        raise Exception("errors encountered during update: %s" % anyerrors)
 
                     session.graph.graph_coords(task.sync_obj['coords'])
                     self.quicksave(session)
@@ -419,9 +419,12 @@ class Workers:
                     error1 = session.graph.graph_update(task.sync_obj['sync'])
                     error2 = session.graph.graph_coords(task.sync_obj['coords'])
                     
-                    # TODO: fix the error1 vs. error2 mess
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(error1))
-                    graphreply.save()
+                    # purge previous graph replies (depending on view setting, these may not be read)
+                    # TODO: impl
+
+                    # NOTE: at this time, update replies are not read and not needed
+                    #graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(error1))
+                    #graphreply.save()
 
                 # clear objects
                 elif task.cmd == "clear_data":
@@ -432,12 +435,8 @@ class Workers:
                     session.graph.reset_all_objs()
                     update = session.graph.extract_update()
                     
-                    # purge previous graph replies (depending on view setting, these may not be read)
-                    # TODO: impl
-
-                    # NOTE: at this time, update replies are not read and not needed
-                    #graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
-                    #graphreply.save()
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
+                    graphreply.save()
 
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":

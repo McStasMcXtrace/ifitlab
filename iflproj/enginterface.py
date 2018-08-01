@@ -172,7 +172,7 @@ class FlatGraph:
         elif node_tpe == MethodAsFunctionNode:
             n = MethodAsFunctionNode(id, conf['type'])
         elif node_tpe == MethodNode:
-            raise Exception("MethodNode not supported")
+            n = MethodNode(id, conf['type'])
         return n
 
     def node_add(self, x, y, id, name, label, tpe):
@@ -274,14 +274,24 @@ class FlatGraph:
     def graph_update(self, redo_lsts):
         ''' takes an undo-redo list and sequentially modifies the server-side graph '''
         _log('graph update: %d commands' % len(redo_lsts))
+        error = None
+        def erracc(msg, s):
+            if s == None:
+                s = msg
+            else:
+                s = s + ", " + msg
+
         for redo in redo_lsts:
             cmd = redo[0]
             args = redo[1:]
             try:
                 getattr(self, cmd)(*args)
             except Exception as e:
-                _log('graph update failed: "%s"' % redo)
-                return {'error' : "Graph update exc.: %s" % str(e)}
+                _log('graph update failed, cmd "%s" with:' % (redo, str(e)))
+                erracc(str(e), error)
+
+        if error != None:
+            return {'error' : error}
 
     def graph_coords(self, coords):
         ''' updates the cached node_add commands x- and y-coordinate entries '''
@@ -418,8 +428,8 @@ basetypes = {
     'object_literal' : ObjLiteralNode,
     'function' : FuncNode,
     'function_named' : FuncNode,
-    'method' : MethodNode,
     'method_as_function' : MethodAsFunctionNode,
+    'method' : MethodNode,
 
     'object_idata' : ObjNode,
     'object_ifunc' : ObjNode,
@@ -482,6 +492,21 @@ class NodeConfig:
         self.data = data
 
     def make_method_like_wtypehints(self, address, methodname, args, annotations, clsobj, data=None):
+        self.type = methodname
+        self.address = address
+        self.ipars = args
+        annotations['self'] = clsobj
+        self.itypes = [annotations[a].__name__ if annotations.get(a, None) else '' for a in args]
+        if 'return' in annotations:
+            self.otypes = [annotations['return'].__name__]
+        self.static = 'true'
+        self.executable = 'true'
+        self.edit = 'true'
+        self.name = methodname
+        self.label = methodname[0:5]
+        self.data = data
+
+    def make_method_wtypehints(self, address, methodname, args, annotations, clsobj, data=None):
         self.type = methodname
         self.address = address
         self.ipars = args
@@ -626,14 +651,15 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
             conf = NodeConfig()
             conf.docstring = m.__doc__.strip()
             args, data = get_args_and_data(m)
-            conf.make_method_like_wtypehints(
+            
+            conf.make_method_wtypehints(
                 address,
                 name,
-                args=args,
+                args=args[1:],
                 annotations=argspec.annotations,
                 clsobj=cls,
                 data=data)
-            conf.basetype = "method_as_function"
+            conf.basetype = "method"
             
             tree.put(path, conf.get_repr(), get_key)
             addrss.append((address, inputnames.index(keyname)))
