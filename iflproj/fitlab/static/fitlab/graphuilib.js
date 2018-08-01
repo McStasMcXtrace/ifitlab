@@ -16,6 +16,7 @@ class NodeTypeHelper {
       NodeFunction,
       NodeFunctionNamed,
       NodeMethodAsFunction,
+      NodeMethod,
       NodeIData,
       NodeIFunc,
       NodeFunctional,
@@ -388,7 +389,7 @@ class GraphTree {
       nodes[n.id] = [n.gNode.x, n.gNode.y, n.id, n.name, n.label, n.address];
 
       // DATA
-      if (['object_literal', 'function_named', 'method_as_function'].indexOf(n.basetype) != -1)
+      if (['object_literal', 'function_named', 'method_as_function', 'method'].indexOf(n.basetype) != -1)
         datas[n.id] = btoa(JSON.stringify(n.userdata));
 
       // EXIT-LINKS BY NODE

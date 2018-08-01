@@ -195,13 +195,13 @@ class GraphicsNode {
   // hooks for higher level nodes
   onConnect(link, isInput) {}
   onDisconnect(link, isInput) {}
-  setOutputAncorTypes(ats) {
+  setOutputAncorTypes(anchorTypes) {
     let anchors = this.anchors;
     let a = null;
     let oanchors = anchors.filter(a => !a.i_o);
     for (var j=0;j<oanchors.length;j++) {
       a = oanchors[j];
-      a.type = ats[j];
+      a.type = anchorTypes[j];
     }
   }
 }
@@ -434,7 +434,7 @@ class Anchor {
     this.i_o = i_o;
     this.idx = idx;
     this.numconnections = 0;
-    this.type = "Anchor";
+    this.type = type;
   }
   get isLinked() {
     return this.numconnections > 0;
@@ -484,7 +484,6 @@ class AnchorCircular extends Anchor {
     let ext_localx = (owner.r + extensionLength) * Math.cos(this.angle/360*2*Math.PI);
     let ext_localy = - (this.owner.r + extensionLength) * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
     this.ext = new ExtensionAnchor(owner, ext_localx, ext_localy);
-    this.type = "AnchorCircular";
   }
 }
 
@@ -494,7 +493,6 @@ class AnchorCircularNoext extends Anchor {
     this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
     this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
     this.ext = new ExtensionAnchor(owner, this.localx, this.localy);
-    this.type = "AnchorCircularNoext";
   }
 }
 
@@ -530,7 +528,6 @@ class AnchorSquare extends Anchor {
     let ext_localx = this.localx + this.localx/owner.r * extensionLength;
     let ext_localy = this.localy + this.localy/owner.r * extensionLength;
     this.ext = new ExtensionAnchor(owner, ext_localx, ext_localy);
-    this.type = "AnchorSquare";
   }
 }
 
@@ -1264,6 +1261,7 @@ class ConnRulesBasic {
       NodeFunction,
       NodeFunctionNamed,
       NodeMethodAsFunction,
+      NodeMethod,
       NodeIData,
       NodeIFunc,
       NodeFunctional,
