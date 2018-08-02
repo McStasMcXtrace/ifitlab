@@ -260,6 +260,10 @@ class GraphicsNodeHexagonal extends GraphicsNode {
     super(owner, label, x, y);
     this.r = 1.05 * nodeRadius;
     this.colliderad = 1.07 * this.r;
+
+    this._x = x;
+    this._Y = y;
+    this._attach = null;
   }
   draw(branch, i) {
     let r = 1.1 * this.r;
@@ -279,6 +283,49 @@ class GraphicsNodeHexagonal extends GraphicsNode {
         .x( function(p) { return p.x; } )
         .y( function(p) { return p.y; } )
       );
+  }
+  get x() {
+    if (this._attach == null) {
+      return this._x;
+    } else {
+      return this._x + this._attach.x;
+    }
+  }
+  set x(value) {
+    if (this._attach == null) {
+      this._x = value;
+    } else {
+      return;
+      //  this._x = value - this._attach.x;
+    }
+  }
+  get y() {
+    if (this._attach == null) {
+      return this._y;
+    } else {
+      return this._y + this._attach.y;
+    }
+  }
+  set y(value) {
+    if (this._attach == null) {
+      this._y = value;
+    } else {
+      return;
+      //this._y = value - this._attach.y;
+    }
+  }
+  attachMoveToCenterLink(link) {
+    if (link.d1.owner.owner.basetype == "method") this._attach = link.d2.owner;
+    if (link.d2.owner.owner.basetype == "method") this._attach = link.d1.owner;
+    if (this._attach == null) return;
+
+    this._x = this._x - this._attach.x;
+    this._y = this._y - this._attach.y;
+  }
+  detachMove() {
+    this._x = this._x + this._attach.x;
+    this._y = this._y + this._attach.y;
+    this._attach = null;
   }
 }
 
@@ -563,8 +610,6 @@ class PathAnchor {
 class CenterAnchor {
   constructor(owner) {
     this.owner = owner;
-    this.x = 0;
-    this.y = 0
     this.vx = 0;
     this.vy = 0;
     this.idx = -1; // this default index of -1 will accomodate the link_add interface
@@ -1229,7 +1274,6 @@ class ConnRulesBasic {
       let t2 = tpe1 == "method" && ["object_idata", "object_ifunc", "obj"].indexOf(tpe2) != -1;
       let t3 = a1.numconnections == 0;
       let t4 = a2.numconnections == 0;
-      console.log(t1, t2, a1.numconnections, a2.numconnections);
       return t1 && t4 || t2 && t3;
     }
 
@@ -1447,6 +1491,17 @@ class NodeMethod extends Node {
   isActive() {
     // assumed to be associated with an underlying function object
     return true;
+  }
+  onConnect(link, isInput) {
+    let gateKept = ["object", "object_idata", "object_ifunc", "method"];
+    let t1 = gateKept.indexOf(link.d1.owner.owner.basetype) != -1;
+    let t2 = gateKept.indexOf(link.d2.owner.owner.basetype) != -1;
+    if (t1 && t2) {
+      this.gNode.attachMoveToCenterLink(link);
+    }
+  }
+  onDisconnect(link, isInput) {
+    this.gNode.detachMove();
   }
 }
 

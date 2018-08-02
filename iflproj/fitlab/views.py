@@ -161,6 +161,7 @@ def _command(req, cmd, nowait=False, validate=True, gs_id="", username=""):
     Validates all calls using gs_id, tab_id and the current db state.
     '''
     if validate and not _tabvalidation(req):
+        print("command validation error")
         return None, '{"fatalerror" : "Session ownership was taken over by another window."}'
 
     username = req.session.get("username", username)
@@ -175,6 +176,7 @@ def _command(req, cmd, nowait=False, validate=True, gs_id="", username=""):
     uireq.save()
 
     if nowait:
+        print("command nowait")
         return None, None
 
     # poll db
@@ -186,6 +188,7 @@ def _command(req, cmd, nowait=False, validate=True, gs_id="", username=""):
             error = lst[0].reply_error
             lst[0].delete()
             # success
+            print("command success")
             return answer, error
         if len(lst) > 1:
             raise Exception("more than one reply for single request")
@@ -198,6 +201,7 @@ def _command(req, cmd, nowait=False, validate=True, gs_id="", username=""):
             lst = GraphUiRequest.objects.filter(id=uireq.id)
             if len(lst)==1:
                 lst[0].delete()
+            print("command timeout")
             return None, '{"timeout" : "session request timed out" }'
 
 def _reply(reply_json_str, error_json_str):

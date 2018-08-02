@@ -395,7 +395,7 @@ class Workers:
                     session.graph.graph_coords(task.sync_obj['coords'])
                     self.quicksave(session)
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
+                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save success"}' )
                     graphreply.save()
 
                 # clone
@@ -443,7 +443,7 @@ class Workers:
                     for session in self.get_user_softsessions(task):
                         self.shutdown_autosave(task.gs_id)
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json='null' )
+                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save & shutdown success"}' )
                     graphreply.save()
 
                 # hard shutdown
@@ -504,7 +504,7 @@ class Workers:
                         os.remove(obj.quicksave_matfile)
                     obj.delete()
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json="" )
+                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "delete success"}' )
                     graphreply.save()
 
                 else:
