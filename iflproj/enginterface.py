@@ -224,11 +224,10 @@ class FlatGraph:
         n2 = self.root.subnodes[id2]
         
         # "method links" are represented in the frontend as idx==-1, but as an owner/subnode relation in nodespeak
-        if False:
-            if type(n1) == ObjNode and type(n2) == MethodNode:
-                remove_subnode(n1, n2)
-            elif type(n1) == MethodNode and type(n2) == ObjNode:
-                remove_subnode(n2, n1)
+        if type(n1) == ObjNode and type(n2) == MethodNode:
+            remove_subnode(n1, n2)
+        elif type(n1) == MethodNode and type(n2) == ObjNode:
+            remove_subnode(n2, n1)
         # all other connections
         else:
             remove_connection(n1, idx1, n2, idx2, order)

@@ -323,6 +323,7 @@ class GraphicsNodeHexagonal extends GraphicsNode {
     this._y = this._y - this._attach.y;
   }
   detachMove() {
+    if (this._attach == null) return;
     this._x = this._x + this._attach.x;
     this._y = this._y + this._attach.y;
     this._attach = null;
