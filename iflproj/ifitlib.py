@@ -66,9 +66,9 @@ class _VarnameMiddleware(enginterface.MiddleWare):
     def __init__(self):
         self.varnames = []
     def DB_who(self):
-        _eval("who", nargout=0)
+        _eval("who;", nargout=0)
     def DB_clearall(self):
-        _eval("clear all", nargout=0)
+        _eval("clear all;", nargout=0)
     def register(self, obj):
         if type(obj) in (IData, IFunc, ):
             self.varnames.append(obj.varname)
@@ -79,7 +79,7 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         _eval("load('%s');" % filepath, nargout=0)
     def save(self, filepath):
         # filter possibly outdated varnames using who
-        allvars = _eval("who")
+        allvars = _eval("who;")
         self.varnames = [v for v in allvars if v in self.varnames]
         save_str = "'" + "', '".join(self.varnames) + "'"
         _eval("save('%s', %s);" % (filepath, save_str), nargout=0)
@@ -140,7 +140,7 @@ class IData(enginterface.ObjReprJson):
         self.url = url
         
         def create_idata(vn, url):
-            _eval("%s = iData('%s')" % (vn, url), nargout=0)
+            _eval("%s = iData('%s');" % (vn, url), nargout=0)
 
         def create_idata_array(vn, shape):
             if len(shape) == 1:
@@ -166,7 +166,7 @@ class IData(enginterface.ObjReprJson):
         try:
             _eval("%s.Signal;" % self.varname, nargout=0)
         except:
-            s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
+            s = np.array(_eval("size(%s);" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
             return _npify_shape(s)
         return tuple()
 
@@ -212,8 +212,8 @@ class IData(enginterface.ObjReprJson):
             rmint_atomic(self.varname, min, max)
 
 def _get_iData_repr(idata_symb):
-    ndims = int(_eval('ndims(%s)' % idata_symb))
-    axes_names = _eval('%s.Axes' % idata_symb, nargout=1) # NOTE: len(axes_names) == ndims
+    ndims = int(_eval('ndims(%s);' % idata_symb))
+    axes_names = _eval('%s.Axes;' % idata_symb, nargout=1) # NOTE: len(axes_names) == ndims
     if not ndims == len(axes_names):
         # TODO: handle this case in which ifit has not found any axes in the data
         raise Exception("could not find axes")
@@ -221,8 +221,8 @@ def _get_iData_repr(idata_symb):
     pltdct = {}
 
     # Get axis labels
-    xlabel = _eval('xlabel(%s)' % idata_symb, nargout=1)
-    ylabel = _eval('ylabel(%s)' % idata_symb, nargout=1)
+    xlabel = _eval('xlabel(%s);' % idata_symb, nargout=1)
+    ylabel = _eval('ylabel(%s);' % idata_symb, nargout=1)
     
     # get signal
     if ndims == 0:
@@ -508,7 +508,7 @@ class IFunc(enginterface.ObjReprJson):
 
     def _get_datashape(self):
         ''' returns the naiive datashape (size) of the matlab object associated with self.varname '''
-        s = np.array(_eval("size(%s)" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
+        s = np.array(_eval("size(%s);" % self.varname, nargout=1)[0]).astype(int).tolist() # NOTE: tolist() converts to native python int from np.int64
         s = _npify_shape(s)
         return s
 
@@ -584,7 +584,7 @@ def _get_iFunc_repr(varname, plotaxes, plotdims, datashape = None):
     vals = []
     for key in pkeys:
         key0 = key.split(' ')[0] # it should always be key0
-        val = _eval('%s.%s' % (varname, key0), nargout=1)
+        val = _eval('%s.%s;' % (varname, key0), nargout=1)
         while type(val) == list:
             val = val[0]
         if type(val) != float:
@@ -604,7 +604,7 @@ def _get_iFunc_repr(varname, plotaxes, plotdims, datashape = None):
             xmin = plotaxes[0]
             xmax = plotaxes[1]
             parvalstr = ' '.join([str(v) for v in vals])
-            fvals = _eval("feval(%s, [%s], linspace(%s, %s, 100))" % (varname, parvalstr, xmin, xmax), nargout=1)
+            fvals = _eval("feval(%s, [%s], linspace(%s, %s, 100));" % (varname, parvalstr, xmin, xmax), nargout=1)
             fvals = np.array(fvals[0]).tolist()
             xvals = np.linspace(xmin, xmax, 100).tolist()
             yerr = np.zeros(100).tolist()
