@@ -307,7 +307,7 @@ class FlatGraph:
             try:
                 getattr(self, cmd)(*args)
             except Exception as e:
-                _log('graph update failed, cmd "%s" with:' % (redo, str(e)))
+                _log('graph update failed, cmd "%s" with: %s' % (redo, str(e)))
                 erracc(str(e), error)
 
         if error != None:
