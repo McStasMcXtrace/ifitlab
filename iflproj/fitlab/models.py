@@ -24,18 +24,18 @@ class GraphSession(models.Model):
     title = CharField(max_length=200, default="", blank=True, null=True)
     description = TextField(blank=True, null=True)
     example = BooleanField(default=False)
-    
+
     username = CharField(max_length=200)
     quicksaved = DateTimeField('quicksaved', blank=True, null=True)
     stashed = DateTimeField('stashed', blank=True, null=True)
 
+    graphdef = TextField(blank=True)
+
     # stashed live data on top of quicksave
-    stashed_graphdef = TextField(blank=True)
     stashed_pickle = TextField(blank=True)
     stashed_matfile = CharField(max_length=200, default="")
 
     # restore point / quick save
-    quicksave_graphdef = TextField(blank=True)
     quicksave_pickle = TextField(blank=True)
     quicksave_matfile = CharField(max_length=200, default="")
 
