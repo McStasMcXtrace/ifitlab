@@ -5,7 +5,7 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from fitlab.models import GraphUiRequest, GraphReply
+from fitlab.models import GraphUiRequest, GraphReply, TabId
 
 class Command(BaseCommand):
     help = 'Removes all pending server/worker messages in both directions.'
@@ -18,10 +18,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         uireqs = GraphUiRequest.objects.all()
         replies = GraphReply.objects.all()
+        tabids = TabId.objects.all()
         print("purging uirequests: %d objects" % len(uireqs))
         print("purging graphreplies: %d objects" % len(replies))
+        print("purging tabids: %d objects" % len(tabids))
         for uireq in uireqs:
             uireq.delete()
         for reply in replies:
             reply.delete()
+        for tid in tabids:
+            tid.delete()
 
