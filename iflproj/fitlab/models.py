@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import TextField, CharField, DateTimeField, BooleanField
+from django.db.models import TextField, CharField, DateTimeField, BooleanField, IntegerField
 from django.utils import timezone
 
 class TabId(models.Model):
@@ -21,6 +21,7 @@ class GraphReply(models.Model):
 
 class GraphSession(models.Model):
     created = DateTimeField('created', default=timezone.now)
+    listidx = IntegerField(default=0)
     title = CharField(max_length=200, default="", blank=True, null=True)
     description = TextField(blank=True, null=True)
     example = BooleanField(default=False)
@@ -39,3 +40,5 @@ class GraphSession(models.Model):
     quicksave_pickle = TextField(blank=True)
     quicksave_matfile = CharField(max_length=200, default="")
 
+    def __str__(self):
+       return 'session %s, idx %s, %s' % (self.id, self.listidx, self.title)

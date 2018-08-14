@@ -14,10 +14,10 @@
 <hr>
 <p>Sessions</p>
 
-<table>
+<table id="tbl_sessions">
 {% for gs_id_title in session_ids_titles %}
 <tr>
-<td style="padding-left:25px;">{{ gs_id_title.1 }}</td>
+<td style="padding-left:25px;"><input style="background:white;color:black;border:none" type="text", id="{{ gs_id_title.0 }}" value="{{ gs_id_title.1 }}"/></td>
 <td style="padding-left:25px;">session_{{ gs_id_title.0 }}</td>
 <td style="padding-left:25px;"><a href="/ifl/graphsession/{{ gs_id_title.0 }}" target="_blank">resume</a></td>
 <td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title.0 }}">clone</a></td>
@@ -30,7 +30,7 @@
 <hr>
 <p>Examples</p>
 
-<table>
+<table id="tbl_examples">
 {% for gs_id_title in example_ids_titles %}
 <tr>
 <td style="padding-left:25px;">{{ gs_id_title.1 }}</td>
@@ -43,5 +43,34 @@
 </fieldset>
 
 </body>
+
+<script src="/ifl/ifl-static/fitlab/jquery.min.js"></script>
+
+<script>
+simpleajax = function(url, data) {
+  $.ajax({
+    type: "POST",
+    url: url,
+    data: { "data_str" : JSON.stringify(data) },
+  })
+  .fail(function(xhr, statusText, errorThrown) {
+  })
+  .success(function(ans) {
+    let obj = JSON.parse(ans);
+    if (obj.message) console.log(obj.message);
+    location.reload(); // the easy way of refreshing all references to this data (e.g. examples...)
+  });
+}
+
+$(document).ready(() => {
+  $("#tbl_sessions input")
+    .change( (event) => {
+      let val = { "title" : event.target.value, "gs_id" : event.target.id };
+      simpleajax("/ifl/ajax_dashboard_edt_title/", val);
+    });
+});
+</script>
+
+
 
 </html>

@@ -21,8 +21,9 @@ def index(req):
     if not username:
         return redirect("/ifl/login")
 
-    objs = GraphSession.objects.filter(username=username)
-    examples = GraphSession.objects.filter(username="admin", example=True)
+    objs = GraphSession.objects.filter(username=username).order_by('listidx')
+    examples = GraphSession.objects.filter(username="admin", example=True).order_by('listidx')
+
     session_ids_titles = [[obj.id, obj.title] for obj in objs]
     example_ids_titles = [[obj.id, obj.title] for obj in examples]
     ctx = { "username" : username, "session_ids_titles" : session_ids_titles, "example_ids_titles" : example_ids_titles }
@@ -115,6 +116,18 @@ def delete_session(req, gs_id):
     _command(req, "delete", validate=False, gs_id=gs_id)
     return redirect("index")
 
+@login_required
+def ajax_dashboard_edt_title(req):
+    syncset = req.POST.get("data_str", None)
+    dbobj = None
+    try:
+        obj = json.loads(syncset)
+        dbobj = GraphSession.objects.filter(id=obj['gs_id'])[0]
+        dbobj.title=obj['title']
+        dbobj.save()
+    except Exception as e:
+        return HttpResponse('{ "message" : "edit failed: %s" }' % str(e))
+    return HttpResponse('{ "message" : "session_%s: title was edited" }' % dbobj.id)
 
 ############################
 #    Utility / Privates    #
