@@ -26,7 +26,7 @@ def index(req):
 
     session_ids_titles = [[obj.id, obj.title] for obj in objs]
     example_ids_titles_comments = [[obj.id, obj.title, obj.excomment] for obj in examples]
-    ctx = { "username" : username, "session_ids_titles" : session_ids_titles, "example_ids_titles_comments" : example_ids_titles_comments, 'admin' : True }
+    ctx = { "username" : username, "session_ids_titles" : session_ids_titles, "example_ids_titles_comments" : example_ids_titles_comments, 'admin' : req.user.is_superuser }
 
     return render(req, "fitlab/dashboard.html", context=ctx)
 

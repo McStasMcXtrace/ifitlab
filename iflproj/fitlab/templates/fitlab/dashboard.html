@@ -17,7 +17,7 @@
 <table id="tbl_sessions">
 {% for gs_id_title in session_ids_titles %}
 <tr>
-<td style="padding-left:25px;"><input style="background:white;color:black;border:none" type="text", id="{{ gs_id_title.0 }}" value="{{ gs_id_title.1 }}"/></td>
+<td style="padding-left:25px;"><input style="background:white;color:black;" type="text", id="{{ gs_id_title.0 }}" value="{{ gs_id_title.1 }}"/></td>
 <td style="padding-left:25px;">session_{{ gs_id_title.0 }}</td>
 <td style="padding-left:25px;"><a href="/ifl/graphsession/{{ gs_id_title.0 }}" target="_blank">resume</a></td>
 <td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title.0 }}">clone</a></td>
@@ -37,7 +37,7 @@
   <tr>
   <td style="padding-left:25px;">{{ gs_id_title_comment.1 }}</td>
   <td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title_comment.0 }}">clone</a></td>
-  <td style="padding-left:25px;"><input style="background:white;color:black;border:none" type="text", id="{{ gs_id_title_comment.0 }}" value="{{ gs_id_title_comment.2 }}"/></td>
+  <td style="padding-left:25px;"><input style="background:white;color:black" type="text", id="{{ gs_id_title_comment.0 }}" value="{{ gs_id_title_comment.2 }}"/></td>
   </tr>
   {% endfor %}
   </table>
@@ -49,9 +49,8 @@
   <td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title_comment.0 }}">clone</a></td>
   <td style="padding-left:25px;">{{ gs_id_title_comment.2 }}</td>
   </tr>
+  {% endfor %}
   </table>
-{% endfor %}
-
 {% endif %}
 
 </fieldset>
