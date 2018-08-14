@@ -24,7 +24,9 @@ class GraphSession(models.Model):
     listidx = IntegerField(default=0)
     title = CharField(max_length=200, default="", blank=True, null=True)
     description = TextField(blank=True, null=True)
+
     example = BooleanField(default=False)
+    excomment = CharField(max_length=200, default="", blank=True, null=True)
 
     username = CharField(max_length=200)
     quicksaved = DateTimeField('quicksaved', blank=True, null=True)

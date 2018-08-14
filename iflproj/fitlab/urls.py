@@ -18,6 +18,7 @@ urlpatterns = [
     url(r'^delete/(?P<gs_id>[\w0-9]+)/?$', views.delete_session),
 
     url('^ajax_dashboard_edt_title/?$', views.ajax_dashboard_edt_title),
+    url('^ajax_dashboard_edt_excomment/?$', views.ajax_dashboard_edt_excomment),
 
     url(r'^graphsession/(?P<gs_id>[\w0-9]+)/?$', views.graph_session),
 

@@ -471,31 +471,23 @@ class Workers:
                     newobj = GraphSession()
                     newobj.example = False
                     newobj.username = task.username
-                    #newobj.save()
-                    #newsession = SoftGraphSession(gs_id=str(newobj.id), username=newobj.username)
 
                     # copy graph structure and literal data
-                    session = self.get_soft_session(task)
                     gd = None
-                    if not session:
-                        obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
+                    if not self.get_soft_session(task):
                         gd = json.loads(obj.graphdef)
                     else:
                         gd = session.graph.extract_graphdef()
 
                     newobj.graphdef = json.dumps(gd)
                     newobj.example = False
+                    newobj.title = obj.title
+                    newobj.description = obj.description
                     newobj.username = task.username
                     newobj.stashed = timezone.now()
                     newobj.quicksaved = timezone.now()
                     newobj.save()
-
-                    #newsession.graph.inject_graphdef(gd)
-
-                    # finalize
-                    #self.quicksave(newsession)
-                    #self.autosave(newsession)
-                    #self.sessions[newobj.id] = newsession
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id )
                     graphreply.save()

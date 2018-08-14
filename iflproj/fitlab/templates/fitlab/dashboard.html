@@ -30,15 +30,29 @@
 <hr>
 <p>Examples</p>
 
-<table id="tbl_examples">
-{% for gs_id_title in example_ids_titles %}
-<tr>
-<td style="padding-left:25px;">{{ gs_id_title.1 }}</td>
-<td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title.0 }}">clone</a></td>
-</tr>
-{% endfor %}
-</table>
 
+{% if admin %}
+  <table id="tbl_examples">
+  {% for gs_id_title_comment in example_ids_titles_comments %}
+  <tr>
+  <td style="padding-left:25px;">{{ gs_id_title_comment.1 }}</td>
+  <td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title_comment.0 }}">clone</a></td>
+  <td style="padding-left:25px;"><input style="background:white;color:black;border:none" type="text", id="{{ gs_id_title_comment.0 }}" value="{{ gs_id_title_comment.2 }}"/></td>
+  </tr>
+  {% endfor %}
+  </table>
+{% else %}
+  <table id="tbl_examples">
+  {% for gs_id_title_comment in example_ids_titles_comments %}
+  <tr>
+  <td style="padding-left:25px;">{{ gs_id_title_comment.1 }}</td>
+  <td style="padding-left:25px;"><a href="/ifl/clone/{{ gs_id_title_comment.0 }}">clone</a></td>
+  <td style="padding-left:25px;">{{ gs_id_title_comment.2 }}</td>
+  </tr>
+  </table>
+{% endfor %}
+
+{% endif %}
 
 </fieldset>
 
@@ -67,6 +81,12 @@ $(document).ready(() => {
     .change( (event) => {
       let val = { "title" : event.target.value, "gs_id" : event.target.id };
       simpleajax("/ifl/ajax_dashboard_edt_title/", val);
+    });
+
+  $("#tbl_examples input")
+    .change( (event) => {
+      let val = { "excomment" : event.target.value, "gs_id" : event.target.id };
+      simpleajax("/ifl/ajax_dashboard_edt_excomment/", val);
     });
 });
 </script>
