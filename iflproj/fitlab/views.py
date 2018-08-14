@@ -17,7 +17,9 @@ def index(req):
     if not req.user.is_authenticated:
         return redirect("/ifl/login")
 
-    username = req.session["username"]
+    username = req.session.get("username", None)
+    if not username:
+        return redirect("/ifl/login")
 
     objs = GraphSession.objects.filter(username=username)
     examples = GraphSession.objects.filter(username="admin", example=True)
