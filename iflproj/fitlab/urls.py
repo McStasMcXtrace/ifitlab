@@ -29,4 +29,7 @@ urlpatterns = [
     url('^ajax_load_session/?$', views.ajax_load_session),
     url('^ajax_revert_session/?$', views.ajax_revert_session),
 
+    url('^ajax_get_notes/?$', views.ajax_get_notes),
+    url('^ajax_edt_notes/?$', views.ajax_edt_notes),
+
 ]

@@ -237,9 +237,9 @@ def _reply(reply_json_str, error_json_str):
         return HttpResponse(error_json_str)
     return HttpResponse(reply_json_str)
 
-#######################
-#    AJAx handlers    #
-#######################
+###############################
+#    graphUi AJAx handlers    #
+###############################
 
 @login_required
 def ajax_load_session(req):
@@ -281,4 +281,28 @@ def ajax_update(req):
 def ajax_revert_session(req):
     rep, err = _command(req, "revert")
     return _reply(rep, err)
+
+@login_required
+def ajax_get_notes(req):
+    dbobj = None
+    try:
+        if not _tabvalidation(req):
+            raise Exception("tab validation failed")
+        dbobj = GraphSession.objects.filter(id=req.POST["gs_id"])[0]
+    except Exception as e:
+        return HttpResponse('{ "message" : "could not get notes: %s" }' % str(e))
+    return HttpResponse('{"notes" : "%s"}' % dbobj.description.replace('\r', '\n').replace('\n', '\\n'))
+
+@login_required
+def ajax_edt_notes(req):
+    dbobj = None
+    try:
+        if not _tabvalidation(req):
+            raise Exception("tab validation failed")
+        dbobj = GraphSession.objects.filter(id=req.POST["gs_id"])[0]
+        dbobj.description = json.loads(req.POST.get("data_str", None))['notes']
+        dbobj.save()
+    except Exception as e:
+        return HttpResponse('{ "message" : "edit failed: %s" }' % str(e))
+    return HttpResponse('{ "message" : "session_%s: notes were edited" }' % dbobj.id)
 

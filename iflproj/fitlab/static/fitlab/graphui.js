@@ -54,8 +54,6 @@ function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail
     catch(error) {
       console.log("JSON.parse error on string: ", msg);
       alert("uncomprehensible server response: ", msg);
-      selfref.graphData._updateNodeState(n);
-      selfref.updateUi();
       throw error;
     }
 
