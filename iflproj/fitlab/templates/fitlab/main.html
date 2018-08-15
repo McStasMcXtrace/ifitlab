@@ -386,8 +386,10 @@ $(document).ready(() => {
 
   // note window
   let ndiv = $("#divNotes");
+  let notes = $("#tareaNotes");
   noteWindow = new DragWindow($(window).width()-ndiv.width(), $(window).height()-ndiv.height()-35, ndiv.width(), ndiv.height(), "Notes", "divNotes");
-  simpleajax("/ifl/ajax_get_notes", "", gs_id, tab_id, (obj) => { $("#tareaNotes").val( obj["notes"] ); });
+  simpleajax("/ifl/ajax_get_notes", "", gs_id, tab_id, (obj) => { notes.val( obj["notes"] ); });
+  notes.change( () => { simpleajax("/ifl/ajax_edt_notes", { "notes" : notes.val() }, gs_id, tab_id, (obj) => {} ); } );
 
   // universal noselect to prevent selection during node handling. (This does not prevent selection in textboxes etc.)
   $("body").addClass("noselect");
