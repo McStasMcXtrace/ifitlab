@@ -127,6 +127,12 @@
   </table>
 </fieldset></div>
 
+<!--
+-->
+<div id="divNotes" style="position:absolute;background-color:white;" class=select>
+<textarea id="tareaNotes" rows="20" cols="64" style="resize:none;"></textarea>
+</div>
+
 <link rel="stylesheet" href="/ifl/ifl-static/fitlab/jquery-ui.css">
 <div id="dialog" title="How to use iFitLab:">
   <ul><li><b>create</b>: click template click work area</li><li><b>delete</b>: control click node</li><li><b>select</b>: click node</li><li><b>move</b>: mouse drag node</li><li><b>connect</b>: mouse drag anchors (even if a link exists)</li><li><b>run</b>: double click node</li>
@@ -271,6 +277,7 @@ let intface = null;
 let menu = null;
 let plthandler = null;
 let plotlines = null;
+let noteWindow = null;
 
 const morecls = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ff00", "#00ffff", "#ffffff", "#ddddff", "#9a7d0a"];
 const nicecols = ["#117864", "#943126", "#196f3d", "#a04000", "#633974", "#1a5276", "#5f6a6a", "#212f3c", "#9a7d0a"];
@@ -343,9 +350,10 @@ $(document).ready(() => {
   intface.addNodeMouseDownListn(plthandler.nodeMouseDown.bind(plthandler));
 
   // user data controls
-  let lft = window.innerWidth - $("#divUserData").width();
-  $("#divUserData").css({ left: lft, });
-  $("#divUserData").draggable();
+  let usrdiv = $("#divUserData");
+  let lft = window.innerWidth - usrdiv.width();
+  usrdiv.css({ left: lft, });
+  usrdiv.draggable();
   intface.addNodeSelectionListener( (node) => {
     if (node) { setUserData(node); }
     else clearUserDataPanel();
@@ -367,6 +375,7 @@ $(document).ready(() => {
     // replot all instance of this node
     plthandler.rePlot(n.id, n.gNode, n.plotdata);
   });
+  usrdiv.css({ top : 0, left : $(window)-usrdiv.width()});
 
   // create node menu
   let menuCB = intface.setCreateNodeConf.bind(intface)
@@ -375,19 +384,26 @@ $(document).ready(() => {
   menu = new NodeTypeMenu(menuCB, 'graph_menu_3', 'models');
   menu = new NodeTypeMenu(menuCB, 'graph_menu_4', 'functions');
 
+  // note window
+  let ndiv = $("#divNotes");
+  console.log($(window).width())
+  noteWindow = new DragWindow($(window).width()-ndiv.width(), $(window).height()-ndiv.height()-35, ndiv.width(), ndiv.height(), "Notes", "divNotes");
+
   // universal noselect to prevent selection during node handling. (This does not prevent selection in textboxes etc.)
   $("body").addClass("noselect");
 
   // ad-hoc help dialog, shown @ keypress: h
-  $( "#dialog" ).dialog();
-  $( "#dialog" ).dialog("close");
+  let dlg = $("#dialog");
+  dlg.dialog();
+  dlg.dialog("close");
   $("body").keypress( function(event) {
-    if (event.key == "h" && event.target == this) $( "#dialog" ).dialog("open");
+    if (event.key == "h" && event.target == this) dlg.dialog("open");
   });
 
   // load graph and run
   intface.updateUi(); // why is this needed to get rid of the "self.draggable is null" error message?
   intface.loadSession(); // this also updates the ui...
+
 });
 </script>
 </html>

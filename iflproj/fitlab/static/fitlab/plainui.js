@@ -423,6 +423,94 @@ class PlotWindow {
   }
 }
 
+class DragWindow {
+  constructor(xpos, ypos, width, height, title, content_div_id) {
+    this.xpos = xpos;
+    this.ypos = ypos;
+    this.width = width;
+    this.height = height;
+    this.title = title;
+    this.content_div_id = content_div_id;
+    this.wname = title + "_debugwindowname";
+    this.body_container = null;
+
+    this._createSubWindow();
+  }
+  _createSubWindow() {
+    let headerheight = 20;
+    let container_id = this.wname + "_container";
+    let container = $('<div id="ID">'.replace("ID", container_id))
+      .css({
+        position : "absolute",
+        left : this.xpos + "px",
+        top : this.ypos + "px",
+      })
+      .appendTo('body');
+
+    // header
+    let header_id = this.wname + "_header";
+    let header = $('<div id="ID">'.replace("ID", header_id))
+      .css({
+        position : "relative",
+        width : this.width + "px",
+        //width : "300px",
+        height : headerheight + "px",
+        cursor : "grab",
+        "background-color" : "#9C9CDE",
+        "border-style" : "solid",
+        "border-width" : "1px",
+        "border-color" : "gray",
+        display : "inline-block",
+      })
+      .appendTo(container)
+      .html(this.title)
+      .addClass("noselect");
+
+    // window body area - insert given div
+    let winbody = $('#' + this.content_div_id)
+      .css({
+        position:"relative",
+        width: this.width + "px",
+        height: this.height + "px",
+        "background-color":"white",
+        "border-style":"solid",
+        "border-width":"1px",
+        "border-top":"none",
+      })
+      .appendTo('#'+container_id)
+
+    $("#" + header_id).dblclick(() => {
+        $("#" + this.content_div_id).toggle();
+    });
+
+    var isDragging = false;
+    let maybeDragging = false;
+    $("#"+container_id)
+    .draggable({
+      cancel: "#" + this.content_div_id,
+      containment: "body",
+    })
+    .mousedown(function() {
+      isDragging = false;
+      maybeDragging = true;
+    })
+    .mousemove(() => {
+      if (maybeDragging && isDragging) ;/*mouseMoveCB();*/ else isDragging = true;
+    })
+    .mouseup(function() {
+      maybeDragging = false;
+      var wasDragging = isDragging;
+      isDragging = false;
+      if (!wasDragging) {
+          $("#throbble").toggle();
+      }
+    });
+
+    this.body_container = [this.content_div_id, container_id];
+  }
+}
+
+
 class PlotLines {
   constructor(svg_root) {
     this.svg = svg_root;
