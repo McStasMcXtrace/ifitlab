@@ -456,6 +456,10 @@ class Workers:
                     obj = GraphSession()
                     obj.example=False
                     obj.username = task.username
+                    obj.description = ""
+                    obj.title = ""
+                    obj.example = False
+                    obj.excomment = ""
                     obj.save()
                     session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
                     self.sessions[obj.id] = session
