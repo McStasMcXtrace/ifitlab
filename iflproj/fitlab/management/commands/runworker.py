@@ -486,7 +486,7 @@ class Workers:
 
                     newobj.graphdef = json.dumps(gd)
                     newobj.example = False
-                    newobj.title = obj.title
+                    newobj.title = obj.title + " [CLONE]"
                     newobj.description = obj.description
                     newobj.username = task.username
                     newobj.stashed = timezone.now()
