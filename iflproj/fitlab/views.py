@@ -1,5 +1,6 @@
 import time
 import json
+import base64
 
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
@@ -291,7 +292,13 @@ def ajax_get_notes(req):
         dbobj = GraphSession.objects.filter(id=req.POST["gs_id"])[0]
     except Exception as e:
         return HttpResponse('{ "message" : "could not get notes: %s" }' % str(e))
-    return HttpResponse('{"notes" : "%s"}' % dbobj.description.replace('\r', '\n').replace('\n', '\\n'))
+
+    # NOTE: Strings are already decoded utf-8 (or similar), encoded is a byte repr. of a string, 
+    # OR a b64 byte encoding of a such. This byte array needs decoding into a "base64 encoded string".
+    text = dbobj.description.replace('\r', '')
+    encoded = base64.b64encode(text.encode('utf-8'))
+    
+    return HttpResponse('{"notes" : "%s"}' % encoded.decode('utf-8'))
 
 @login_required
 def ajax_edt_notes(req):
