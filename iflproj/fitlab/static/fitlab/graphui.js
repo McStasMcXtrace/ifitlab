@@ -801,6 +801,7 @@ class LinkCenter extends Link {
 }
 
 // helper line draw / register & deregister events
+// TODO: FIX LinkHelper to check for self-destruction at every mouse move, use mouse state as a determinant
 class LinkHelper {
   constructor(svgroot, svgbranch, p0, destructor) {
     svgroot
@@ -1185,7 +1186,7 @@ class GraphDraw {
       .on("mousedown", function(d) {
         self.nodeMouseDownCB(d);
         self.dragNode = d;
-        self.h = new LinkHelper(self.svg, self.linkHelperBranch, [d.x, d.y], function() { self.h = null; }.bind(self) );
+        //self.h = new LinkHelper(self.svg, self.linkHelperBranch, [d.x, d.y], function() { self.h = null; }.bind(self) );
       })
       .on("mouseup", function(d) {
         let n = self.dragNode;

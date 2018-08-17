@@ -479,10 +479,13 @@ class Workers:
                     # copy graph structure and literal data
                     gd = None
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
-                    if not self.get_soft_session(task):
+                    if obj.username != task.username and obj.example == False:
+                        raise Exception("will not clone non-example session from other users")
+                    ses = self.get_soft_session(task)
+                    if not ses:
                         gd = json.loads(obj.graphdef)
                     else:
-                        gd = session.graph.extract_graphdef()
+                        gd = ses.graph.extract_graphdef()
 
                     newobj.graphdef = json.dumps(gd)
                     newobj.example = False
