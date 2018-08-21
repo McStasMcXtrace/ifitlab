@@ -11,13 +11,15 @@ import sys
 import os
 import pickle
 import base64
+from queue import Queue, Empty
 
 from django.utils import timezone
 from django.core.management.base import BaseCommand
-from queue import Queue, Empty
+from django.contrib.auth.models import User
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
+import nodespeak
 from iflproj import settings
 from fitlab.models import GraphUiRequest, GraphReply, GraphSession
 import enginterface
@@ -68,6 +70,22 @@ class SoftGraphSession:
 Utility
 '''
 
+class SysmonLine:
+    def __init__(self, users, dbsessions, livesessions, hothandles, mw_vars, ml_vars):
+        lst = [users, dbsessions, livesessions, hothandles, mw_vars, ml_vars]
+        self.line = " ".join([str(e) for e in lst])
+        self.didwrite = False
+    def write(self, filename):
+        if self.didwrite:
+            raise Exception("SysmonLine: line was already written")
+        try:
+            if not os.path.exists(filename):
+                open(filename, 'w').write("users, db_sessions, live_sessions, tot_active_handles, tot_mdlware_vars, tot_matlab_vars\n")
+            open(filename, 'a').write(self.line + "\n")
+        except Exception as e:
+            logging.info("SysmonLine: problem writing to disk: %s" % str(e))
+        self.didwrite = True
+
 def to_djangodb_str(obj):
     tosave = base64.b64encode(pickle.dumps(obj))
     return str(tosave)[2:]
@@ -111,13 +129,18 @@ class Workers:
             self.threads.append(t)
             self.termination_events[t.getName()] = threading.Event()
 
-        self.tcln = threading.Thread(target=self.cleanupwork)
+        self.tcln = threading.Thread(target=self.cleanup_wrk)
         self.tcln.setDaemon(True)
-        self.tcln.setName('%s' % (self.tcln.getName().replace('Thread-','T')))
+        self.tcln.setName('%s_cleanup' % (self.tcln.getName().replace('Thread-','T')))
         self.tcln.start()
-        
         self.termination_events[self.tcln.getName()] = threading.Event()
-        
+
+        self.tmon = threading.Thread(target=self.monitor_wrk)
+        self.tmon.setDaemon(True)
+        self.tmon.setName('%s_monitor' % (self.tmon.getName().replace('Thread-','T')))
+        self.tmon.start()
+        self.termination_events[self.tmon.getName()] = threading.Event()
+
         self.shutdownlock = threading.Lock()
         self.waiting_for_termination = threading.Event()
         self.waiting_for_termination.clear()
@@ -128,14 +151,61 @@ class Workers:
             e = self.termination_events[key]
             e.wait()
 
-    def cleanupwork(self):
-        ''' cleanup thread - retires sessions that are touched longer ago than settings timeout'''
+    def monitor_wrk(self):
         try:
             while not self.terminated:
-                now = timezone.now()
+                last = timezone.now()
 
-                while not self.terminated and (timezone.now() - now).seconds < settings.WRK_CLEANUP_INTERVAL_S:
-                    time.sleep(10)
+                logging.info("gathering statistics...")
+
+                # db users
+                num_users = len(User.objects.all())
+                # db sessions
+                num_sessions = len(GraphSession.objects.all())
+                # live data
+                num_livesessions = len(self.sessions.keys())
+                # number of graph handles holding objects
+                num_hothandles = 0
+                for key in self.sessions:
+                    ses = self.sessions[key]
+                    # WARNING: encapsulate this impl. into e.g. enginterface
+                    for key in ses.graph.root.subnodes:
+                        n = ses.graph.root.subnodes[key]
+                        if type(n) in (nodespeak.ObjNode, ) and n.get_object() != None:
+                            num_hothandles += 1
+                # accumulated middleware varnames
+                num_middleware_vars = 0
+                for key in self.sessions:
+                    ses = self.sessions[key]
+                    num_middleware_vars += len(ses.graph.middleware.varnames)
+                # total matlab vars
+                num_matlab_vars = 0
+                try:
+                    someses = self.sessions[next(iter(self.sessions))]
+                    who = someses.graph.middleware.totalwho()
+                    #logging.debug(", ".join(who))
+                    num_matlab_vars = len(who)
+                except Exception as e:
+                    pass
+                # save line to file
+                line = SysmonLine(num_users, num_sessions, num_livesessions, num_hothandles, num_middleware_vars, num_matlab_vars)
+                line.write(settings.SYSMON_LOGFILE)
+
+                while not self.terminated and (timezone.now() - last).seconds < settings.WRK_MONITOR_INTERVAL_S:
+                    time.sleep(settings.WRK_CHECK_INTERVAL_S)
+
+            logging.info("exiting...")
+        finally:
+            self.termination_events[self.tmon.getName()].set()
+
+    def cleanup_wrk(self):
+        ''' cleanup thread retires sessions that are "touched" longer ago than X time'''
+        try:
+            while not self.terminated:
+                last = timezone.now()
+
+                while not self.terminated and (timezone.now() - last).seconds < settings.WRK_CLEANUP_INTERVAL_S:
+                    time.sleep(settings.WRK_CHECK_INTERVAL_S)
 
                 logging.info("cleaning up sessions...")
                 keys = [key for key in self.sessions.keys()]
@@ -196,6 +266,7 @@ class Workers:
             self.shutdownlock.release()
 
     def load_session(self, task):
+        ''' fallbacks are: load -> revert -> reconstruct '''
         logging.info("autoloading stashed session, gs_id: %s" % task.gs_id)
 
         # load gs from DB
@@ -225,6 +296,7 @@ class Workers:
         return self.sessions.get(task.gs_id, None)
 
     def revert_session(self, task):
+        ''' fallbacks are: load -> revert -> reconstruct '''
         logging.info("reverting quicksaved session, gs_id: %s" % task.gs_id)
 
         # load gs from DB
@@ -255,6 +327,7 @@ class Workers:
         return self.sessions.get(task.gs_id, None)
 
     def reconstruct_session(self, task):
+        ''' fallbacks are: load -> revert -> reconstruct '''
         logging.info("reconstructing session from graphdef, gs_id: %s" % task.gs_id)
 
         try:
@@ -323,8 +396,8 @@ class Workers:
         obj.save()
 
     def get_user_softsessions(self, task):
-        ses = self.sessions
-        return [ses[key] for key in ses.keys() if ses[key].username == task.username]
+        sess = self.sessions
+        return [sess[key] for key in sess.keys() if sess[key].username == task.username]
 
     def mainwork(self):
         ''' Process a batch of UIRequest objects. Called from the main thread. '''
@@ -443,13 +516,13 @@ class Workers:
                     for session in self.get_user_softsessions(task):
                         self.shutdown_autosave(task.gs_id)
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save & shutdown success"}' )
+                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save-shutdown successful"}' )
                     graphreply.save()
 
                 # hard shutdown
                 elif task.cmd == "shutdown":
                     session = self.get_soft_session(task)
-                    session.graph.middleware.finalize()
+                    session.graph.shutdown()
 
                 # create / new
                 elif task.cmd == "new":

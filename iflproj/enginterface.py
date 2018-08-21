@@ -366,13 +366,15 @@ class FlatGraph:
             return {'error' : "Repr. exc.: %s" % str(e)}
 
     def reset_all_objs(self):
+        ''' assigns None to all object handle nodes '''
         for key in self.root.subnodes.keys():
             n = self.root.subnodes[key]
             obj = n.get_object()
-            if obj and type(n) in (ObjNode, ):
+            if obj != None and type(n) in (ObjNode, ):
                 n.assign(None)
 
     def inject_graphdef(self, graphdef):
+        ''' adds nodes, links and datas to the graph '''
         nodes = graphdef['nodes']
         links = graphdef['links']
         datas = graphdef['datas']
@@ -387,7 +389,7 @@ class FlatGraph:
 
         for key in datas.keys():
             n = self.root.subnodes[key]
-            if type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode, ):
+            if type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode, MethodNode ):
                 obj = json.loads(str(base64.b64decode( datas[key] ))[2:-1])
                 try:
                     n.assign(obj)
@@ -414,14 +416,13 @@ class FlatGraph:
             except:
                 pass # not all nodes have outgoing links...
             # labels
-            # TODO: impl. if we get some use case for this (labels are usually created client-side)
+            # TODO: impl.
 
             # data
             n = self.root.subnodes[key]
             obj = n.get_object()
             if obj != None and type(n) in (ObjLiteralNode, FuncNode, MethodAsFunctionNode,  ):
                 gdef["datas"][key] = str( base64.b64encode( json.dumps(obj).encode('utf-8') ))[2:-1]
-
         return gdef
 
     def extract_update(self):
@@ -436,10 +437,10 @@ class FlatGraph:
                     update[key] = obj.get_repr()
                 else:
                     update[key] = None
-
         return update
 
     def shutdown(self):
+        ''' forwards any required shutdown commands to the middleware tool '''
         self.middleware.finalise()
 
 

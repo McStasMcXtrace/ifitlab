@@ -392,22 +392,33 @@ class MethodNode(Node):
         # default value parameters are not represented in the graph as a configuration option
         self.defaults = {}
     def assign(self, obj):
-        raise MethodNode.AssignException(self.name, "can not assign to method nodes")
+        if type(obj) not in (dict, ):
+            raise InternalExecutionException(self.name, "only call MethodNode.assign with a dict (%s)" % str(obj))
+        for k in obj.keys():
+            # we have to assume that they are assigning something meaningful - otherwise call() will fail (a check could be implemented though)
+            self.defaults[k] = obj[k]
     def call(self, *args):
-        ''' returns None if the owner node's object is None '''
-        
-        # TODO: impl. defaults
-        
+        ''' call the method, grabbing self from any (unique) owner object, and attempts to apply self.defaults '''
         last = None
         for o in self.owners:
             if type(o) is ObjNode:
+                # find method ref and default args
                 method = None
                 try:
                     method = getattr(o.get_object(), self.methodname)
+                    
+                    # find parameters in sign. matching keys in self.defaults
+                    sign = inspect.signature(method)
+                    for k in sign.parameters.keys():
+                        par = sign.parameters[k]
+                        if par.default != inspect._empty:
+                            if par._name not in self.defaults.keys():
+                                self.defaults[k] = par.default
                 except:
                     raise MethodNode.NoMethodOfThatNameException(self.name, "no method of that name")
+
                 try:
-                    last = method(*args)
+                    last = method(*args, **self.defaults)
                 except Exception as e:
                     raise InternalExecutionException(self.name, str(e))
         return last
@@ -443,7 +454,8 @@ class MethodAsFunctionNode(Node):
         method = None
         try:
             method = getattr(slf, self.methodname)
-            # the default args trick has to be applied on-the-fly, keeping in assign(dct) in mind
+
+            # keeping assign(dct) in mind, the default args trick has to be applied on-the-fly
             sign = inspect.signature(method)
             for k in sign.parameters.keys():
                 par = sign.parameters[k]

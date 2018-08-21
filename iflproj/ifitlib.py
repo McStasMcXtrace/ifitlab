@@ -38,7 +38,7 @@ import uuid
 
 _eng = None
 _cmdlog = None
-def _eval(cmd, nargout=1):
+def _eval(cmd, nargout=1, nolog=False):
     global _eng
     global _cmdlog
     if not _cmdlog:
@@ -53,7 +53,8 @@ def _eval(cmd, nargout=1):
     if not _eng:
         _eng = matlab.engine.start_matlab('-nojvm -nodesktop -nosplash', async=False)
         _eng.eval("addpath(genpath('%s'))" % IFIT_DIR)
-    _cmdlog.info(cmd)
+    if not nolog:
+        _cmdlog.info(cmd)
     return _eng.eval(cmd, nargout=nargout)
 
 def _get_ifunc_uuid():
@@ -62,16 +63,16 @@ def _get_idata_uuid():
     return 'idata_%s' % uuid.uuid4().hex
 
 class _VarnameMiddleware(enginterface.MiddleWare):
-    ''' handles automatic registration of varname's for clearing at session expire/shutdown '''
+    ''' handles automatic registration and deregistration of varnames, and can clear matlab variables '''
     def __init__(self):
         self.varnames = []
-    def DB_who(self):
-        _eval("who;", nargout=0)
-    def DB_clearall(self):
-        _eval("clear all;", nargout=0)
+    def totalwho(self):
+        ''' returns all variables in the (global) matlab session '''
+        return _eval("who;", nargout=1, nolog=True)
     def register(self, obj):
         if type(obj) in (IData, IFunc, ):
-            self.varnames.append(obj.varname)
+            if not obj.varname in self.varnames:
+                self.varnames.append(obj.varname)
     def deregister(self, obj):
         if type(obj) in (IData, IFunc, ) and obj.varname in self.varnames:
             self.varnames.remove(obj.varname)
@@ -84,14 +85,12 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         save_str = "'" + "', '".join(self.varnames) + "'"
         _eval("save('%s', %s);" % (filepath, save_str), nargout=0)
     def clear(self):
-        todel = []
         for varname in self.varnames:
             try:
                 _eval("clear %s;" % varname, nargout=0)
             except:
-                todel.append(varname)
-        for varname in todel:
-            del self.varnames[varname]
+                pass
+        self.varnames = []
     def finalise(self):
         self.clear()
 
