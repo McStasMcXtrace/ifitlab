@@ -192,7 +192,7 @@ class Workers:
                 line.write(settings.SYSMON_LOGFILE)
 
                 while not self.terminated and (timezone.now() - last).seconds < settings.WRK_MONITOR_INTERVAL_S:
-                    time.sleep(settings.WRK_CHECK_INTERVAL_S)
+                    time.sleep(1)
 
             _log("exiting...")
         finally:
@@ -205,7 +205,7 @@ class Workers:
                 last = timezone.now()
 
                 while (not self.terminated) and (timezone.now() - last).seconds < settings.WRK_CLEANUP_INTERVAL_S:
-                    time.sleep(settings.WRK_CHECK_INTERVAL_S)
+                    time.sleep(1)
 
                 _log("cleaning up sessions...")
                 keys = [key for key in self.sessions.keys()]
@@ -213,7 +213,7 @@ class Workers:
                     ses = self.sessions.get(key, None) # thread safe way
                     if not ses:
                         continue
-                    if (ses.touched - timezone.now()).seconds > settings.WRK_SESSION_RETIRE_TIMEOUT_S:
+                    if (timezone.now() - ses.touched).seconds > settings.WRK_SESSION_RETIRE_TIMEOUT_S:
                         self.shutdown_autosave(ses.gs_id)
     
             _log("clean up retiring sessions...")
