@@ -83,7 +83,7 @@ class SysmonLine:
                 open(filename, 'w').write("users, db_sessions, live_sessions, tot_active_handles, tot_mdlware_vars, tot_matlab_vars\n")
             open(filename, 'a').write(self.line + "\n")
         except Exception as e:
-            logging.info("SysmonLine: problem writing to disk: %s" % str(e))
+            _log("SysmonLine: problem writing to disk: %s" % str(e))
         self.didwrite = True
 
 def to_djangodb_str(obj):
@@ -156,7 +156,7 @@ class Workers:
             while not self.terminated:
                 last = timezone.now()
 
-                logging.info("gathering statistics...")
+                _log("gathering statistics...")
 
                 # db users
                 num_users = len(User.objects.all())
@@ -194,7 +194,7 @@ class Workers:
                 while not self.terminated and (timezone.now() - last).seconds < settings.WRK_MONITOR_INTERVAL_S:
                     time.sleep(settings.WRK_CHECK_INTERVAL_S)
 
-            logging.info("exiting...")
+            _log("exiting...")
         finally:
             self.termination_events[self.tmon.getName()].set()
 
@@ -204,10 +204,10 @@ class Workers:
             while not self.terminated:
                 last = timezone.now()
 
-                while not self.terminated and (timezone.now() - last).seconds < settings.WRK_CLEANUP_INTERVAL_S:
+                while (not self.terminated) and (timezone.now() - last).seconds < settings.WRK_CLEANUP_INTERVAL_S:
                     time.sleep(settings.WRK_CHECK_INTERVAL_S)
 
-                logging.info("cleaning up sessions...")
+                _log("cleaning up sessions...")
                 keys = [key for key in self.sessions.keys()]
                 for key in keys:
                     ses = self.sessions.get(key, None) # thread safe way
@@ -216,7 +216,7 @@ class Workers:
                     if (ses.touched - timezone.now()).seconds > settings.WRK_SESSION_RETIRE_TIMEOUT_S:
                         self.shutdown_autosave(ses.gs_id)
     
-            logging.info("clean up retiring sessions...")
+            _log("clean up retiring sessions...")
             keys = [key for key in self.sessions.keys()]
             for key in keys:
                 ses = self.sessions.get(key, None) # thread safe way
@@ -236,7 +236,7 @@ class Workers:
 
     def shutdown_hard(self, task):
         ''' hard shutdown (nothing is saved) by task '''
-        logging.info("shutting down session %s (no save)" % task.gs_id)
+        _log("shutting down session %s (no save)" % task.gs_id)
         self.shutdownlock.acquire()
 
         try:
@@ -251,7 +251,7 @@ class Workers:
 
     def shutdown_autosave(self, gs_id):
         '''  '''
-        logging.info("retiring session %s" % gs_id)
+        _log("retiring session %s" % gs_id)
         self.shutdownlock.acquire()
 
         session = self.sessions.get(gs_id, None)
@@ -267,7 +267,7 @@ class Workers:
 
     def load_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
-        logging.info("autoloading stashed session, gs_id: %s" % task.gs_id)
+        _log("autoloading stashed session, gs_id: %s" % task.gs_id)
 
         # load gs from DB
         obj = None
@@ -297,7 +297,7 @@ class Workers:
 
     def revert_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
-        logging.info("reverting quicksaved session, gs_id: %s" % task.gs_id)
+        _log("reverting quicksaved session, gs_id: %s" % task.gs_id)
 
         # load gs from DB
         obj = None
@@ -328,7 +328,7 @@ class Workers:
 
     def reconstruct_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
-        logging.info("reconstructing session from graphdef, gs_id: %s" % task.gs_id)
+        _log("reconstructing session from graphdef, gs_id: %s" % task.gs_id)
 
         try:
             obj = GraphSession.objects.filter(id=task.gs_id)[0]
@@ -416,7 +416,7 @@ class Workers:
             if not task:
                 continue
 
-            logging.info("doing task '%s', session id: %s" % (task.cmd, task.gs_id))
+            _log("doing task '%s', session id: %s" % (task.cmd, task.gs_id))
             try:
                 # attach/load-attach
                 if task.cmd == "load":
@@ -433,7 +433,7 @@ class Workers:
                         graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "dataupdate" : update} ))
                         graphreply.save()
                     except:
-                        logging.info("autoload failed, requesting fallback cmd='revert', session id: %s" % task.gs_id)
+                        _log("autoload failed, requesting fallback cmd='revert', session id: %s" % task.gs_id)
                         task.cmd = "revert"
                         self.taskqueue.put(task)
 
@@ -464,6 +464,8 @@ class Workers:
                 # save
                 elif task.cmd == "save":
                     session = self.get_soft_session(task)
+                    if not session:
+                        raise Exception("save failed: session was not live")
 
                     anyerrors = session.graph.graph_update(task.sync_obj['sync'])
                     if anyerrors:
@@ -478,6 +480,9 @@ class Workers:
                 # update & run
                 elif task.cmd == "update_run":
                     session = self.get_soft_session(task)
+                    if not session:
+                        raise Exception("run failed: session was not live")
+
                     json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
@@ -487,7 +492,7 @@ class Workers:
                 elif task.cmd == "update":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("update failed: session was not alive")
+                        raise Exception("update failed: session was not live")
                     
                     error1 = session.graph.graph_update(task.sync_obj['sync'])
                     error2 = session.graph.graph_coords(task.sync_obj['coords'])
@@ -589,7 +594,7 @@ class Workers:
                 else:
                     raise Exception("invalid command: %s" % task.cmd)
 
-                logging.info("task done")
+                _log("task done")
 
             except Exception as e:
                 logging.error("fatal error: " + str(e))
@@ -597,8 +602,23 @@ class Workers:
                 graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "fatalerror" : str(e) } ))
                 graphreply.save()
 
-        logging.info("exit")
+        _log("exit")
         self.termination_events[threading.current_thread().getName()].set()
+
+_wrklog = None
+def _log(msg):
+    global _wrklog
+    if not _wrklog:
+        _wrklog = logging.getLogger('workers')
+        hdlr = logging.FileHandler('logs/workers.log')
+        hdlr.level = logging.INFO
+        hdlr.setFormatter(logging.Formatter('%(asctime)s:    %(message)s', '%Y%m%d_%H%M%S'))
+        hdlr2 = logging.StreamHandler(sys.stdout)
+        hdlr2.level = logging.INFO
+        hdlr2.setFormatter(logging.Formatter('%(message)s'))
+        _wrklog.addHandler(hdlr)
+        _wrklog.addHandler(hdlr2)
+    _wrklog.info(msg)
 
 class Command(BaseCommand):
     help = 'started in a separate process, required for any work to be done'
@@ -606,12 +626,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         logging.basicConfig(level=logging.INFO, format='%(threadName)-3s: %(message)s' )
 
-        logging.info("starting workers...")
+        _log("purging messages...")
+
         c = purgemessages.Command()
         c.handle()
-        logging.info("looking for tasks...")
 
         workers = Workers()
+        
+        _log("starting workers...")
+        _log("looking for tasks...")
         try:
             while True:
                 workers.mainwork()
@@ -620,7 +643,7 @@ class Command(BaseCommand):
         # ctr-c exits
         except KeyboardInterrupt:
             print("")
-            logging.info("shutdown requested, exiting...")
+            _log("shutdown requested, exiting...")
             workers.terminate()
             print("")
 

@@ -35,6 +35,7 @@ import numpy as np
 import functools
 import collections
 import uuid
+import datetime
 
 _eng = None
 _cmdlog = None
@@ -43,13 +44,13 @@ def _eval(cmd, nargout=1, nolog=False):
     global _cmdlog
     if not _cmdlog:
         _cmdlog = logging.getLogger('cmds')
-        hdlr = logging.FileHandler('cmds.m')
+        hdlr = logging.FileHandler('logs/cmds.log')
         formatter = logging.Formatter('%(message)s')
         hdlr.setFormatter(formatter)
         _cmdlog.addHandler(hdlr) 
         _cmdlog.info("")
         _cmdlog.info("")
-        _cmdlog.info("%%  starting ifit cmd log session  %%")
+        _cmdlog.info("%%  starting ifit cmd log session at %s  %%" % '{0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()))
     if not _eng:
         _eng = matlab.engine.start_matlab('-nojvm -nodesktop -nosplash', async=False)
         _eng.eval("addpath(genpath('%s'))" % IFIT_DIR)
@@ -271,7 +272,7 @@ def _get_iData_repr(idata_symb):
         pltdct = _get_plot_2D(axesvals, signal, error, xlabel=xlabel, ylabel=ylabel, title=idata_symb)
     else:
         for i in range(ndims):
-            ivals = list(_eval('%s.%s' % (idata_symb, axes_names[i]) )[0])
+            ivals = list(_eval('%s.%s;' % (idata_symb, axes_names[i]) )[0])
             axesvals.append(ivals)
         signal = list(_eval('%s.Signal;' % idata_symb)[0])
         error = list(_eval('%s.Error;' % idata_symb)[0])
@@ -529,11 +530,12 @@ class IFunc(enginterface.ObjReprJson):
                 values.append(dct[key])
             # because MATLAB arrays are not arrays of handles, we have to do the triangle trick
             try:
-                _eval('tmp = %s;' % vn, nargout=0)
-                _eval('tmp.ParameterValues = [%s];' % ' '.join( [str(float(v)) for v in values] ), nargout=0)
-                _eval('%s = tmp;' % vn, nargout=0)
+                # we put the varname in the tmp variable to elliminate any threading issues arising from a common tmp var
+                _eval('tmp_%s = %s;' % (vn, vn), nargout=0)
+                _eval('tmp_%s.ParameterValues = [%s];' % (vn, ' '.join( [str(float(v)) for v in values] )), nargout=0)
+                _eval('%s = tmp_%s;' % (vn, vn), nargout=0)
             finally:
-                _eval('clear tmp;', nargout=0)
+                _eval('clear tmp_%s;' % vn, nargout=0)
 
         shape = self._get_datashape()
         rank = len(shape)
@@ -1063,12 +1065,12 @@ def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
         # set values on the output function
         # (triangle trick enables indexing of vn_fitf using MATLAB, see IFunc.guess ...)
         try:
-            _eval('tmp = %s;' % vn_outf, nargout=0)
+            _eval('tmp_%s = %s;' % (vn_outf, vn_outf), nargout=0)
             for key in wanted:
-                _eval('tmp.%s = %s;' % (key, str(wanted[key])), nargout=0)
-            _eval('%s = tmp;' % vn_outf, nargout=0)
+                _eval('tmp_%s.%s = %s;' % (vn_outf, key, str(wanted[key])), nargout=0)
+            _eval('%s = tmp_%s;' % (vn_outf, vn_outf), nargout=0)
         finally:
-            _eval('clear tmp;', nargout=0)
+            _eval('clear tmp_%s;' % vn_outf, nargout=0)
 
     shape = fitfunc._get_datashape()
     if typefunc._get_datashape() not in (None, tuple(),):

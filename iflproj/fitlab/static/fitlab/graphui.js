@@ -61,9 +61,9 @@ function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail
     let fatalerror = obj["fatalerror"];
     if (fatalerror) {
       isalive = false;
-      alert("fatal error: " + fatalerror);
-      location.reload();
-      close()
+      alert("Please restart the session. Fatal error: " + fatalerror);
+      //location.reload();
+      close();
     }
 
     // timeouts

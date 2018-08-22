@@ -11,6 +11,7 @@ import inspect
 import json
 import re
 import os
+import sys
 import base64
 from collections import OrderedDict
 
@@ -22,10 +23,14 @@ def _log(msg):
     global _englog
     if not _englog:
         _englog = logging.getLogger('engine')
-        hdlr = logging.FileHandler('engine.log')
-        formatter = logging.Formatter('%(message)s')
-        hdlr.setFormatter(formatter)
-        _englog.addHandler(hdlr) 
+        hdlr = logging.FileHandler('logs/engine.log')
+        hdlr.setFormatter(logging.Formatter('%(asctime)s:    %(message)s', '%Y%m%d_%H%M%S'))
+        hdlr2 = logging.StreamHandler(sys.stdout)
+        hdlr2.level = logging.INFO
+        hdlr2.setFormatter(logging.Formatter('     %(message)s'))
+        _englog.addHandler(hdlr)
+        _englog.addHandler(hdlr2)
+
         _englog.info("")
         _englog.info("")
         _englog.info("%%  starting engine log session  %%")

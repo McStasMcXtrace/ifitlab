@@ -13,8 +13,10 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 import os
 
 # home-made settings
-IFIT_DIR = "/srv/mcweb/iFit/"
-MATFILES_DIRNAME = "/srv/mcweb/ifitlab/iflproj/matsaves"
+IFIT_DIR = "/home/jaga/source/REPO_ifit/"
+MATFILES_DIRNAME = "/home/jaga/source/ifitlab/iflproj/matsaves"
+#IFIT_DIR = "/srv/mcweb/iFit/"
+#MATFILES_DIRNAME = "/srv/mcweb/ifitlab/iflproj/matsaves"
 UI_COORDS_UPDATE_INTERVAL_MS = 30000
 AJAX_REQ_TIMEOUT_S = 60
 

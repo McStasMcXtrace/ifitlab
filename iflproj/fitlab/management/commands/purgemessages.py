@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 import sys
 import os
+import logging
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
@@ -19,9 +20,9 @@ class Command(BaseCommand):
         uireqs = GraphUiRequest.objects.all()
         replies = GraphReply.objects.all()
         tabids = TabId.objects.all()
-        print("purging uirequests: %d objects" % len(uireqs))
-        print("purging graphreplies: %d objects" % len(replies))
-        print("purging tabids: %d objects" % len(tabids))
+        logging.info("purging uirequests: %d objects" % len(uireqs))
+        logging.info("purging graphreplies: %d objects" % len(replies))
+        logging.info("purging tabids: %d objects" % len(tabids))
         for uireq in uireqs:
             uireq.delete()
         for reply in replies:
