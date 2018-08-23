@@ -214,7 +214,7 @@ class Workers:
                     if not ses:
                         continue
                     if (timezone.now() - ses.touched).seconds > settings.WRK_SESSION_RETIRE_TIMEOUT_S:
-                        self.shutdown_autosave(ses.gs_id)
+                        self.shutdown_session(ses.gs_id)
     
             _log("clean up retiring sessions...")
             keys = [key for key in self.sessions.keys()]
@@ -222,7 +222,7 @@ class Workers:
                 ses = self.sessions.get(key, None) # thread safe way
                 if not ses:
                     continue
-                self.shutdown_autosave(ses.gs_id)
+                self.shutdown_session(ses.gs_id)
 
         finally:
             self.termination_events[self.tcln.getName()].set()
@@ -234,36 +234,19 @@ class Workers:
             s.touch()
         return s
 
-    def shutdown_hard(self, task):
-        ''' hard shutdown (nothing is saved) by task '''
-        _log("shutting down session %s (no save)" % task.gs_id)
-        self.shutdownlock.acquire()
-
-        try:
-            session = self.sessions.get(task.gs_id, None)
-            if session:
-                session.graph.shutdown()
-                del self.sessions[task.gs_id]
-        except Exception as e:
-            logging.error("error: " + str(e))
-        finally:
-            self.shutdownlock.release()
-
-    def shutdown_autosave(self, gs_id):
-        '''  '''
+    def shutdown_session(self, gs_id):
+        ''' shuts down a session the right way '''
         _log("retiring session %s" % gs_id)
-        self.shutdownlock.acquire()
 
-        session = self.sessions.get(gs_id, None)
-        try:
-            if session:
-                self.autosave(session)
-                session.graph.shutdown()
-                del self.sessions[gs_id]
-        except Exception as e:
-            logging.error("error: " + str(e))
-        finally:
-            self.shutdownlock.release()
+        with self.shutdownlock.acquire():
+            session = self.sessions.get(gs_id, None)
+            try:
+                if session:
+                    self.autosave(session)
+                    session.graph.shutdown()
+                    del self.sessions[gs_id]
+            except Exception as e:
+                logging.error("error: " + str(e))
 
     def load_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
@@ -440,8 +423,7 @@ class Workers:
                 # revert AKA "manual" load
                 elif task.cmd == "revert":
                     # cleanup & remove any active session
-                    self.shutdown_hard(task)
-                    
+                    self.shutdown_session(task.gs_id)
                     # quickload the session AKA revert
                     session = self.revert_session(task)
                     
@@ -519,7 +501,7 @@ class Workers:
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":
                     for session in self.get_user_softsessions(task):
-                        self.shutdown_autosave(task.gs_id)
+                        self.shutdown_session(task.gs_id)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save-shutdown successful"}' )
                     graphreply.save()
@@ -579,7 +561,7 @@ class Workers:
 
                 # delete
                 elif task.cmd == "delete":
-                    self.shutdown_hard(task)
+                    self.shutdown_session(task.gs_id)
 
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
                     if os.path.exists(obj.stashed_matfile):
