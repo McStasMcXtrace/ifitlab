@@ -98,8 +98,9 @@ def _extract_loglines(tag, varnames):
         left.close()
         right.close()
 
+        # DISABLED, TODO: reimplememnt
         # replace filtered source with 
-        os.rename(tmp_left, source)
+        #os.rename(tmp_left, source)
 
         # return extracted data
         return cmds

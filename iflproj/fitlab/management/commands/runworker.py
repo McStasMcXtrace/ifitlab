@@ -244,11 +244,16 @@ class Workers:
         logtext = "".join(loglines)
         logheader = session.graph.middleware.get_logheader()
 
+        # DISABLED, TODO: reimplememnt
+        '''
         # add and save
-        prevlog = obj.loglines
+        revlog = obj.loglines
         if prevlog == None:
             prevlog = ""
+
         obj.loglines = prevlog + logtext
+        '''
+        obj.loglines = logtext
         obj.logheader = logheader
         obj.save()
 
