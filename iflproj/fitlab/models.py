@@ -21,9 +21,11 @@ class GraphReply(models.Model):
 
 class GraphSession(models.Model):
     created = DateTimeField('created', default=timezone.now)
+
     listidx = IntegerField(default=0)
     title = CharField(max_length=200, default="", blank=True, null=True)
     description = TextField(blank=True, null=True)
+    loglines = TextField(blank=True, null=True)
 
     example = BooleanField(default=False)
     excomment = CharField(max_length=200, default="", blank=True, null=True)
@@ -36,11 +38,11 @@ class GraphSession(models.Model):
 
     # stashed live data on top of quicksave
     stashed_pickle = TextField(blank=True)
-    stashed_matfile = CharField(max_length=200, default="")
+    stashed_matfile = CharField(max_length=200, default="", blank=True)
 
     # restore point / quick save
     quicksave_pickle = TextField(blank=True)
-    quicksave_matfile = CharField(max_length=200, default="")
+    quicksave_matfile = CharField(max_length=200, default="", blank=True)
 
     def __str__(self):
        return 'session %s, idx %s, %s' % (self.id, self.listidx, self.title)
