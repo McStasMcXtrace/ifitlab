@@ -191,7 +191,7 @@ class Workers:
                 line = SysmonLine(num_users, num_sessions, num_livesessions, num_hothandles, num_middleware_vars, num_matlab_vars)
                 line.write(settings.SYSMON_LOGFILE)
 
-                while not self.terminated and (timezone.now() - last).seconds < settings.WRK_MONITOR_INTERVAL_S:
+                while (not self.terminated) and (timezone.now() - last).seconds < settings.WRK_MONITOR_INTERVAL_S:
                     time.sleep(1)
 
             _log("exiting...")
@@ -234,19 +234,36 @@ class Workers:
             s.touch()
         return s
 
+    def extract_log(self, session):
+        if not session:
+            raise Exception("extract_logs: null session given")
+
+        # get new text
+        obj = GraphSession.objects.filter(id=session.gs_id)[0]
+        lines = session.graph.middleware.extract_loglines(session.gs_id)
+        text = "".join(lines)
+
+        # add and save
+        prevlog = obj.loglines
+        if prevlog == None:
+            prevlog = ""
+        obj.loglines = prevlog + text
+        obj.save()
+
     def shutdown_session(self, gs_id):
         ''' shuts down a session the right way '''
         _log("retiring session %s" % gs_id)
 
-        with self.shutdownlock.acquire():
+        with self.shutdownlock:
             session = self.sessions.get(gs_id, None)
-            try:
-                if session:
+            if session:
+                try:
                     self.autosave(session)
+                    self.extract_log(session)
                     session.graph.shutdown()
                     del self.sessions[gs_id]
-            except Exception as e:
-                logging.error("error: " + str(e))
+                except Exception as e:
+                    logging.error("error: " + str(e))
 
     def load_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
@@ -595,11 +612,7 @@ def _log(msg):
         hdlr = logging.FileHandler('logs/workers.log')
         hdlr.level = logging.INFO
         hdlr.setFormatter(logging.Formatter('%(asctime)s:    %(message)s', '%Y%m%d_%H%M%S'))
-        hdlr2 = logging.StreamHandler(sys.stdout)
-        hdlr2.level = logging.INFO
-        hdlr2.setFormatter(logging.Formatter('%(message)s'))
         _wrklog.addHandler(hdlr)
-        _wrklog.addHandler(hdlr2)
     _wrklog.info(msg)
 
 class Command(BaseCommand):

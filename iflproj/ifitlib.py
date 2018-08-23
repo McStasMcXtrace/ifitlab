@@ -29,6 +29,7 @@ import base64
 import matlab.engine
 import math
 import re
+import os
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
@@ -36,32 +37,72 @@ import functools
 import collections
 import uuid
 import datetime
+import threading
 
 _eng = None
 _cmdlog = None
-def _eval(cmd, nargout=1, nolog=False):
+def _eval(cmd, nargout=1, dontlog=False):
+    global _loglock
     global _eng
     global _cmdlog
-    if not _cmdlog:
-        _cmdlog = logging.getLogger('cmds')
-        hdlr = logging.FileHandler('logs/cmds.log')
-        formatter = logging.Formatter('%(message)s')
-        hdlr.setFormatter(formatter)
-        _cmdlog.addHandler(hdlr) 
-        _cmdlog.info("")
-        _cmdlog.info("")
-        _cmdlog.info("%%  starting ifit cmd log session at %s  %%" % '{0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()))
-    if not _eng:
-        _eng = matlab.engine.start_matlab('-nojvm -nodesktop -nosplash', async=False)
-        _eng.eval("addpath(genpath('%s'))" % IFIT_DIR)
-    if not nolog:
-        _cmdlog.info(cmd)
-    return _eng.eval(cmd, nargout=nargout)
+    with _loglock:
+        if not _cmdlog:
+            _cmdlog = logging.getLogger('cmds')
+            hdlr = logging.FileHandler('logs/cmds.log')
+            formatter = logging.Formatter('%(message)s')
+            hdlr.setFormatter(formatter)
+            _cmdlog.addHandler(hdlr) 
+            _cmdlog.info("")
+            _cmdlog.info("")
+            _cmdlog.info("%%  starting ifit cmd log session at %s  %%" % '{0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()))
+        if not _eng:
+            _eng = matlab.engine.start_matlab('-nojvm -nodesktop -nosplash', async=False)
+            _eng.eval("addpath(genpath('%s'))" % IFIT_DIR)
+        if not dontlog:
+            _cmdlog.info(cmd)
+        return _eng.eval(cmd, nargout=nargout)
 
 def _get_ifunc_uuid():
     return 'ifunc_%s' % uuid.uuid4().hex
 def _get_idata_uuid():
     return 'idata_%s' % uuid.uuid4().hex
+
+_loglock = threading.Lock()
+def _extract_loglines(tag, varnames):
+    global _logextract_lock
+
+    source = 'logs/cmds.log'
+    tmp_left = 'logs/tmp_cmds.log'
+    tmp_right = 'logs/tmp_%s.m' % tag
+
+
+    with _loglock:
+        # remove any previous tmp files
+        if os.path.exists(tmp_left):
+            os.remove(tmp_left)
+        if os.path.exists(tmp_right):
+            os.remove(tmp_right)
+
+        # open tmp files
+        left = open(tmp_left, 'a')
+        right = open(tmp_right, 'a')
+
+        cmds = []
+        re_lst = [re.compile(vn) for vn in varnames]
+        for line in open(source, 'r'):
+            if True in [r.search(line)!=None for r in re_lst]:
+                right.write(line)
+                cmds.append(line)
+            else:
+                left.write(line)
+        left.close()
+        right.close()
+
+        # replace filtered source with 
+        os.rename(tmp_left, source)
+
+        # return extracted data
+        return cmds
 
 class _VarnameMiddleware(enginterface.MiddleWare):
     ''' handles automatic registration and deregistration of varnames, and can clear matlab variables '''
@@ -69,7 +110,7 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         self.varnames = []
     def totalwho(self):
         ''' returns all variables in the (global) matlab session '''
-        return _eval("who;", nargout=1, nolog=True)
+        return _eval("who;", nargout=1, dontlog=True)
     def register(self, obj):
         if type(obj) in (IData, IFunc, ):
             if not obj.varname in self.varnames:
@@ -78,22 +119,24 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         if type(obj) in (IData, IFunc, ) and obj.varname in self.varnames:
             self.varnames.remove(obj.varname)
     def load(self, filepath):
-        _eval("load('%s');" % filepath, nargout=0)
+        _eval("load('%s');" % filepath, nargout=0, dontlog=True)
     def save(self, filepath):
         # filter possibly outdated varnames using who
-        allvars = _eval("who;")
+        allvars = _eval("who;", nargout=1, dontlog=True)
         self.varnames = [v for v in allvars if v in self.varnames]
         save_str = "'" + "', '".join(self.varnames) + "'"
-        _eval("save('%s', %s);" % (filepath, save_str), nargout=0)
+        _eval("save('%s', %s);" % (filepath, save_str), nargout=0, dontlog=True)
     def clear(self):
         for varname in self.varnames:
             try:
-                _eval("clear %s;" % varname, nargout=0)
+                _eval("clear %s;" % varname, nargout=0, dontlog=True)
             except:
                 pass
         self.varnames = []
     def finalise(self):
         self.clear()
+    def extract_loglines(self, tag):
+        return _extract_loglines(tag, self.varnames)
 
 def _load_middleware():
     return _VarnameMiddleware()
