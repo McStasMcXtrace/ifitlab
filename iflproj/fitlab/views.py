@@ -118,6 +118,15 @@ def delete_session(req, gs_id):
     return redirect("index")
 
 @login_required
+def extractlogfrom_session(req, gs_id):
+    username = req.session['username']
+    print('extracting command log from session for user: %s, gs_id: %s' % (username, gs_id))
+
+    _command(req, "extract_log", validate=False, gs_id=gs_id)
+    obj = GraphSession.objects.filter(id=gs_id)[0]
+    return HttpResponse("<pre>%s%s</pre>" % (obj.logheader, obj.loglines))
+
+@login_required
 def ajax_dashboard_edt_title(req):
     syncset = req.POST.get("data_str", None)
     dbobj = None

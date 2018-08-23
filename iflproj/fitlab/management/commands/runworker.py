@@ -238,16 +238,18 @@ class Workers:
         if not session:
             raise Exception("extract_logs: null session given")
 
-        # get new text
+        # get new logtext
         obj = GraphSession.objects.filter(id=session.gs_id)[0]
-        lines = session.graph.middleware.extract_loglines(session.gs_id)
-        text = "".join(lines)
+        loglines = session.graph.middleware.extract_loglines(session.gs_id)
+        logtext = "".join(loglines)
+        logheader = session.graph.middleware.get_logheader()
 
         # add and save
         prevlog = obj.loglines
         if prevlog == None:
             prevlog = ""
-        obj.loglines = prevlog + text
+        obj.loglines = prevlog + logtext
+        obj.logheader = logheader
         obj.save()
 
     def shutdown_session(self, gs_id):
@@ -513,6 +515,17 @@ class Workers:
                     update = session.graph.extract_update()
                     
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
+                    graphreply.save()
+
+                # extract log lines
+                elif task.cmd == "extract_log":
+                    session = self.get_soft_session(task)
+                    if not session:
+                        raise Exception("clear_data failed: session was not alive")
+                    
+                    self.extract_log(session)
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "command log extraction successful"}' )
                     graphreply.save()
 
                 # save & shutdown

@@ -26,6 +26,7 @@ class GraphSession(models.Model):
     title = CharField(max_length=200, default="", blank=True, null=True)
     description = TextField(blank=True, null=True)
     loglines = TextField(blank=True, null=True)
+    logheader = TextField(blank=True, null=True)
 
     example = BooleanField(default=False)
     excomment = CharField(max_length=200, default="", blank=True, null=True)

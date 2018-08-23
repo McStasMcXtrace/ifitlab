@@ -137,6 +137,9 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         self.clear()
     def extract_loglines(self, tag):
         return _extract_loglines(tag, self.varnames)
+    def get_logheader(self):
+        text = "%%\n" + '%%  log generated on {0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()) + "\n%%\n%%  required:\n%%    addpath(genpath(YOUR_IFIT_LOCATION))\n%%\n%%  varnames:\n%%    " + "\n%%    ".join(self.varnames) + "\n%%\n"
+        return text
 
 def _load_middleware():
     return _VarnameMiddleware()
