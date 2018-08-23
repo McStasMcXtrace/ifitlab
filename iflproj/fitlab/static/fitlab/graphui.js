@@ -489,9 +489,11 @@ class Anchor {
     return (this.i_o == true) && (this.numconnections > 0);
   }
   get tt() {
-    let parname = this.parname;
-    if (!parname) parname = '';
-    return parname + "(" + this.type + ")";
+    // including parname in the tooltip was apparently "to confusing"
+    //let parname = this.parname;
+    //if (!parname) parname = '';
+    //return parname + "(" + this.type + ")";
+    return "(" + this.type + ")";
   }
   get x() { return this.owner.x + this.localx; }
   set x(value) { /* empty:)) */ }
