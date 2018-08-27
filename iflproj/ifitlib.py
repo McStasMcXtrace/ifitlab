@@ -69,56 +69,56 @@ def _get_idata_uuid():
 
 _loglock = threading.Lock()
 def _extract_loglines(tag, varnames):
-    global _logextract_lock
-
+    ''' extracts and returns lines with any string in varnames, from logs/cmds.log, deleting these lines in the source '''
     source = 'logs/cmds.log'
     tmp_left = 'logs/tmp_cmds.log'
     tmp_right = 'logs/tmp_%s.m' % tag
 
-
     with _loglock:
-        # remove any previous tmp files
+        # remove any tmp files
         if os.path.exists(tmp_left):
             os.remove(tmp_left)
         if os.path.exists(tmp_right):
             os.remove(tmp_right)
 
-        # open tmp files
-        left = open(tmp_left, 'a')
-        right = open(tmp_right, 'a')
+        with open(source, 'r') as srcfile:
+            with open(tmp_left, 'a') as left:
+                with open(tmp_right, 'a') as right:
+                    regex_lst = [re.compile(vn) for vn in varnames]
+                    cmds_other = []
+                    cmds_ret = []
+                    for line in srcfile:
+                        if True in [r.search(line)!=None for r in regex_lst]:
+                            right.write(line)
+                            cmds_ret.append(line)
+                        else:
+                            left.write(line)
+                            cmds_other.append(line)
 
-        cmds = []
-        re_lst = [re.compile(vn) for vn in varnames]
-        for line in open(source, 'r'):
-            if True in [r.search(line)!=None for r in re_lst]:
-                right.write(line)
-                cmds.append(line)
-            else:
-                left.write(line)
-        left.close()
-        right.close()
+        # replace source with filtered remainder (without destroying the file pointer used by logging)
+        with open(source, 'w') as srcfile:
+            srcfile.write("".join(cmds_other))
+            srcfile.close()
 
-        # DISABLED, TODO: reimplememnt
-        # replace filtered source with 
-        #os.rename(tmp_left, source)
-
-        # return extracted data
-        return cmds
+        return cmds_ret
 
 class _VarnameMiddleware(enginterface.MiddleWare):
-    ''' handles automatic registration and deregistration of varnames, and can clear matlab variables '''
+    ''' implements registration and deregistration of varnames, clears matlab variables on deregister and exit '''
     def __init__(self):
         self.varnames = []
     def totalwho(self):
         ''' returns all variables in the (global) matlab session '''
         return _eval("who;", nargout=1, dontlog=True)
     def register(self, obj):
+        '''  '''
         if type(obj) in (IData, IFunc, ):
             if not obj.varname in self.varnames:
                 self.varnames.append(obj.varname)
     def deregister(self, obj):
+        ''' deregister must also matlab-delete for this operation to be general '''
         if type(obj) in (IData, IFunc, ) and obj.varname in self.varnames:
             self.varnames.remove(obj.varname)
+            _eval("clear %s;" % obj.varname, nargout=0)
     def load(self, filepath):
         _eval("load('%s');" % filepath, nargout=0, dontlog=True)
     def save(self, filepath):

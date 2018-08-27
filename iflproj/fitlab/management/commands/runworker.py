@@ -239,22 +239,26 @@ class Workers:
             raise Exception("extract_logs: null session given")
 
         # get new logtext
-        obj = GraphSession.objects.filter(id=session.gs_id)[0]
         loglines = session.graph.middleware.extract_loglines(session.gs_id)
         logtext = "".join(loglines)
-        logheader = session.graph.middleware.get_logheader()
 
-        # DISABLED, TODO: reimplememnt
-        '''
-        # add and save
-        revlog = obj.loglines
+        # append and save
+        obj = GraphSession.objects.filter(id=session.gs_id)[0]
+        prevlog = obj.loglines
         if prevlog == None:
             prevlog = ""
 
+        # filter previous log to contain only the currently registered varnames
+        regexs = [re.compile(vn) for vn in session.graph.middleware.varnames]
+        lst = []
+        for l in prevlog.splitlines():
+            if True in [r.search(l)!=None for r in regexs]:
+                lst.append(l)
+        prevlog = "\n".join(lst)
+
+        # save to disk
         obj.loglines = prevlog + logtext
-        '''
-        obj.loglines = logtext
-        obj.logheader = logheader
+        obj.logheader = session.graph.middleware.get_logheader()
         obj.save()
 
     def shutdown_session(self, gs_id):

@@ -332,12 +332,20 @@ class FlatGraph:
         _log("execute_node: %s" % id)
         try:
             n = self.root.subnodes[id]
+
+            # deregister and clear the previous object
+            old = n.get_object()
+            if old != None:
+                self.middleware.deregister(old)
+
+            # execute (assigns a new object or None), log and register
             obj = execute_node(n)
+
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
             
             self.middleware.register(obj)
-            
+
             retobj = {'dataupdate': {} }
             update_lst = [id]
             if type(n) in (MethodAsFunctionNode, ):
@@ -375,7 +383,9 @@ class FlatGraph:
         for key in self.root.subnodes.keys():
             n = self.root.subnodes[key]
             obj = n.get_object()
+            
             if obj != None and type(n) in (ObjNode, ):
+                self.middleware.deregister(obj)
                 n.assign(None)
 
     def inject_graphdef(self, graphdef):
