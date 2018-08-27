@@ -82,7 +82,7 @@ def logout_user(req):
     logout(req)
 
     _command(req, "autosave_shutdown", validate=False, username=username)
-    return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl/login'>login</a> <a href='/ifl/login_debuguser'>login as debuguser</a>" % username)
+    return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl/login'>login</a>" % username)
 
 @login_required
 def new_session(req):
