@@ -261,7 +261,7 @@ class Workers:
         obj.logheader = session.graph.middleware.get_logheader()
         obj.save()
 
-    def shutdown_session(self, gs_id):
+    def shutdown_session(self, gs_id, nosave=False):
         ''' shuts down a session the right way '''
         _log("retiring session %s" % gs_id)
 
@@ -269,7 +269,8 @@ class Workers:
             session = self.sessions.get(gs_id, None)
             if session:
                 try:
-                    self.autosave(session)
+                    if not nosave:
+                        self.autosave(session)
                     self.extract_log(session)
                     session.graph.shutdown()
                     del self.sessions[gs_id]
@@ -441,7 +442,7 @@ class Workers:
                         gd = session.graph.extract_graphdef()
                         update = session.graph.extract_update()
                         
-                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "dataupdate" : update} ))
+                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
                         graphreply.save()
                     except:
                         _log("autoload failed, requesting fallback cmd='revert', session id: %s" % task.gs_id)
@@ -454,7 +455,7 @@ class Workers:
                     self.shutdown_session(task.gs_id)
                     # quickload the session AKA revert
                     session = self.revert_session(task)
-                    
+
                     # construct the graph reply
                     gd = None
                     update = None
@@ -468,7 +469,24 @@ class Workers:
                             raise Exception("session could not be loaded: %s" % task.gs_id)
                         gd = session.graph.extract_graphdef()
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "graphdef" : gd, "dataupdate" : update} ))
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
+                    graphreply.save()
+
+                # reset
+                elif task.cmd == "reset":
+                    self.shutdown_session(task.gs_id, nosave=True)
+
+                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
+
+                    obj.stashed_pickle = "reset"
+                    obj.quicksave_pickle = "reset"
+                    obj.loglines = ""
+                    obj.logheader = ""
+                    obj.stashed_matfile = ""
+                    obj.quicksave_matfile = ""
+                    obj.save()
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
                     graphreply.save()
 
                 # save

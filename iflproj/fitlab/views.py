@@ -125,6 +125,14 @@ def delete_session(req, gs_id):
     return redirect("index")
 
 @login_required
+def reset_session(req, gs_id):
+    username = req.session['username']
+    print('resetting graph session for user: %s, gs_id: %s' % (username, gs_id))
+
+    _command(req, "reset", validate=False, gs_id=gs_id)
+    return redirect("index")
+
+@login_required
 def extractlogfrom_session(req, gs_id):
     username = req.session['username']
     print('extracting command log from session for user: %s, gs_id: %s' % (username, gs_id))

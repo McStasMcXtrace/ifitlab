@@ -17,6 +17,7 @@ urlpatterns = [
     url(r'^cloneopen/(?P<gs_id>[\w0-9]+)/?$', views.clone_session_and_open),
     url(r'^clone/(?P<gs_id>[\w0-9]+)/?$', views.clone_session),
     url(r'^delete/(?P<gs_id>[\w0-9]+)/?$', views.delete_session),
+    url(r'^reset/(?P<gs_id>[\w0-9]+)/?$', views.reset_session),
     url(r'^cmdlog/(?P<gs_id>[\w0-9]+)/?$', views.extractlogfrom_session),
 
     url('^ajax_dashboard_edt_title/?$', views.ajax_dashboard_edt_title),
