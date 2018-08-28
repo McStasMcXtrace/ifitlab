@@ -98,7 +98,6 @@ def new_session_and_open(req):
     print('creating new graph session for user: %s' % (username))
 
     ans, err = _command(req, "new", validate=False)
-    
     return redirect("/ifl/graphsession/%s" % ans)
 
 @login_required
@@ -108,6 +107,14 @@ def clone_session(req, gs_id):
 
     _command(req, "clone", validate=False, gs_id=gs_id)
     return redirect("index")
+
+@login_required
+def clone_session_and_open(req, gs_id):
+    username = req.session['username']
+    print('cloning graph session for user: %s, gs_id: %s' % (username, gs_id))
+
+    ans, err = _command(req, "clone", validate=False, gs_id=gs_id)
+    return redirect("/ifl/graphsession/%s" % ans)
 
 @login_required
 def delete_session(req, gs_id):
