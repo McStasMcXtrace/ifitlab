@@ -492,8 +492,8 @@ class Anchor {
     // including parname in the tooltip was apparently "to confusing"
     //let parname = this.parname;
     //if (!parname) parname = '';
-    //return parname + "(" + this.type + ")";
-    return "(" + this.type + ")";
+    return parname + "(" + this.type + ")";
+    //return "(" + this.type + ")";
   }
   get x() { return this.owner.x + this.localx; }
   set x(value) { /* empty:)) */ }
