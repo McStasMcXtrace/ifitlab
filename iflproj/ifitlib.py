@@ -147,7 +147,7 @@ def _load_middleware():
 
 namecategories = collections.OrderedDict({
     'IData' : 'tools',
-    'IData.rmint' : 'tools',
+    'IData.mask' : 'tools',
     'IFunc' : 'tools',
     'IFunc.guess' : 'tools',
     'IFunc.fixpars' : 'tools',
@@ -233,11 +233,11 @@ class IData(enginterface.ObjReprJson):
 
         return retdct
 
-    def rmint(self, min, max):
-        ''' Remove data from the specified interval. '''
+    def mask(self, min, max):
+        ''' Masks data of the specified interval. '''
 
         ''' 
-        NOTE: a (minmax_lst) signatured version of rmint would require a "rank" or "shape" indexing 
+        NOTE: a (minmax_lst) signatured version of mask (previously rmint) would require a "rank" or "shape" indexing 
         depth parameter (same as combine).
         '''
         def rmint_atomic(vn, start, end):
