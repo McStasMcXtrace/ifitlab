@@ -490,8 +490,8 @@ class Anchor {
   }
   get tt() {
     // including parname in the tooltip was apparently "to confusing"
-    //let parname = this.parname;
-    //if (!parname) parname = '';
+    let parname = this.parname;
+    if (!parname) parname = '';
     return parname + "(" + this.type + ")";
     //return "(" + this.type + ")";
   }
