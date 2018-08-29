@@ -943,7 +943,7 @@ ifunc combination functions / operators
 '''
 
 def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    ''' Outputs the sum of two IFunc model objects. '''
+    ''' Outputs the sum of two IFunc model objects, preserving configuration state. '''
     # check datashape
     shape = ifunc_a._get_datashape()
     shape2 = ifunc_b._get_datashape()
