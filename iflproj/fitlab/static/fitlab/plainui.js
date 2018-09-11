@@ -181,7 +181,7 @@ class PlotWindow {
       .html(title);
     this.title = title;
   }
-  removePlot(nodeid) {
+  extractNode(nodeid) {
     if (this.data[nodeid] == undefined) return false;
 
     delete this.data[nodeid];
@@ -203,7 +203,7 @@ class PlotWindow {
     this.body_container = null;
     this._closeOuterCB(this);
   }
-  numPlots() {
+  numClients() {
     let n = 0;
     for (let id in this.data) n++;
     return n;
@@ -443,6 +443,8 @@ class IdxEditWindow {
     this.ndims = null;
   }
   dropNode(id, gNode, plotData) { return true; }
+  extractNode(nodeid) { return true; }
+  numClients() { return 1; }
   get x() {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.left + this.w/2;
@@ -826,8 +828,8 @@ class SubWindowHandler {
     let closeUs = [];
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
-      let didremove = pltw.removePlot(id);
-      if (didremove && pltw.numPlots() == 0 && closeEmpty) {
+      let didremove = pltw.extractNode(id);
+      if (didremove && pltw.numClients() == 0 && closeEmpty) {
         x_y = [pltw.left, pltw.top];
         closeUs.push(pltw);
       }
@@ -848,7 +850,7 @@ class SubWindowHandler {
     this.subwindowlines.removeLinesByNid(id);
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
-      let didremove = pltw.removePlot(id);
+      let didremove = pltw.extractNode(id);
       if (didremove) {
         pltw.dropNode(id, null, plotdata);
 
