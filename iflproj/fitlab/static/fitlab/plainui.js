@@ -425,26 +425,93 @@ class PlotWindow {
 
 class IdxEditWindow {
   // can be connected to two nodes at the time, used for editing the index given by the first one, of the other one's list data
-  constructor(mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos, titleadd=null) {
+  constructor(node_dataCB, mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos) {
     this.wname = wname;
     this.title = wname;
-    this.titleadd = titleadd;
     this._closeOuterCB = closeOuterCB;
 
+    this.node_dataCB = node_dataCB;
     this.mouseupCB = function() { mouseUpCB(this); }.bind(this);
     this.dragCB = function() { dragWindowCB(this) }.bind(this);
     this.closeCB = this.close.bind(this);
 
-    this.w = 330;
-    this.h = 220;
+    this.w = 324;
+    this.h = 210;
     this._removeSubWindow();
     this._createSubWindow(xpos, ypos, this.w, this.h);
+    this._setWindowTitle("Index Editor - drag iterator here");
 
-    this.ndims = null;
+    // input
+    this.idxnode = null;
+    this.index = null;
+    this.shape = null;
+    // output
+    this.targetnode = null;
+    this.values = null;
   }
-  dropNode(id, gNode, plotData) { return true; }
-  extractNode(nodeid) { return true; }
-  numClients() { return 1; }
+  dropNode(id, gNode, plotData) {
+    let n = gNode.owner;
+    if (n.type == "obj" && this.idxnode == null) {
+      this.idxnode = n;
+      this._transition();
+      return true;
+    }
+    else if (n.type == "literal" && this.targetnode == null) {
+      this.targetnode = n;
+      this._setIdxWidgets();
+      return true;
+    }
+    else {
+      return false;
+    };
+  }
+  extractNode(nodeid) {
+    if (this.idxnode != null && this.idxnode.id == nodeid) {
+      this._transition();
+      return false;
+    }
+    else if (this.targetnode != null && this.targetnode.id == nodeid) {
+      this.targetnode = null;
+      return true;
+    }
+    else return false;
+  }
+  _transition() {
+    // universal idxnode change handler - attach or run return triggered in extractnode
+    if (this.idxnode.info != null) {
+      let newindex = this.idxnode.info["index"];
+      let tarea = $('#'+this.wname+"_textarea");
+
+      if (this.shape == null && this.values == null) {
+        // init
+        this.shape = this.idxnode.info["shape"];
+        this.values = [];
+        for(var i = 0; i < this.idxnode.info["length"]; i++) {
+          this.values.push(null);
+        }
+      }
+      else {
+        // pull index value to vievmodel
+        let val = tarea.val();
+        if ($.isNumeric(val)) this.values[this.index] = parseFloat(val); else this.values[this.index] = val;
+      }
+      // clear tarea
+      let newval = this.values[newindex];
+      if (newval == null) tarea.val(""); else tarea.val(newval);
+      this.index = newindex;
+      this._setWindowTitle("Editing " + this.idxnode.info["wtitle"]);
+    }
+  }
+  _submit() {
+    if (this.targetnode != null) {
+      this._transition(); // this jsut pulls the value from tarea
+      this.node_dataCB(this.targetnode.id, JSON.stringify(this.values));
+    }
+  }
+  numClients() {
+    // TODO: is this impl proper?
+    return 1;
+  }
   get x() {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.left + this.w/2;
@@ -462,7 +529,6 @@ class IdxEditWindow {
     if (pos) return pos.top;
   }
   _setWindowTitle(title) {
-    if (this.titleadd) title = title + ": " + this.titleadd;
     $("#"+this.wname+"_header")
       .html(title);
     this.title = title;
@@ -479,11 +545,10 @@ class IdxEditWindow {
     let mouseupCB = this.mouseupCB;
     let mouseMoveCB = this.dragCB;
     let closeCB = this.closeCB;
-    let wname = this.wname;
     let title = this.title;
 
     let headerheight = 20;
-    let container_id = wname + "_container";
+    let container_id = this.wname + "_container";
     let container = $('<div id="ID">'.replace("ID", container_id))
       .css({
         position : "absolute",
@@ -493,7 +558,7 @@ class IdxEditWindow {
       .appendTo('body');
 
     // header
-    let header_id = wname + "_header";
+    let header_id = this.wname + "_header";
     let header = $('<div id="ID">'.replace("ID", header_id))
       .css({
         position : "relative",
@@ -511,8 +576,8 @@ class IdxEditWindow {
       .addClass("noselect");
 
     // close button
-    let closebtn_id = wname + "_minmiz";
-    let closebtn = $('<div id="ID">'.replace("ID", closebtn_id))
+    let closebtn_id = this.wname + "_minmiz";
+    let closebtn = $('<div id="ID"></div>'.replace("ID", closebtn_id))
       .css({
         position : "absolute",
         left : (width-20)+"px",
@@ -548,9 +613,9 @@ class IdxEditWindow {
         if (closebtn_tooltip) closebtn_tooltip.remove();
       });
 
-    // window body area
-    let winbody_id = wname + "_body";
-    let winbody = $('<div id="ID">'.replace("ID", winbody_id))
+    // window body - div containing textarea
+    let winbody_id = this.wname + "_body";
+    let winbody = $('<div style="text-align:right" id="ID"></div>'.replace("ID", winbody_id))
       .css({
         position:"relative",
         width:width+"px",
@@ -562,6 +627,14 @@ class IdxEditWindow {
       })
       .appendTo('#'+container_id)
       .mouseup(mouseupCB);
+    $('<textarea rows=11 cols=44 id='+ this.wname + "_textarea" +' style="resize:none;"></textarea>')
+      .appendTo(winbody);
+    let tarea = $('#'+this.wname+"_textarea");
+
+    $('<button id="'+ this.wname + '_btn"' +'>Submit</button>')
+      .appendTo(winbody);
+    let submit_btn = $('#'+ this.wname +"_btn")
+      .click(this._submit.bind(this));
 
     $("#"+header_id).dblclick(() => {
         $("#"+winbody_id).toggle();
@@ -814,10 +887,11 @@ class SubWindowHandler {
         wname, xpos, ypos));
     }
   }
-  newIdxEdtWindow(xpos, ypos) {
+  newIdxEdtWindow(xpos, ypos, node_dataCB) {
     let wname = "window_" + String(this.idx++);
 
     this.plotWindows.push(new IdxEditWindow(
+      node_dataCB,
       this._pwMouseUpCB.bind(this),
       this._pwDragCB.bind(this),
       this._closePltWindowCleanup.bind(this),

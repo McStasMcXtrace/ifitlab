@@ -805,13 +805,13 @@ class PltIter(enginterface.ObjReprJson):
             while True:
                 try:
                     midx = it.next()
-                    if midx == pltiter.nxt_idx:
+                    if midx == pltiter.next:
                         break
                 except StopIteration:
                     if cycle:
                         raise Exception("invalid index")
                     it = np.ndindex(self.shape)
-                    self.nxt_idx = it.next()
+                    self.next = it.next()
                     cycle = True
         else:
             midx = it.next()
@@ -819,10 +819,10 @@ class PltIter(enginterface.ObjReprJson):
         self.midx = midx;
         self.idx = np.ravel_multi_index(self.midx, self.shape)
         try:
-            self.nxt_idx = it.next()
+            self.next = it.next()
         except StopIteration:
             it = np.ndindex(self.shape)
-            self.nxt_idx = it.next()
+            self.next = it.next()
 
         # determine idata symbol
         indices = [i+1 for i in self.midx] # convert to matlab indexing
@@ -838,21 +838,21 @@ class PltIter(enginterface.ObjReprJson):
 
         retdct['info'] = infdct
         retdct['info']['wtitle'] = "%d of %d" % (self.idx+1, oned_size)
+        retdct['info']['length'] = "%d" % oned_size
+        retdct['info']['index'] = "%d" % self.idx
+        retdct['info']['shape'] = "%s" % str(list(self.shape))
+        
         retdct['userdata'] = {
-                'midx' : self.midx,
-                'nxt_idx' : self.nxt_idx
+                'next' : self.next
             }
         retdct['plotdata'] = pltdct
 
         return retdct
 
     def set_user_data(self, json_obj):
-        idx = json_obj.get("midx", None)
-        if tuple(idx) != self.midx:
-            raise Exception("PltIter: changing midx not possible, please use nxt_idx.")
-        nxt_idx = json_obj.get("nxt_idx", None)
-        if nxt_idx:
-            self.nxt_idx = tuple(nxt_idx)
+        nxt = json_obj.get("next", None)
+        if nxt:
+            self.next = tuple(nxt)
 
 class FitIter(enginterface.ObjReprJson):
     ''' Iterates through plotdata in a vectorized IFunc object, at index determined by fititer, or 0. '''
@@ -869,13 +869,13 @@ class FitIter(enginterface.ObjReprJson):
             while True:
                 try:
                     midx = it.next()
-                    if midx == fititer.nxt_idx:
+                    if midx == fititer.next:
                         break
                 except StopIteration:
                     if cycle:
                         raise Exception("invalid index")
                     it = np.ndindex(self.shape)
-                    self.nxt_idx = it.next()
+                    self.next = it.next()
                     cycle = True
         else:
             midx = it.next()
@@ -883,10 +883,10 @@ class FitIter(enginterface.ObjReprJson):
         self.midx = midx;
         self.idx = np.ravel_multi_index(self.midx, self.shape)
         try:
-            self.nxt_idx = it.next()
+            self.next = it.next()
         except StopIteration:
             it = np.ndindex(self.shape)
-            self.nxt_idx = it.next()
+            self.next = it.next()
 
         # determine idata symbol
         indices = [i+1 for i in self.midx] # convert to matlab indexing
@@ -906,21 +906,21 @@ class FitIter(enginterface.ObjReprJson):
 
         retdct['info'] = self.info
         retdct['info']['wtitle'] = "%d of %d" % (self.idx+1, oned_size)
+        retdct['info']['length'] = "%d" % oned_size
+        retdct['info']['index'] = "%d" % self.idx
+        retdct['info']['shape'] = "%s" % str(self.shape)
+
         retdct['userdata'] = {
-                'midx' : self.midx,
-                'nxt_idx' : self.nxt_idx
+                'next' : self.next
             }
         retdct['plotdata'] = self.plotdata
 
         return retdct
 
     def set_user_data(self, json_obj):
-        idx = json_obj.get("midx", None)
-        if tuple(idx) != self.midx:
-            raise Exception("PltIter: changing midx not possible, please use nxt_idx.")
-        nxt_idx = json_obj.get("nxt_idx", None)
-        if nxt_idx:
-            self.nxt_idx = tuple(nxt_idx)
+        nxt = json_obj.get("next", None)
+        if nxt:
+            self.next = tuple(nxt)
 
 '''
 constructor functions for various models, substitutes for class constructors
