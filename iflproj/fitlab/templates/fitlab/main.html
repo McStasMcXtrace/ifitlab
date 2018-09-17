@@ -325,7 +325,8 @@ $(document).ready(() => {
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {
-        plthandler.removePlots(id);
+        // force removal with force==true:
+        plthandler.removePlots(id, true);
       });
     }
 
