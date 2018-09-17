@@ -458,7 +458,6 @@ class IdxEditWindow {
     }
     else if (n.type == "literal" && this.targetnode == null) {
       this.targetnode = n;
-      this._setIdxWidgets();
       return true;
     }
     else {
