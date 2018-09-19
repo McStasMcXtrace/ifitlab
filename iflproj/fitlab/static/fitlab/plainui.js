@@ -498,11 +498,17 @@ class IdxEditWindow {
       else {
         // pull index value to vievmodel
         let val = tarea.val();
+        try {
+          val = JSON.parse(val);
+        }
+        catch {
+          console.log("not a json value")
+        }
         if ($.isNumeric(val)) this.values[this.index] = parseFloat(val); else this.values[this.index] = val;
       }
       // clear tarea
       let newval = this.values[newindex];
-      if (newval == null) tarea.val(""); else tarea.val(newval);
+      if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval));
       this.index = newindex;
       this._setWindowTitle("Editing " + this.idxnode.info["wtitle"]);
     }
