@@ -435,11 +435,11 @@ class IdxEditWindow {
     this.dragCB = function() { dragWindowCB(this) }.bind(this);
     this.closeCB = this.close.bind(this);
 
-    this.w = 324;
+    this.w = 380;
     this.h = 210;
     this._removeSubWindow();
     this._createSubWindow(xpos, ypos, this.w, this.h);
-    this._setWindowTitle("Index Editor - drag iterator here");
+    this._setWindowTitle("Index Editor - add iterator obj and literal");
 
     // input
     this.idxnode = null;
@@ -450,6 +450,7 @@ class IdxEditWindow {
     this.values = null;
   }
   dropNode(id, gNode, plotData) {
+    if (gNode == null) return; // ignore duds
     let n = gNode.owner;
     if (n.type == "obj" && this.idxnode == null) {
       this.idxnode = n;
@@ -461,6 +462,7 @@ class IdxEditWindow {
       return true;
     }
     else {
+      alert("Please add an obj node with index info.");
       return false;
     };
   }
@@ -505,9 +507,18 @@ class IdxEditWindow {
       this._setWindowTitle("Editing " + this.idxnode.info["wtitle"]);
     }
   }
+  _copyToAll() {
+    if (this.values != null) {
+      this._transition();
+      let value = this.values[this.index];
+      for (let i=0;i<this.values.length;i++) this.values[i] = value;
+    }
+  }
   _submit() {
-    if (this.targetnode != null) {
-      this._transition(); // this jsut pulls the value from tarea
+    if (this.targetnode == null) {
+      alert("Right-mouse drag a literal node onto the Index Editor window, then try again.");
+    } else {
+      this._transition(); // this just pulls the value from tarea
       this.node_dataCB(this.targetnode.id, JSON.stringify(this.values));
     }
   }
@@ -631,11 +642,16 @@ class IdxEditWindow {
       })
       .appendTo('#'+container_id)
       .mouseup(mouseupCB);
-    $('<textarea rows=11 cols=44 id='+ this.wname + "_textarea" +' style="resize:none;"></textarea>')
+    $('<textarea rows=11 cols=52 id='+ this.wname + "_textarea" +' style="resize:none;"></textarea>')
       .appendTo(winbody);
     let tarea = $('#'+this.wname+"_textarea");
 
-    $('<button id="'+ this.wname + '_btn"' +'>Submit</button>')
+    $('<button id="'+ this.wname + '_btn2"' +'>Current Value to All</button>')
+      .appendTo(winbody);
+    let copy_btn = $('#'+ this.wname +"_btn2")
+      .click(this._copyToAll.bind(this));
+
+    $('<button id="'+ this.wname + '_btn"' +'>Submit List</button>')
       .appendTo(winbody);
     let submit_btn = $('#'+ this.wname +"_btn")
       .click(this._submit.bind(this));
@@ -915,7 +931,7 @@ class SubWindowHandler {
   }
   removePlots(id, force=false) {
     // Remove subwindows and lines by node id. At e.g. node deletion, use force==true to ensure removal.
-    let x_y = null
+    let x_y = null;
     let closeUs = [];
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
@@ -974,5 +990,8 @@ class SubWindowHandler {
     if (pltw.dropNode(this.tmpNodeid, this.tmpgNode, this.tmpPlotdata)) {
       this.subwindowlines.setLineToAndCloseData(pltw.wname, pltw);
     }
+    this.tmpNodeid = null;
+    this.tmpgNode = null;
+    this.tmpPlotdata = null;
   }
 }
