@@ -449,6 +449,38 @@ class IdxEditWindow {
     this.targetnode = null;
     this.values = null;
   }
+  idx2midx(idx, shape) {
+    // converts an index and a datashape into a multiindex
+
+    function dimfactor(k, m, shape) {
+      // calculate nd-box volume factors
+      let f = 1;
+      for (let j=k+1;j<m+1;j++) {
+        f = f*shape[j-1];
+      }
+      return f;
+    }
+
+    let m = shape.length; // number of dimensions
+    let f = Array(m);
+    f.fill(1);
+    for (let k=0;k<m-1;k++) {
+      f[k] = dimfactor(k+1, m, shape);
+    }
+
+    // calculate indices and remainders iteratively
+    let midx = Array(m);
+    midx.fill(0);
+    let remainders = Array(m);
+    remainders.fill(0);
+    midx[0] = Math.floor(idx / f[0]);
+    remainders[0] = idx % f[0];
+    for (let i=1;i<m;i++) {
+      midx[i] = Math.floor(remainders[i-1] / f[i]);
+      remainders[i] = remainders[i-1] % f[i];
+    }
+    return midx;
+  }
   dropNode(id, gNode, plotData) {
     if (gNode == null) return; // ignore duds
     let n = gNode.owner;
@@ -489,7 +521,7 @@ class IdxEditWindow {
 
       if (this.shape == null && this.values == null) {
         // init
-        this.shape = this.idxnode.info["shape"];
+        this.shape = JSON.parse(this.idxnode.info["shape"]);
         this.values = [];
         for(var i = 0; i < this.idxnode.info["length"]; i++) {
           this.values.push(null);
@@ -502,7 +534,7 @@ class IdxEditWindow {
           val = JSON.parse(val);
         }
         catch {
-          console.log("not a json value")
+          console.log("not a json value: ", val)
         }
         if ($.isNumeric(val)) this.values[this.index] = parseFloat(val); else this.values[this.index] = val;
       }
@@ -510,7 +542,9 @@ class IdxEditWindow {
       let newval = this.values[newindex];
       if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval));
       this.index = newindex;
-      this._setWindowTitle("Editing " + this.idxnode.info["wtitle"]);
+      let midxtitle = JSON.stringify(this.idx2midx(this.index, this.shape));
+      let onedtitle = this.idxnode.info["wtitle"];
+      this._setWindowTitle("Editing " + onedtitle + " (multi index " + midxtitle + ")");
     }
   }
   _copyToAll() {
