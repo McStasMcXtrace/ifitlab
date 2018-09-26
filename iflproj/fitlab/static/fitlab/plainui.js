@@ -445,11 +445,12 @@ class IdxEditWindow {
     this.idxnode = null;
     this.index = null;
     this.shape = null;
+    this.length = null;
     // output
     this.targetnode = null;
     this.values = null;
   }
-  idx2midx(idx, shape) {
+  _idx2midx(idx) {
     // converts an index and a datashape into a multiindex
 
     function dimfactor(k, m, shape) {
@@ -460,6 +461,8 @@ class IdxEditWindow {
       }
       return f;
     }
+
+    let shape = this.shape;
 
     let m = shape.length; // number of dimensions
     let f = Array(m);
@@ -486,6 +489,7 @@ class IdxEditWindow {
     let n = gNode.owner;
     if (n.type == "obj" && this.idxnode == null) {
       this.idxnode = n;
+      this.length = this.idxnode.info["length"];
       this._transition();
       return true;
     }
@@ -522,36 +526,64 @@ class IdxEditWindow {
       if (this.shape == null && this.values == null) {
         // init
         this.shape = JSON.parse(this.idxnode.info["shape"]);
-        this.values = [];
-        for(var i = 0; i < this.idxnode.info["length"]; i++) {
-          this.values.push(null);
-        }
+        this.values = this._createNDimArray(this.shape);
       }
       else {
         // pull index value to vievmodel
         let val = tarea.val();
+        if (val == "") val = null;
         try {
           val = JSON.parse(val);
         }
         catch {
           console.log("not a json value: ", val)
         }
-        if ($.isNumeric(val)) this.values[this.index] = parseFloat(val); else this.values[this.index] = val;
+        if ($.isNumeric(val)) this._setValue(this.index, parseFloat(val)); else this._setValue(this.index, val);
       }
       // clear tarea
-      let newval = this.values[newindex];
+      let newval = this._getValue(newindex);
       if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval));
       this.index = newindex;
-      let midxtitle = JSON.stringify(this.idx2midx(this.index, this.shape));
+      let midxtitle = JSON.stringify(this._idx2midx(this.index));
       let onedtitle = this.idxnode.info["wtitle"];
       this._setWindowTitle("Editing " + onedtitle + " (multi index " + midxtitle + ")");
     }
   }
+  _getValue(idx) {
+    // nd get by oned index
+    let midx = this._idx2midx(idx);
+    // eval is bad, but in this case it is a good way to transform an m-length midx into an array index
+    let eval_idx_str = JSON.stringify(midx).replace(",", "][");
+    return eval("this.values" + eval_idx_str + ";");
+  }
+  _setValue(idx, val) {
+    // nd set by one-d index
+    let midx = this._idx2midx(idx);
+    // eval is bad, but in this case it is a good way to transform an m-length midx into an array index
+    let eval_idx_str = JSON.stringify(midx).replace(",", "][");
+    eval("this.values" + eval_idx_str + " = " + JSON.stringify(val) + ";");
+  }
   _copyToAll() {
     if (this.values != null) {
       this._transition();
-      let value = this.values[this.index];
-      for (let i=0;i<this.values.length;i++) this.values[i] = value;
+      let value = this._getValue(this.index);
+      for (let i=0;i<this.length;i++) {
+        this._setValue(i, value);
+      }
+    }
+  }
+  _createNDimArray(shape) {
+    // courtesy of Barmar, SO
+    if (shape.length > 0) {
+      var dim = shape[0];
+      var rest = shape.slice(1);
+      var newArray = new Array();
+      for (var i = 0; i < dim; i++) {
+        newArray[i] = this._createNDimArray(rest);
+      }
+      return newArray;
+    } else {
+      return null;
     }
   }
   _submit() {
