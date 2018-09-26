@@ -536,15 +536,15 @@ class IdxEditWindow {
           val = JSON.parse(val);
         }
         catch {
-          console.log("not a json value: ", val)
+          console.log("IdxEditWindow: Not a json value, ", val)
         }
         if ($.isNumeric(val)) this._setValue(this.index, parseFloat(val)); else this._setValue(this.index, val);
       }
       // clear tarea
       let newval = this._getValue(newindex);
-      if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval));
+      if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval, null, 2));
       this.index = newindex;
-      let midxtitle = JSON.stringify(this._idx2midx(this.index));
+      let midxtitle = JSON.stringify(this._idx2midx(this.index), null, 2).replace(/\s/g, "");
       let onedtitle = this.idxnode.info["wtitle"];
       this._setWindowTitle("Editing " + onedtitle + " (multi index " + midxtitle + ")");
     }
