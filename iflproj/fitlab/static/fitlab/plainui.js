@@ -450,6 +450,27 @@ class IdxEditWindow {
     this.targetnode = null;
     this.values = null;
   }
+  _lstIsOfShape(lst, shape) {
+    // returns true if lst can accomodate shape. lst may not be wider than shape, but it may be deeper.
+    function shapeRec(l, s) {
+      if (l.length != s[0]) {
+        throw "shape mismatch";
+      }
+      if (s.length > 1) {
+        let snew = s.splice(1);
+        for (let i=0;i<s[0];i++)  {
+          shapeRec(l[i], snew);
+        }
+      }
+    }
+    try {
+      shapeRec(lst, shape.slice()); // (shalow) copy list to avoid changing the incoming shape
+      return true;
+    }
+    catch {
+      return false;
+    }
+  }
   _idx2midx(idx) {
     // converts an index and a datashape into a multiindex
 
@@ -487,13 +508,23 @@ class IdxEditWindow {
   dropNode(id, gNode, plotData) {
     if (gNode == null) return; // ignore duds
     let n = gNode.owner;
-    if (n.type == "obj" && this.idxnode == null) {
+    if (this.idxnode != null && this.targetnode != null) {
+      return false;
+    }
+    else if (n.type == "obj" && this.idxnode == null) {
       this.idxnode = n;
       this.length = this.idxnode.info["length"];
       this._transition();
       return true;
     }
-    else if (n.type == "literal" && this.targetnode == null) {
+    else if (n.type == "literal") {
+      console.log(this.shape);
+      console.log(this._lstIsOfShape(n.userdata, this.shape));
+      if (this.shape != null && this._lstIsOfShape(n.userdata, this.shape)) {
+        this._transition();
+        this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
+        console.log(this.values);
+      }
       this.targetnode = n;
       return true;
     }
@@ -553,15 +584,17 @@ class IdxEditWindow {
     // nd get by oned index
     let midx = this._idx2midx(idx);
     // eval is bad, but in this case it is a good way to transform an m-length midx into an array index
-    let eval_idx_str = JSON.stringify(midx).replace(",", "][");
-    return eval("this.values" + eval_idx_str + ";");
+    let eval_idx = JSON.stringify(midx).replace(",", "][");
+    let eval_str = "this.values" + eval_idx + ";";
+    return eval(eval_str);
   }
   _setValue(idx, val) {
     // nd set by one-d index
     let midx = this._idx2midx(idx);
     // eval is bad, but in this case it is a good way to transform an m-length midx into an array index
-    let eval_idx_str = JSON.stringify(midx).replace(",", "][");
-    eval("this.values" + eval_idx_str + " = " + JSON.stringify(val) + ";");
+    let eval_idx = JSON.stringify(midx).replace(",", "][");
+    let eval_str = "this.values" + eval_idx + " = " + JSON.stringify(val) + ";";
+    eval(eval_str);
   }
   _copyToAll() {
     if (this.values != null) {
@@ -587,7 +620,9 @@ class IdxEditWindow {
     }
   }
   _submit() {
-    if (this.targetnode == null) {
+    if (this.idxnode == null) {
+      alert("Right-mouse drag an index node onto the editor and try again.");
+    } else if (this.targetnode == null) {
       alert("Right-mouse drag a literal node onto the Index Editor window, then try again.");
     } else {
       this._transition(); // this just pulls the value from tarea
