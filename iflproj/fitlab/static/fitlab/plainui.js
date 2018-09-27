@@ -518,12 +518,12 @@ class IdxEditWindow {
       return true;
     }
     else if (n.type == "literal") {
-      console.log(this.shape);
-      console.log(this._lstIsOfShape(n.userdata, this.shape));
       if (this.shape != null && this._lstIsOfShape(n.userdata, this.shape)) {
-        this._transition();
         this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
-        console.log(this.values);
+
+        let tarea = $('#'+this.wname+"_textarea");
+        let newval = this._getValue(this.index);
+        if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval, null, 2));
       }
       this.targetnode = n;
       return true;
@@ -558,8 +558,7 @@ class IdxEditWindow {
         // init
         this.shape = JSON.parse(this.idxnode.info["shape"]);
         this.values = this._createNDimArray(this.shape);
-      }
-      else {
+      } else {
         // pull index value to vievmodel
         let val = tarea.val();
         if (val == "") val = null;
