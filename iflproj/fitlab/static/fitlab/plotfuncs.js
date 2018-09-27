@@ -195,6 +195,14 @@ class Plot1D {
     this.pointGroup = axisGroup.append("g")
       .attr("clip-path", "url(#viewClip_"+this.wname+")");
 
+    // when clicked, print x axis value to console
+    axisGroup
+      .on("click", function(d) {
+        let m = d3.mouse(this);
+        let xpt = xScale.invert(m[0]);
+        console.log("x = ", xpt.toExponential(2));
+      } );
+
     // draw on initial zoom
     this._drawPoints(xScale, yScale);
   }
