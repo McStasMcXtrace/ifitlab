@@ -511,13 +511,17 @@ class IdxEditWindow {
     if (this.idxnode != null && this.targetnode != null) {
       return false;
     }
-    else if (n.type == "obj" && this.idxnode == null) {
+    else if (n.type == "obj"
+        && this.idxnode == null
+        && n.info != null
+        && n.info["length"] != null
+        && n.info["index"] != null) {
       this.idxnode = n;
       this.length = this.idxnode.info["length"];
       this._transition();
       return true;
     }
-    else if (n.type == "literal") {
+    else if (n.type == "literal" && this.targetnode == null) {
       if (this.shape != null && this._lstIsOfShape(n.userdata, this.shape)) {
         this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
 
@@ -528,8 +532,12 @@ class IdxEditWindow {
       this.targetnode = n;
       return true;
     }
+    else if (this.idxnode == null) {
+      alert('Please add "obj" node with index information.');
+      return false;
+    }
     else {
-      alert("Please add an obj node with index info.");
+      alert('Please add a "literal" node.');
       return false;
     };
   }
@@ -620,9 +628,9 @@ class IdxEditWindow {
   }
   _submit() {
     if (this.idxnode == null) {
-      alert("Right-mouse drag an index node onto the editor and try again.");
+      alert('Please add an "obj" node with index information.');
     } else if (this.targetnode == null) {
-      alert("Right-mouse drag a literal node onto the Index Editor window, then try again.");
+      alert('Please add a "literal" node.');
     } else {
       this._transition(); // this just pulls the value from tarea
       this.node_dataCB(this.targetnode.id, JSON.stringify(this.values));
