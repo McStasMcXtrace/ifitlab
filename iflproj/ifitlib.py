@@ -562,7 +562,7 @@ class IFunc(enginterface.ObjReprJson):
     def guess(self, guess: dict):
         ''' Applies values to parameters by means of dictionary keys-value pairs. All values must be set simultaneously. '''
 
-        def set_parvalues_atomic(vn, dct):
+        def set_parvalues_atomic(vn, vn_noidx, dct):
             parameternames = _eval('%s.Parameters;' % vn)
             parameternames = [p.split(' ')[0] for p in parameternames]
             # this covers all cases of missing or superfluous names in dct
@@ -570,7 +570,10 @@ class IFunc(enginterface.ObjReprJson):
                 raise Exception("guess: parameter name mismatch")
             # make sure all values are defined properly
             if None in dct.values():
-                raise Exception("guess: undefined parameter value")
+                for key in dct:
+                    if dct[key] == None:
+                        dct[key] = 1
+                #raise Exception("guess: undefined parameter value")
             # pick out values in the correct order
             values = []
             for key in parameternames:
@@ -578,11 +581,11 @@ class IFunc(enginterface.ObjReprJson):
             # because MATLAB arrays are not arrays of handles, we have to do the triangle trick
             try:
                 # we put the varname in the tmp variable to elliminate any threading issues arising from a common tmp var
-                _eval('tmp_%s = %s;' % (vn, vn), nargout=0)
-                _eval('tmp_%s.ParameterValues = [%s];' % (vn, ' '.join( [str(float(v)) for v in values] )), nargout=0)
-                _eval('%s = tmp_%s;' % (vn, vn), nargout=0)
+                _eval('tmp_%s = %s;' % (vn_noidx, vn), nargout=0)
+                _eval('tmp_%s.ParameterValues = [%s];' % (vn_noidx, ' '.join( [str(float(v)) for v in values] )), nargout=0)
+                _eval('%s = tmp_%s;' % (vn, vn_noidx), nargout=0)
             finally:
-                _eval('clear tmp_%s;' % vn, nargout=0)
+                _eval('clear tmp_%s;' % vn_noidx, nargout=0)
 
         shape = self._get_datashape()
         rank = len(shape)
@@ -592,7 +595,7 @@ class IFunc(enginterface.ObjReprJson):
             set_parvalues_atomic(self.varname, guess)
         else:
             vnargs = (self.varname, )
-            args = ()
+            args = (self.varname, )
             ndaargs = (guess, )
             _vectorized(shape, set_parvalues_atomic, vnargs, args, ndaargs)
 
