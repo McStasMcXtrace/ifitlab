@@ -221,15 +221,21 @@ class IData(enginterface.ObjReprJson):
         retdct = self._get_full_repr_dict()
         # detect if we are a list or a plan iData object
         datashape = self._get_datashape()
+        outdct = {}
 
         if datashape in (None, tuple(),):
             pltdct, infdct = _get_iData_repr(self.varname)
+            outdct = None
         else:
+            # TODO: return an ndarray of the above plot data by vectorization
+            
             pltdct = None
+            outdct = None
             infdct = {'datashape' : datashape, 'ndims' : None} # ndims refers to (individual) data dimensionality
 
         retdct['plotdata'] = pltdct
         retdct['info'] = infdct
+        retdct['output'] = outdct
 
         return retdct
 
@@ -531,17 +537,29 @@ class IFunc(enginterface.ObjReprJson):
         ''' mostly delegated to the offline function _get_iFunc_repr '''
         datashape = self._get_datashape()
         retdct = self._get_full_repr_dict()
+        pltdct = None
         usrdct = {}
+        outdct = {}
         
         if datashape in [None, tuple()]:
             pltdct, infdct, usrdct = _get_iFunc_repr(self.varname, self._plotaxes, self._plotdims)
         else:
-            pltdct = None
+            def get_repr_atomic(symb):
+                v0, v1, val = _get_iFunc_repr(symb, None, None)
+                return val
+            
+            vnargs = (self.varname, )
+            args = ()
+            ndaargs = ()
+            ndout = np.empty(datashape, object)
+            _vectcollect(datashape, get_repr_atomic, vnargs, args, ndaargs, ndout)
+            usrdct = ndout.tolist()
             infdct = {'datashape' : datashape, 'ndims' : None}
 
         retdct['plotdata'] = pltdct
         retdct['info'] = infdct
         retdct['userdata'] = usrdct
+        retdct['output'] = outdct
         return retdct
 
     def set_user_data(self, json_obj):
@@ -665,9 +683,10 @@ def _get_iFunc_repr(varname, plotaxes, plotdims, datashape = None):
             ylabel = "y"
             pltdct = _get_plot_1D(axisvals=xvals, signal=fvals, yerr=yerr, xlabel=xlabel, ylabel=ylabel, title="title")
             infdct = {'datashape' : datashape, 'ndims' : "%d" % 1}
-
         elif plotdims == 2:
-            raise Exception("IFunc._plotdims==2 has not been implemented")
+            raise Exception("plotdims==2 has not been implemented")
+        else:
+            raise Exception("plotdims must be set")
 
     return pltdct, infdct, userdct
 
@@ -787,6 +806,19 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
         elements = tuple(eval("a%s" % str(list(ndindex))) for a in ndaargs) # this is not pretty, but it works
         
         atomic_func(*symbols, *constants, *elements)
+
+def _vectcollect(shape, atomic_func, vnargs, args, ndaargs, collectarg):
+    it = np.ndindex(shape)
+    for ndindex in it:
+        indices = [i+1 for i in ndindex] # convert to matlab indexing
+        indices = str(indices).replace("[","(").replace("]",")")
+        
+        symbols = tuple("%s%s" % (vn, indices) for vn in vnargs)
+        constants = args
+        elements = tuple(eval("a%s" % str(list(ndindex))) for a in ndaargs) # this is not pretty, but it works
+        
+        value = atomic_func(*symbols, *constants, *elements)
+        exec("collectarg%s = value" % str(list(ndindex)))
 
 
 class PltIter(enginterface.ObjReprJson):
