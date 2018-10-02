@@ -257,19 +257,23 @@ setUserData = function(node) {
       }
       if (cnt == 0) return;
 
+      let copy2cb = function(value) {
+        const el = document.createElement('textarea');
+        el.value = JSON.stringify(value, null, 2);
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+
       $("#copy_tc_btn")
         .remove();
       $("#tblUserData tbody")
-        .append('<tr id="copy_tc_btn"><td colspan=2><button class="dynamicProperty">copy to clipboard</button></td></tr>');
-      $("#tblUserData tbody button")
-        .click(()=>{
-          const el = document.createElement('textarea');
-          el.value = JSON.stringify(node.userdata, null, 2);
-          document.body.appendChild(el);
-          el.select();
-          document.execCommand('copy');
-          document.body.removeChild(el);
-        });
+        .append('<tr id="copy_tc_btn"><td><button id="btnCopy" class="dynamicProperty">copy dict</button></td><td><button id="btnKeys" class="dynamicProperty">copy keys</button></td></tr>');
+      $("#btnCopy")
+        .click(()=>{ copy2cb(node.userdata); })
+      $("#btnKeys")
+        .click(()=>{ copy2cb(Object.keys(node.userdata)); });
     }
 
   }
