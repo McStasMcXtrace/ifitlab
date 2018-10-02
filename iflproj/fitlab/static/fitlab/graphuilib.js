@@ -284,7 +284,9 @@ class GraphTree {
     this._updateNodeState(n1);
     this._updateNodeState(n2);
     n1.gNode.onConnect(l, false);
-    n2.gNode.onConnect(l, true);
+    let isinput = true;
+    if (idx1 == -1 && idx2 == -1) isinput = false; // center-link targets
+    n2.gNode.onConnect(l, isinput);
     return true;
   }
   linkRm(addr1, idx1, addr2, idx2) {
