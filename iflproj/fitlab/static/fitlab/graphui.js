@@ -1498,7 +1498,7 @@ class NodeMethod extends Node {
     let gateKept = ["object", "object_idata", "object_ifunc", "method"];
     let t1 = gateKept.indexOf(link.d1.owner.owner.basetype) != -1;
     let t2 = gateKept.indexOf(link.d2.owner.owner.basetype) != -1;
-    if (t1 && t2) {
+    if (t1 && t2 && !isInput) {
       this.gNode.attachMoveToCenterLink(link);
     }
   }

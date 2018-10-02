@@ -257,6 +257,7 @@ setUserData = function(node) {
       }
       if (cnt == 0) return;
 
+      // copies value to clipboard
       let copy2cb = function(value) {
         const el = document.createElement('textarea');
         el.value = JSON.stringify(value, null, 2);
