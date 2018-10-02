@@ -1775,29 +1775,38 @@ class GraphInterface {
     }
   }
   _tryCreateLink(s, d) {
-    let createLink = function() {
-      this.link_add(s.owner.owner.id, s.idx, d.owner.owner.id, d.idx);
-      this.draw.resetAndRestartPathSim(s.owner.owner.id);
-      this.draw.resetAndRestartPathSim(d.owner.owner.id);
+    let createLink = function(a1, a2) {
+      this.link_add(a1.owner.owner.id, a1.idx, a2.owner.owner.id, a2.idx);
+      this.draw.resetAndRestartPathSim(a1.owner.owner.id);
+      this.draw.resetAndRestartPathSim(a2.owner.owner.id);
       this.updateUi();
     }.bind(this);
 
-    if (this.truth.canConnect(s, d)) {
-      createLink();
-    }
-    else if (this.truth.couldConnect(s, d)) {
-      // override existing link to d, if it could be connected by s
-      let id = d.owner.owner.id;
+    let clearThenCreateLink = function(a1, a2) {
+      let id = a2.owner.owner.id;
       let lks = this.graphData.getLinks(id);
       let entry = null;
       for (let i=0;i<lks.length;i++) {
         entry = lks[i];
-        if (entry[2] == id && entry[1] == s.idx && entry[3] == d.idx) {
+        if (entry[2] == id && entry[1] == a1.idx && entry[3] == a2.idx) {
           this.link_rm(entry[0], entry[1], entry[2], entry[3])
-          createLink();
-          return;
+          createLink(a1, a2);
         }
       }
+    }.bind(this);
+
+    if (this.truth.canConnect(s, d)) {
+      createLink(s, d);
+    }
+    else if (this.truth.canConnect(d, s)) {
+      createLink(d, s);
+    }
+    // override existing link IF it could be connected
+    else if (this.truth.couldConnect(s, d)) {
+      clearThenCreateLink(s, d);
+    }
+    else if (this.truth.couldConnect(d, s)) {
+      clearThenCreateLink(d, s);
     }
   }
   // used by high-level node constructors, those taking only a node conf
