@@ -610,7 +610,7 @@ class IFunc(enginterface.ObjReprJson):
 
         guess = _ifregular_squeeze_cast(guess, rank)
         if rank == 0:
-            set_parvalues_atomic(self.varname, guess)
+            set_parvalues_atomic(self.varname, self.varname, guess)
         else:
             vnargs = (self.varname, )
             args = (self.varname, )
