@@ -92,7 +92,7 @@ class Node:
 
     def add_parent(self, node, idx, order=0):
         if node in [n for n in parents_get(self.parents, order)]:
-            raise Node.NodeOfIdAlreadyExistsException()
+            raise Node.NodeOfNameAlreadyExistsException()
         if not self._check_parent(node):
             self.graph_inconsistent_fail('illegal add_parent')
         parent_put(self.parents, node, idx, order)
@@ -122,7 +122,7 @@ class Node:
         if node.name not in self.subnodes.keys():
             self.subnodes[node.name] = node
         else:
-            raise Node.NodeOfIdAlreadyExistsException()
+            raise Node.NodeOfNameAlreadyExistsException()
     def disown(self, node):
         if node.name in self.subnodes.keys():
             del self.subnodes[node.name]
