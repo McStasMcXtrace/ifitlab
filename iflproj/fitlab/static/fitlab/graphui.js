@@ -1477,7 +1477,7 @@ class NodeFunctionNamed extends Node {
 class NodeMethod extends Node {
   static get basetype() { return "method"; }
   get basetype() { return NodeMethod.basetype; }
-  static get prefix() { return "f"; }
+  static get prefix() { return "m"; }
   constructor(x, y, id, name, label, typeconf) {
     super(x, y, id, name, label, typeconf);
   }
@@ -1498,7 +1498,8 @@ class NodeMethod extends Node {
     let gateKept = ["object", "object_idata", "object_ifunc", "method"];
     let t1 = gateKept.indexOf(link.d1.owner.owner.basetype) != -1;
     let t2 = gateKept.indexOf(link.d2.owner.owner.basetype) != -1;
-    if (t1 && t2 && !isInput) {
+    let t3 = link.d1.idx == -1 && link.d2.idx == -1;
+    if (t1 && t2 && t3 && !isInput) {
       this.gNode.attachMoveToCenterLink(link);
     }
   }
