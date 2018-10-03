@@ -583,19 +583,26 @@ class IFunc(enginterface.ObjReprJson):
         def set_parvalues_atomic(vn, vn_noidx, dct):
             parameternames = _eval('%s.Parameters;' % vn)
             parameternames = [p.split(' ')[0] for p in parameternames]
-            # this covers all cases of missing or superfluous names in dct
-            if not set(parameternames) == set(dct.keys()):
+
+            # avoid unknown parameternames
+            if False in [True if p in parameternames else False for p in dct.keys()]:
                 raise Exception("guess: parameter name mismatch")
-            # make sure all values are defined properly
-            if None in dct.values():
-                for key in dct:
-                    if dct[key] == None:
-                        dct[key] = 1
-                #raise Exception("guess: undefined parameter value")
-            # pick out values in the correct order
+
+            # fill out missing keys
+            for key in parameternames:
+                if key not in dct:
+                    dct[key] = None
+
+            # replace None with the ML-readable "NaN"
+            for key in dct:
+                if dct[key] == None:
+                    dct[key] = "NaN"
+
+            # extract values in the correct order
             values = []
             for key in parameternames:
                 values.append(dct[key])
+
             # because MATLAB arrays are not arrays of handles, we have to do the triangle trick
             try:
                 # we put the varname in the tmp variable to elliminate any threading issues arising from a common tmp var
