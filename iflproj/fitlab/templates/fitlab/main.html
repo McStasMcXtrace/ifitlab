@@ -115,9 +115,9 @@
 <div id="buttons_2" class=select style="position:absolute;margin:auto;">
   <a style="cursor:pointer;color:blue" onclick="cpStatusXval()">cp_x</a>
   <a style="cursor:pointer;color:blue" onclick="cpStatusYval()">cp_y</a>
-  help:h
   <a href="/ifl/cloneopen/{{ gs_id }}" target="_blank">clone</a>
   <a href="/ifl/cmdlog/{{ gs_id }}" target="_blank">cmdlog</a>
+  help:h
 </div>
 <div id="status" style="position:absolute;margin:auto;"><label id="lblStatus"></label></div>
 
@@ -317,12 +317,12 @@ let _status_xy_match = function() {
   return text.match(re);
 }
 var cpStatusXval = function() {
-  let val = _status_xy_match()[1];
-  copy2cb(val);
+  let m = _status_xy_match();
+  if (m != null) copy2cb(m[1])
 }
 var cpStatusYval = function() {
-  let val = _status_xy_match()[2];
-  copy2cb(val);
+  let m = _status_xy_match();
+  if (m != null) copy2cb(m[2]);
 }
 
 $(document).ready(() => {

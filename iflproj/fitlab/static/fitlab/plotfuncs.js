@@ -8,6 +8,49 @@ function nzmin(lst) {
   return mval;
 }
 
+// binary search with target in |R.
+function binsearch(lst, target) {
+  // lst is empty
+  if (lst.length == 0) {
+    return null;
+  }
+  // init
+  let n = lst.length;
+  let t = target;
+  let l = 0;
+  let r = n-1;
+  // t is to the left of the interval
+  if (t <= lst[l]) {
+    return l;
+  }
+  // t is to the right of the interval
+  else if (t >= lst[r]) {
+    return r;
+  }
+  // input is trivial
+  if (lst.length == 1) {
+    return 0;
+  }
+  // t is inside the interval
+  else {
+    while (r-l > 1) {
+      let m = Math.floor((l+r)/2);
+      if (lst[m] > t) {
+        r = m;
+      }
+      if (lst[m] <= t) {
+        l = m;
+      }
+    }
+    if (t-lst[l] <= lst[r]-t) {
+      return l;
+    }
+    else {
+      return r;
+    }
+  }
+}
+
 class Plot1D {
   constructor(params, wname, clickPlotCB, svg_branch=null, logscale=false) {
     let p = params;
@@ -32,18 +75,11 @@ class Plot1D {
     this.last_yScale = null;
 
     this.logscale = logscale;
-
-    this._draw_1d_axes(
-      this.hdl.wplt, this.hdl.hplt, this.xmin, this.xmax, this.ymin, this.ymax, this.hdl.axisGroup,
-      (ptGroup, xScl, yScl) => { this._drawPoints(xScl, yScl); }
-    );
+    this._draw_1d_axes(this.hdl.wplt, this.hdl.hplt, this.xmin, this.xmax, this.ymin, this.ymax, this.hdl.axisGroup);
   }
   toggleLogscale() {
     this.logscale = !this.logscale;
-    this._draw_1d_axes(
-      this.hdl.wplt, this.hdl.hplt, this.xmin, this.xmax, this.ymin, this.ymax, this.hdl.axisGroup,
-      (ptGroup, xScl, yScl) => { this._drawPoints(xScl, yScl); }
-    );
+    this._draw_1d_axes(this.hdl.wplt, this.hdl.hplt, this.xmin, this.xmax, this.ymin, this.ymax, this.hdl.axisGroup);
     this.rePlotMany(this.params_lst);
   }
   rePlotMany(params_lst) {
@@ -124,7 +160,7 @@ class Plot1D {
         .attr("fill", "none");
     }
   }
-  _draw_1d_axes(w, h, xmin, xmax, ymin, ymax, axisGroup, drawpointsCB) {
+  _draw_1d_axes(w, h, xmin, xmax, ymin, ymax, axisGroup) {
     // clear the branch we are working on
     axisGroup.selectAll("*").remove();
 
@@ -205,7 +241,15 @@ class Plot1D {
         let xpt = xScale.invert(m[0]);
         let ypt = yScale.invert(m[1]);
 
-        self.clickPlotCB(xpt.toExponential(2), ypt.toExponential(2))
+        // only report on the first data set
+        let x = self.x_lst[0];
+        let y = self.y_lst[0];
+        let idx = binsearch(x, xpt);
+
+        xpt = x[idx];
+        ypt = y[idx];
+
+        self.clickPlotCB(xpt.toExponential(4), ypt.toExponential(4))
       } );
 
     // draw on initial zoom
