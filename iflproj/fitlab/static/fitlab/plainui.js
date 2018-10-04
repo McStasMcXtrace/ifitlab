@@ -756,7 +756,12 @@ class IdxEditWindow {
       })
       .appendTo('#'+container_id)
       .mouseup(mouseupCB);
-    $('<textarea rows=11 cols=52 id='+ this.wname + "_textarea" +' style="resize:none;"></textarea>')
+    $('<textarea rows=11 id='+ this.wname + "_textarea" +'></textarea>')
+      .css({
+        resize: "none",
+        width: "99%",
+        border: "none",
+      })
       .appendTo(winbody);
     let tarea = $('#'+this.wname+"_textarea");
 
