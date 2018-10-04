@@ -2,7 +2,7 @@
 //  A plain jquery ui lib to accompany graphui
 //
 class PlotWindow {
-  constructor(mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos, titleadd=null, nodeid=null, plotdata=null) {
+  constructor(mouseUpCB, dragWindowCB, closeOuterCB, clickPlotCB, wname, xpos, ypos, titleadd=null, nodeid=null, plotdata=null) {
     this.wname = wname;
     this.title = wname; if (nodeid) this.title = nodeid;
     this.titleadd = titleadd;
@@ -10,6 +10,7 @@ class PlotWindow {
 
     this.mouseupCB = function() { mouseUpCB(this); }.bind(this);
     this.dragCB = function() { dragWindowCB(this) }.bind(this);
+    this.clickPlotCB = clickPlotCB;
     this.closeCB = this.close.bind(this);
     this.logscaleCB = this._logscaleCB.bind(this);
     this.sizeCB = this._toggleSizeCB.bind(this);
@@ -59,7 +60,7 @@ class PlotWindow {
       data[0].h = this.h;
 
       this._resetPlotBranch();
-      this.plot = new Plot1D(data[0], this.wname, this.plotbranch, logscale);
+      this.plot = new Plot1D(data[0], this.wname, this.clickPlotCB, this.plotbranch, logscale);
 
       this.plot.rePlotMany(data);
     }
@@ -154,7 +155,7 @@ class PlotWindow {
     plotdata.h = this.h;
 
     if (this.plot == null) {
-      if (this.ndims == 1) { this.plot = new Plot1D(plotdata, this.wname, this.plotbranch); }
+      if (this.ndims == 1) { this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch); }
       if (this.ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
     } else {
       if (plotdata.ndims == 1) this.plot.plotOneMore(plotdata);
@@ -1017,13 +1018,14 @@ class SubWindowHandler {
     this.tmpNodeid = null;
     this.tmpgNode = null;
   }
-  newPlotwindow(xpos, ypos, titleadd=null, nodeid=null, plotdata=null, gNode=null) {
+  newPlotwindow(xpos, ypos, clickPlotCB, titleadd=null, nodeid=null, plotdata=null, gNode=null) {
     let wname = "window_" + String(this.idx++);
     if (nodeid != null && plotdata != null) {
       let pltw = new PlotWindow(
         this._pwMouseUpCB.bind(this),
         this._pwDragCB.bind(this),
         this._closePltWindowCleanup.bind(this),
+        clickPlotCB,
         wname, xpos, ypos, titleadd, nodeid, plotdata);
       this.plotWindows.push(pltw);
       if (gNode != null) {

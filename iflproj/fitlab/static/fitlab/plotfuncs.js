@@ -9,11 +9,13 @@ function nzmin(lst) {
 }
 
 class Plot1D {
-  constructor(params, wname, svg_branch=null, logscale=false) {
+  constructor(params, wname, clickPlotCB, svg_branch=null, logscale=false) {
     let p = params;
     this.params_lst = [params];
     this.wname = wname;
     this.hdl = _draw_labels(p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch);
+
+    this.clickPlotCB = clickPlotCB;
 
     this.xmin = d3.min(p['x']);
     this.xmax = d3.max(p['x']);
@@ -196,11 +198,14 @@ class Plot1D {
       .attr("clip-path", "url(#viewClip_"+this.wname+")");
 
     // when clicked, print x axis value to console
+    let self = this;
     axisGroup
       .on("click", function(d) {
         let m = d3.mouse(this);
         let xpt = xScale.invert(m[0]);
-        console.log("x = ", xpt.toExponential(2));
+        let ypt = yScale.invert(m[1]);
+
+        self.clickPlotCB(xpt.toExponential(2), ypt.toExponential(2))
       } );
 
     // draw on initial zoom

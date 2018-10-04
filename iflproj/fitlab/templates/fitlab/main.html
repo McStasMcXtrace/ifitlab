@@ -101,19 +101,25 @@
 
 <body>
 
-<div id="buttons" style="position:absolute;margin:auto;">help:h
+<div id="buttons" style="position:absolute;margin:auto;">
   <button id="btnUndo">Undo</button>
   <button id="btnRedo">Redo</button>
   <button id="btnRun">Run</button>
+  <!--<button id="btnClearData">Clear Data</button>-->
   <button id="btnPlot">Plot</button>
   <button id="btnIndexEdit">idx Edit</button>
-  <!--<button id="btnClearData">Clear Data</button>-->
   <button id="btnSave">Save</button>
   <button id="btnRevert">Revert</button>
   <button id="btnClear">Clear</button>
+</div>
+<div id="buttons_2" class=select style="position:absolute;margin:auto;">
+  <a style="cursor:pointer;color:blue" onclick="cpStatusXval()">cp_x</a>
+  <a style="cursor:pointer;color:blue" onclick="cpStatusYval()">cp_y</a>
+  help:h
   <a href="/ifl/cloneopen/{{ gs_id }}" target="_blank">clone</a>
   <a href="/ifl/cmdlog/{{ gs_id }}" target="_blank">cmdlog</a>
 </div>
+<div id="status" style="position:absolute;margin:auto;"><label id="lblStatus"></label></div>
 
 <div id="graph_menu_1" style="position:absolute;left:303px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_2" style="position:absolute;left:202px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
@@ -130,6 +136,7 @@
 </fieldset></div>
 
 <!--
+<div id="divNotes" style="position:absolute;background-color:white;width:450px" class=select>
 -->
 <div id="divNotes" style="position:absolute;background-color:white;width:450px" class=select>
 <textarea id="tareaNotes" rows="20" style="resize:none;width:99%;border:none"></textarea>
@@ -257,16 +264,6 @@ setUserData = function(node) {
       }
       if (cnt == 0) return;
 
-      // copies value to clipboard
-      let copy2cb = function(value) {
-        const el = document.createElement('textarea');
-        el.value = JSON.stringify(value, null, 2);
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand('copy');
-        document.body.removeChild(el);
-      }
-
       $("#copy_tc_btn")
         .remove();
       $("#tblUserData tbody")
@@ -282,7 +279,7 @@ setUserData = function(node) {
 
 let intface = null;
 let menu = null;
-let plthandler = null;
+let subwhandler = null;
 let subwindowlines = null;
 let noteWindow = null;
 
@@ -291,13 +288,50 @@ const nicecols = ["#117864", "#943126", "#196f3d", "#a04000", "#633974", "#1a527
 const cols = d3.scaleOrdinal().range(nicecols);
 let iclr = 0;
 
+// copy value to clipboard
+let copy2cb = function(value) {
+  const el = document.createElement('textarea');
+  if (Number(value) != value) el.value = JSON.stringify(value, null, 2);
+  else el.value = value;
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+}
+
+// write to ui status line
+var statusConsole = function(s) {
+  let status = d3.select("#status");
+  status.html(s);
+  status.style("left", window.innerWidth/2-status.node().clientWidth/2 + "px");
+}
+var statusGet = function() {
+  return $("#status").html();
+}
+var statusPlotClick = function(x, y) {
+  statusConsole("x = " + x + ", y = " + y + "");
+}
+let _status_xy_match = function() {
+  let text = statusGet();
+  let re = /x\s=\s([0-9\.e\-\+]+),\sy\s=\s([0-9\.e\-\+]+)/;
+  return text.match(re);
+}
+var cpStatusXval = function() {
+  let val = _status_xy_match()[1];
+  copy2cb(val);
+}
+var cpStatusYval = function() {
+  let val = _status_xy_match()[2];
+  copy2cb(val);
+}
+
 $(document).ready(() => {
   // set up events
   $("#btnUndo").click( () => { intface.undo() });
   $("#btnRedo").click( () => { intface.redo() });
   $("#btnRun").click( () => { intface.runSelectedNode() });
-  $("#btnPlot").click( () => { plthandler.newPlotwindow(480, 100); });
-  $("#btnIndexEdit").click( () => { plthandler.newIdxEdtWindow(480, 100, function(id, data_str) { intface.node_data(id, data_str); setUserData(intface.getSelectedNode()); }.bind(intface) ); });
+  $("#btnPlot").click( () => { subwhandler.newPlotwindow(480, 100, statusPlotClick); });
+  $("#btnIndexEdit").click( () => { subwhandler.newIdxEdtWindow(480, 100, function(id, data_str) { intface.node_data(id, data_str); setUserData(intface.getSelectedNode()); }.bind(intface) ); });
   //$("#btnClearData").click( () => { intface.clearSessionData() })
   $("#btnSave").click( () => { intface.saveSession() });
   $("#btnRevert").click( () => { intface.revertSession() })
@@ -310,7 +344,7 @@ $(document).ready(() => {
   intface = new GraphInterface(gs_id, tab_id);
   intface.addNodeRunReturnListener( (node) => {
     // clear previous subwindow elements with this id
-    let x_y = plthandler.removePlots(node.id);
+    let x_y = subwhandler.removePlots(node.id);
 
     if (node.plotdata) {
       node.gNode.colour = cols(iclr++);
@@ -326,12 +360,12 @@ $(document).ready(() => {
       //let titleadd = node.label + '(' + node.id + ')';
       let titleadd = null;
       if (node.info.wtitle) titleadd = node.info.wtitle;
-      plthandler.newPlotwindow(xpos, ypos, titleadd, node.id, node.plotdata, node.gNode)
+      subwhandler.newPlotwindow(xpos, ypos, (x, y) => { statusPlotClick(x, y); }, titleadd, node.id, node.plotdata, node.gNode)
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {
         // force removal with force==true:
-        plthandler.removePlots(id, true);
+        subwhandler.removePlots(id, true);
       });
     }
 
@@ -355,8 +389,8 @@ $(document).ready(() => {
   intface.draw.addUpdateListener(subwindowlines.update.bind(subwindowlines));
 
   // plot window handler
-  plthandler = new SubWindowHandler(subwindowlines);
-  intface.addNodeMouseDownListn(plthandler.nodeMouseDown.bind(plthandler));
+  subwhandler = new SubWindowHandler(subwindowlines);
+  intface.addNodeMouseDownListn(subwhandler.nodeMouseDown.bind(subwhandler));
 
   // user data controls
   let usrdiv = $("#divUserData");
@@ -382,7 +416,7 @@ $(document).ready(() => {
     n.gNode.colour = c;
     n.plotdata.colour = c;
     // replot all instance of this node
-    plthandler.rePlot(n.id, n.gNode, n.plotdata);
+    subwhandler.rePlot(n.id, n.gNode, n.plotdata);
   });
   usrdiv.css({ top : 0, left : $(window)-usrdiv.width()});
 
@@ -411,10 +445,17 @@ $(document).ready(() => {
     if (event.key == "h" && event.target == this) dlg.dialog("open");
   });
 
+  // position button menu 2 and the status bar right below it
+  let h = $("#buttons").outerHeight();
+  let t = $("#buttons").position().top;
+  $("#buttons_2").css({ "top" : (h+t)+"px", "user-select" : "auto" });
+  t = h + t;
+  h = $("#buttons_2").outerHeight()
+  $("#status").css({ "top" : (h+t)+"px", "user-select" : "auto" });
+
   // load graph and run
   intface.updateUi(); // why is this needed to get rid of the "self.draggable is null" error message?
   intface.loadSession(); // this also updates the ui...
-
 });
 </script>
 </html>

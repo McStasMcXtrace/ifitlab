@@ -960,9 +960,13 @@ class GraphDraw {
     for (let i=0;i<this._drawListn.length;i++) this._drawListn[i]();
   }
   recenter() {
+    // TODO: the UI element related code should be called via a proxy callback to generalize this interface
+
     // unwanted, test-only explicit reference to #buttons
     let btnsmenu = d3.select("#buttons");
     btnsmenu.style("left", window.innerWidth/2-btnsmenu.node().clientWidth/2 + "px");
+    let btnsmenu_2 = d3.select("#buttons_2");
+    btnsmenu_2.style("left", window.innerWidth/2-btnsmenu_2.node().clientWidth/2 + "px");
 
     self.centeringSim.stop();
     self.centeringSim.force("centering").x(window.innerWidth/2);
