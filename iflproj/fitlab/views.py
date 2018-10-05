@@ -31,6 +31,30 @@ def index(req):
 
     return render(req, "fitlab/dashboard.html", context=ctx)
 
+@login_required
+def up(req, gs_id):
+    username = req.session['username']
+    print('up\'ing graph session for user: %s, gs_id: %s' % (username, gs_id))
+    
+    gslst = GraphSession.objects.filter(username=username).order_by('listidx')
+    idx = [o.id for o in gslst].index(int(gs_id))
+
+    # set the index of gs sessions in the list to its index
+    for i in range(len(gslst)):
+        gs = gslst[i]
+        gs.listidx = i;
+        gs.save()
+    # inc at idx and dec at idx+1
+    if idx > 0:
+        gsup = gslst[idx]
+        gsup.listidx -= 1
+        gsup.save()
+        gsdown = gslst[idx-1]
+        gsdown.listidx += 1
+        gsdown.save()
+
+    return redirect("index")
+
 def login_debuguser(req):
     # DEBUG MODE: auto-login as admin
     username = 'admin'
