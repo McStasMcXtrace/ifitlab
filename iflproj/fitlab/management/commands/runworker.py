@@ -486,6 +486,9 @@ class Workers:
                     obj.quicksave_matfile = ""
                     obj.save()
 
+                    gd = None
+                    update = None
+
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
                     graphreply.save()
 
