@@ -209,7 +209,7 @@ setUserData = function(node) {
           tarea.val('"'+val+'"');
         }
         // remove dict trailing comma (list trailing comma is handled by js or JSON)
-        let val = tarea.val();
+        val = tarea.val();
         let re = /\,[\s\n\r]*\}/
         if (val.match(re) != null) {
           tarea.val(val.replace(re, "\n}"));
