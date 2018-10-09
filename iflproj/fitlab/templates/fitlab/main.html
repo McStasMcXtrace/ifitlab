@@ -198,7 +198,8 @@ setUserData = function(node) {
       })
       .change( () => {
         let tarea = $("#"+rowid +" textarea");
-        let val = tarea.val()
+        let val = tarea.val();
+
         // empty || all whitespace : set to null
         if (val == "" || val.replace(/\s/g, '').length == 0) {
           tarea.val("null");
@@ -207,6 +208,14 @@ setUserData = function(node) {
         else if (['[', '{', '"'].indexOf(val[0]) == -1 && isNaN(val) ) {
           tarea.val('"'+val+'"');
         }
+        // remove dict trailing comma (list trailing comma is handled by js or JSON)
+        let val = tarea.val();
+        let re = /\,[\s\n\r]*\}/
+        if (val.match(re) != null) {
+          tarea.val(val.replace(re, "\n}"));
+        }
+
+        // update viewmodel
         intface.node_data(node.id, tarea.val());
       });
   }
@@ -229,6 +238,8 @@ setUserData = function(node) {
             if (tarea.val() == "") tarea.val("null");
           })
           .change( () => {
+            console.log("trying 0")
+
             let tarea = $("#"+rowid +" input");
             if (tarea.val() == "") tarea.val("null");
             try {
