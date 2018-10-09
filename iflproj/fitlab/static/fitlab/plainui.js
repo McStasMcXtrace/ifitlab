@@ -1037,6 +1037,7 @@ class SubWindowHandler {
         this._pwMouseUpCB.bind(this),
         this._pwDragCB.bind(this),
         this._closePltWindowCleanup.bind(this),
+        clickPlotCB,
         wname, xpos, ypos));
     }
   }
