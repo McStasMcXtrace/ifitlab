@@ -22,7 +22,7 @@ def child_rm(lst, item, idx, order):
     try:
         del lst[lst.index((item, idx, order))]
     except:
-        raise Exception("item, idx(%s), order(%s) not found in lst" % (idx, order))
+        raise Exception("child_rm: item, idx(%s), order(%s) not found in lst" % (idx, order))
 def parent_put(lst, item, idx, order):
     idxs_of_order = [l[1] for l in lst if l[2]==order]
     if idx in idxs_of_order:
@@ -35,7 +35,7 @@ def parent_rm(lst, item, idx, order):
     try:
         del lst[lst.index((item, idx, order))]
     except:
-        raise Exception("item, idx(%s), order(%s) not found in lst" % (idx, order))
+        raise Exception("parent_rm: item, idx(%s), order(%s) not found in lst" % (idx, order))
 def child_or_parent_rm_allref(lst, item):
     todel = [l for l in lst if l[0]==item]
     for l in todel:
