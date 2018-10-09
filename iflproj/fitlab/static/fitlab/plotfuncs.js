@@ -130,7 +130,8 @@ class Plot1D {
             .size(20)
             .type(d3.symbolCircle))
           .attr("transform", function(d, i) { return 'translate('+xScl(x[i])+','+yScl(y[i])+')'; })
-          .attr("fill", function(d, i) { return this.colours[j]; }.bind(this));
+          .attr("fill", function(d, i) { return this.colours[j]; }.bind(this))
+          .attr("style", "cursor: crosshair;");
       }
       else {
         // data as lines
@@ -185,7 +186,7 @@ class Plot1D {
     var view = axisGroup.append("rect")
       .attr("width", w)
       .attr("height", h)
-      .attr("style", "cursor: move; fill: none; pointer-events: all;")
+      .attr("style", "cursor: crosshair; fill: none; pointer-events: all;")
       .call(zoom);
 
     // clip
@@ -430,7 +431,7 @@ function _plot_2d_data(w, h, xmin, xmax, ymin, ymax, img2dData, imgColorbar, cbM
     .attr("class", "zoom")
     .attr("width", w)
     .attr("height", h)
-    .attr("style", "cursor: move; fill: none; pointer-events: all;");
+    .attr("style", "cursor: crosshair; fill: none; pointer-events: all;");
 
   // clip
   var clip = anchorElement.append("clipPath")
