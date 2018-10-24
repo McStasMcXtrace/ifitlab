@@ -227,9 +227,26 @@ class IData(enginterface.ObjReprJson):
             pltdct, infdct = _get_iData_repr(self.varname)
             outdct = None
         else:
-            # TODO: return an ndarray of the above plot data by vectorization
+            def get_repr_atomic(symb):
+                pltdct, infdct = _get_iData_repr(symb)
+                return pltdct, infdct
+            def get_element(idx, e):
+                return e[idx]
             
-            pltdct = None
+            vnargs = (self.varname, )
+            args = ()
+            ndaargs = ()
+            ndout = np.empty(datashape, object)
+            _vectcollect(datashape, get_repr_atomic, vnargs, args, ndaargs, ndout)
+            
+            # this will extract the first element (of the ndout ndarray elements) into a similarly shaped ndarray
+            vnargs = ()
+            args = (0, )
+            ndaargs = (ndout, )
+            plts = np.empty(datashape, object)
+            _vectcollect(datashape, get_element, vnargs, args, ndaargs, plts)
+            
+            pltdct = plts.tolist()
             outdct = None
             infdct = {'datashape' : datashape, 'ndims' : None} # ndims refers to (individual) data dimensionality
 
@@ -539,21 +556,36 @@ class IFunc(enginterface.ObjReprJson):
         retdct = self._get_full_repr_dict()
         pltdct = None
         usrdct = {}
-        outdct = {}
+        outdct = None
         
         if datashape in [None, tuple()]:
             pltdct, infdct, usrdct = _get_iFunc_repr(self.varname, self._plotaxes, self._plotdims)
+            outdct = usrdct
         else:
             def get_repr_atomic(symb):
-                v0, v1, val = _get_iFunc_repr(symb, None, None)
-                return val
+                pltdct, infdct, userdct = _get_iFunc_repr(symb, None, None)
+                return pltdct, infdct, userdct
+            def get_element(idx, e):
+                return e[idx]
             
             vnargs = (self.varname, )
             args = ()
             ndaargs = ()
             ndout = np.empty(datashape, object)
             _vectcollect(datashape, get_repr_atomic, vnargs, args, ndaargs, ndout)
-            usrdct = ndout.tolist()
+
+            vnargs = ()
+            args = (0, )
+            ndaargs = (ndout, )
+            plts = np.empty(datashape, object)
+            _vectcollect(datashape, get_element, vnargs, args, ndaargs, plts)
+
+            args = (2, )
+            usrs = np.empty(datashape, object)
+            _vectcollect(datashape, get_element, vnargs, args, ndaargs, usrs)
+
+            outdct = usrs.tolist()
+            pltdct = plts.tolist()
             infdct = {'datashape' : datashape, 'ndims' : None}
 
         retdct['plotdata'] = pltdct
