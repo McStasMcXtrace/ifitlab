@@ -292,18 +292,18 @@ class PlotWindow {
     let logbtn = null;
     logbtn_id = wname + "_logbtn";
     logbtn = $('<div id="ID" title="Toggle logscale">'.replace("ID", logbtn_id))
-    .css({
-      position:"absolute",
-      left: (width-40)+"px",
-      top:"0px",
-      width:headerheight+"px",
-      height:headerheight+"px",
-      cursor:"pointer",
-      "background-color":"lightgray",
-      "border-width":"1px",
-      "border-style":"solid",
-    })
-    .appendTo(container);
+      .css({
+        position:"absolute",
+        left: (width-40)+"px",
+        top:"0px",
+        width:headerheight+"px",
+        height:headerheight+"px",
+        cursor:"pointer",
+        "background-color":"lightgray",
+        "border-width":"1px",
+        "border-style":"solid",
+      })
+      .appendTo(container);
     let logbtn_tooltip = null
     logbtn
       .mouseover(() => {
@@ -451,27 +451,6 @@ class IdxEditWindow {
     this.targetnode = null;
     this.values = null;
   }
-  _lstIsOfShape(lst, shape) {
-    // returns true if lst can accomodate shape. lst may not be wider than shape, but it may be deeper.
-    function shapeRec(l, s) {
-      if (l.length != s[0]) {
-        throw "shape mismatch";
-      }
-      if (s.length > 1) {
-        let snew = s.splice(1);
-        for (let i=0;i<s[0];i++)  {
-          shapeRec(l[i], snew);
-        }
-      }
-    }
-    try {
-      shapeRec(lst, shape.slice()); // (shalow) copy list to avoid changing the incoming shape
-      return true;
-    }
-    catch {
-      return false;
-    }
-  }
   _idx2midx(idx) {
     // converts an index and a datashape into a multiindex
 
@@ -523,7 +502,7 @@ class IdxEditWindow {
       return true;
     }
     else if (n.type == "literal" && this.targetnode == null) {
-      if (this.shape != null && this._lstIsOfShape(n.userdata, this.shape)) {
+      if (this.shape != null && lstIsOfShape(n.userdata, this.shape)) {
         this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
 
         let tarea = $('#'+this.wname+"_textarea");
@@ -566,7 +545,7 @@ class IdxEditWindow {
       if (this.shape == null && this.values == null) {
         // init
         this.shape = JSON.parse(this.idxnode.info["shape"]);
-        this.values = this._createNDimArray(this.shape);
+        this.values = createNDimArray(this.shape);
       } else {
         // pull index value to vievmodel
         let val = tarea.val();
@@ -575,7 +554,7 @@ class IdxEditWindow {
           val = JSON.parse(val);
         }
         catch {
-          console.log("IdxEditWindow: Not a json value, ", val)
+          console.log("IdxEditWindow: Not a json value, ", val);
         }
         if ($.isNumeric(val)) this._setValue(this.index, parseFloat(val)); else this._setValue(this.index, val);
       }
@@ -611,20 +590,6 @@ class IdxEditWindow {
       for (let i=0;i<this.length;i++) {
         this._setValue(i, value);
       }
-    }
-  }
-  _createNDimArray(shape) {
-    // courtesy of Barmar, SO
-    if (shape.length > 0) {
-      var dim = shape[0];
-      var rest = shape.slice(1);
-      var newArray = new Array();
-      for (var i = 0; i < dim; i++) {
-        newArray[i] = this._createNDimArray(rest);
-      }
-      return newArray;
-    } else {
-      return null;
     }
   }
   _submit() {
@@ -807,6 +772,134 @@ class IdxEditWindow {
     });
 
     this.body_container = [winbody_id, container_id];
+  }
+}
+
+class IdxEdtData {
+  constructor() {
+    this.dta_node = null;
+    this.val_node = null;
+    this.data = [];
+    this.shape = null
+    this.idx = null;
+    this.values = null;
+    this.stat = 0; // empty=0 || single-plt=1 || multi-plt=2 || edt=3 || plt-edt=4
+  }
+  _get_value(idx) {
+    if (this.shape == null) return this.values;
+    // nd get by oned index
+    let midx = this._idx2midx(idx);
+    // eval is bad, but in this case it is an easy way to transform an m-length midx into an array index
+    let eval_idx = JSON.stringify(midx).replace(",", "][");
+    let eval_str = "this.values" + eval_idx + ";";
+    return eval(eval_str);
+  }
+  _set_value(idx, val) {
+    if (this.shape == null) { this.values = val; return; }
+    // nd set by one-d index
+    let midx = this._idx2midx(idx);
+    // eval is bad, but in this case it is an easy way to transform an m-length midx into an array index
+    let eval_idx = JSON.stringify(midx).replace(",", "][");
+    let eval_str = "this.values" + eval_idx + " = " + JSON.stringify(val) + ";";
+    eval(eval_str);
+  }
+  _idx2midx(idx) {
+    function dimfactor(k, m, shape) {
+      let f = 1;
+      for (let j=k+1;j<m+1;j++) {
+        f = f*shape[j-1];
+      }
+      return f;
+    }
+    let shape = this.shape;
+    let m = shape.length; // number of dimensions
+    let f = Array(m);
+    f.fill(1);
+    for (let k=0;k<m-1;k++) {
+      f[k] = dimfactor(k+1, m, shape);
+    }
+    // calculate indices and remainders iteratively
+    let midx = Array(m);
+    midx.fill(0);
+    let remainders = Array(m);
+    remainders.fill(0);
+    midx[0] = Math.floor(idx / f[0]);
+    remainders[0] = idx % f[0];
+    for (let i=1;i<m;i++) {
+      midx[i] = Math.floor(remainders[i-1] / f[i]);
+      remainders[i] = remainders[i-1] % f[i];
+    }
+    return midx;
+  }
+  // external interface
+  get_idx() {
+    return this.idx;
+  }
+  try_set_idx(idx) {
+    return false;
+  }
+  try_add_val_node(n) {
+    if (n == null) return false; // ignore duds
+    if (n.type != "literal") return false; // ignore non-literals
+
+    let shape = this._get_shape(n.obj);
+    let state = this.state();
+    if (state == 0) {
+      if (shape != null) {
+        throw "IdxEdtData: implement 'continue editing shaped literal'"
+      }
+      this.val_node = n;
+      return true;
+    }
+    else if ((state == 1 || state == 2) && lstIsOfShape(n.obj, this.shape)) {
+      this.val_node = n;
+      return true;
+    }
+    return false;
+  }
+  try_add_dta_node(n) {
+    if (n == null) return; // ignore duds
+
+    let valid_dta_node = n.type == "obj"
+      && n.info != null
+      && n.info["length"] != null
+      && n.info["index"] != null);
+    let state = this.state();
+    if ((state == 0 || state == 3) && valid_dta_node) {
+      this.dta_node = n;
+      return true;
+    }
+    return false;
+  }
+  get_state() {
+    if (this.dta_node == null && this.val_node == null) return 0;
+    else if (this.dta_node != null && this.shape == null) return 1;
+    else if (this.dta_node != null && this.val_node == null) return 2;
+    else if (this.dta_node == null && this.val_node != null && this.shape != null) return 3;
+    else if (this.dta_node != null && this.val_node != null && this.shape != null) return 4;
+    else throw "IdxEdtData: undefined state";
+  }
+  try_get_submit_obj() {
+    // NOTE: the user will have to create the node_data event, and make sure the proper
+    // conditions for data submission to that node are satisfied.
+    if (this.val_node != null) {
+      return this.values;
+    }
+  }
+  _do_copy_to_all() {
+    if (this.values != null) {
+      this._transition();
+      let value = this._getValue(this.index);
+      for (let i=0;i<this.length;i++) {
+        this._setValue(i, value);
+      }
+    }
+  }
+  set_value(val) {
+    this._set_value(this.idx, val);
+  }
+  get_value() {
+    this._get_value(this.idx);
   }
 }
 
@@ -1115,5 +1208,48 @@ class SubWindowHandler {
     this.tmpNodeid = null;
     this.tmpgNode = null;
     this.tmpPlotdata = null;
+  }
+}
+
+//
+// Utility functions.
+//
+function createNDimArray(shape) {
+  // courtesy of Barmar, SO
+  if (shape.length > 0) {
+    var dim = shape[0];
+    var rest = shape.slice(1);
+    var newArray = new Array();
+    for (var i = 0; i < dim; i++) {
+      newArray[i] = this._createNDimArray(rest);
+    }
+    return newArray;
+  } else {
+    return null;
+  }
+}
+function lstIsOfShape(lst, shape) {
+  if (shape == null) {
+    console.log(lst.length);
+    throw "lstIsOfShape: implement null shape comparisson";
+  }
+  // returns true if lst can accomodate shape. lst may not be wider than shape, but it may be deeper.
+  function shapeRec(l, s) {
+    if (l.length != s[0]) {
+      throw "shape mismatch";
+    }
+    if (s.length > 1) {
+      let snew = s.splice(1);
+      for (let i=0;i<s[0];i++)  {
+        shapeRec(l[i], snew);
+      }
+    }
+  }
+  try {
+    shapeRec(lst, shape.slice()); // (shalow) copy list to avoid changing the incoming shape
+    return true;
+  }
+  catch {
+    return false;
   }
 }
