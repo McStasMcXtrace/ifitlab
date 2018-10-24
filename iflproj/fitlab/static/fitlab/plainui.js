@@ -427,6 +427,9 @@ class PlotWindow {
 class IdxEditWindow {
   // can be connected to two nodes at the time, used for editing the index given by the first one, of the other one's list data
   constructor(node_dataCB, mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos) {
+    // model
+    this.model = new IdxEdtData();
+
     this.wname = wname;
     this.title = wname;
     this._closeOuterCB = closeOuterCB;
@@ -441,87 +444,30 @@ class IdxEditWindow {
     this._removeSubWindow();
     this._createSubWindow(xpos, ypos, this.w, this.h);
     this._setWindowTitle("Index Editor - add iterator obj and literal");
-
-    // input
-    this.idxnode = null;
-    this.index = null;
-    this.shape = null;
-    this.length = null;
-    // output
-    this.targetnode = null;
-    this.values = null;
-  }
-  _idx2midx(idx) {
-    // converts an index and a datashape into a multiindex
-
-    function dimfactor(k, m, shape) {
-      // calculate nd-box volume factors
-      let f = 1;
-      for (let j=k+1;j<m+1;j++) {
-        f = f*shape[j-1];
-      }
-      return f;
-    }
-
-    let shape = this.shape;
-
-    let m = shape.length; // number of dimensions
-    let f = Array(m);
-    f.fill(1);
-    for (let k=0;k<m-1;k++) {
-      f[k] = dimfactor(k+1, m, shape);
-    }
-
-    // calculate indices and remainders iteratively
-    let midx = Array(m);
-    midx.fill(0);
-    let remainders = Array(m);
-    remainders.fill(0);
-    midx[0] = Math.floor(idx / f[0]);
-    remainders[0] = idx % f[0];
-    for (let i=1;i<m;i++) {
-      midx[i] = Math.floor(remainders[i-1] / f[i]);
-      remainders[i] = remainders[i-1] % f[i];
-    }
-    return midx;
   }
   dropNode(id, gNode, plotData) {
-    if (gNode == null) return; // ignore duds
-    let n = gNode.owner;
-    if (this.idxnode != null && this.targetnode != null) {
-      return false;
-    }
-    else if (n.type == "obj"
-        && this.idxnode == null
-        && n.info != null
-        && n.info["length"] != null
-        && n.info["index"] != null) {
-      this.idxnode = n;
-      this.length = this.idxnode.info["length"];
-      this._transition();
-      return true;
-    }
-    else if (n.type == "literal" && this.targetnode == null) {
-      if (this.shape != null && lstIsOfShape(n.userdata, this.shape)) {
-        this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
+    if (gNode == null) return false;
 
-        let tarea = $('#'+this.wname+"_textarea");
-        let newval = this._getValue(this.index);
-        if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval, null, 2));
-      }
-      this.targetnode = n;
+    let n = gNode.owner;
+    if (n.type == "idata" || n.type == "ifunc") {
+      return this.model.try_add_plt_node(n);
+    }
+    else if (n.type == "literal") {
+      // data model
+      if (!this.model.try_add_val_node(n)) return false;
+
+      // view actions
+      this._push_tarea_value();
       return true;
     }
-    else if (this.idxnode == null) {
-      alert('Please add "obj" node with index information.');
-      return false;
-    }
-    else {
-      alert('Please add a "literal" node.');
-      return false;
-    };
+    return false;
   }
   extractNode(nodeid, force=false) {
+    // TODO: reimplement. this attempts to determine whether the window can
+    // survive if one of its nodes were deleted
+    return false;
+
+    /*
     if (force == true && this.idxnode != null &&this.idxnode.id == nodeid) {
       this.idxnode = null;
       return true;
@@ -535,8 +481,32 @@ class IdxEditWindow {
       return true;
     }
     else return false;
+    */
+  }
+  _push_tarea_value() {
+    let tarea = $('#'+this.wname+"_textarea");
+    let newval = this.model.get_value();
+    if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval, null, 2));
+  }
+  _pull_tarea_value() {
+    let tarea = $('#'+this.wname+"_textarea");
+    let rawval = tarea.val();
+    let val = null;
+    try {
+      val = JSON.parse(rawval, null, 2);
+    }
+    catch {
+      console.log("IdxEdt: could not push current non-JSON value: ", rawval);
+      return false;
+    }
+    if (val == "") val = null;
+    this.model.set_value(val);
   }
   _transition() {
+    // TODO: reimplement - set up ui depending on model.get_state()
+    return false;
+
+    /*
     // universal idxnode change handler - attach or run return triggered in extractnode
     if (this.idxnode.info != null) {
       let newindex = this.idxnode.info["index"];
@@ -566,40 +536,14 @@ class IdxEditWindow {
       let onedtitle = this.idxnode.info["wtitle"];
       this._setWindowTitle("Editing " + onedtitle + " (multi index " + midxtitle + ")");
     }
-  }
-  _getValue(idx) {
-    // nd get by oned index
-    let midx = this._idx2midx(idx);
-    // eval is bad, but in this case it is a good way to transform an m-length midx into an array index
-    let eval_idx = JSON.stringify(midx).replace(",", "][");
-    let eval_str = "this.values" + eval_idx + ";";
-    return eval(eval_str);
-  }
-  _setValue(idx, val) {
-    // nd set by one-d index
-    let midx = this._idx2midx(idx);
-    // eval is bad, but in this case it is a good way to transform an m-length midx into an array index
-    let eval_idx = JSON.stringify(midx).replace(",", "][");
-    let eval_str = "this.values" + eval_idx + " = " + JSON.stringify(val) + ";";
-    eval(eval_str);
-  }
-  _copyToAll() {
-    if (this.values != null) {
-      this._transition();
-      let value = this._getValue(this.index);
-      for (let i=0;i<this.length;i++) {
-        this._setValue(i, value);
-      }
-    }
+    */
   }
   _submit() {
-    if (this.idxnode == null) {
+    let obj = this.model.try_get_submit_obj();
+    if (obj == null) {
       alert('Please add an "obj" node with index information.');
-    } else if (this.targetnode == null) {
-      alert('Please add a "literal" node.');
     } else {
-      this._transition(); // this just pulls the value from tarea
-      this.node_dataCB(this.targetnode.id, JSON.stringify(this.values));
+      this.node_dataCB(this.model.val_node.id, JSON.stringify(obj));
     }
   }
   numClients() {
@@ -728,13 +672,14 @@ class IdxEditWindow {
         width: "99%",
         border: "none",
       })
-      .appendTo(winbody);
+      .appendTo(winbody)
+      .change(this._pull_tarea_value.bind(this));
     let tarea = $('#'+this.wname+"_textarea");
 
     $('<button id="'+ this.wname + '_btn2"' +'>Current Value to All</button>')
       .appendTo(winbody);
     let copy_btn = $('#'+ this.wname +"_btn2")
-      .click(this._copyToAll.bind(this));
+      .click(this.model.do_copy_to_all.bind(this));
 
     $('<button id="'+ this.wname + '_btn"' +'>Submit List</button>')
       .appendTo(winbody);
@@ -775,15 +720,17 @@ class IdxEditWindow {
   }
 }
 
+
 class IdxEdtData {
   constructor() {
-    this.dta_node = null;
+    this.plt_node = null;
     this.val_node = null;
-    this.data = [];
-    this.shape = null
-    this.idx = null;
+
+    this.shape = null;
+    this.length = null;
+    this.idx = 0;
+
     this.values = null;
-    this.stat = 0; // empty=0 || single-plt=1 || multi-plt=2 || edt=3 || plt-edt=4
   }
   _get_value(idx) {
     if (this.shape == null) return this.values;
@@ -838,59 +785,74 @@ class IdxEdtData {
   try_set_idx(idx) {
     return false;
   }
+  _get_shape(lst) {
+    return null;
+  }
   try_add_val_node(n) {
     if (n == null) return false; // ignore duds
     if (n.type != "literal") return false; // ignore non-literals
 
-    let shape = this._get_shape(n.obj);
-    let state = this.state();
+    let state = this.get_state();
     if (state == 0) {
-      if (shape != null) {
-        throw "IdxEdtData: implement 'continue editing shaped literal'"
+      if (this.shape != null && lstIsOfShape(n.userdata, this.shape)) {
+        this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
       }
       this.val_node = n;
       return true;
     }
-    else if ((state == 1 || state == 2) && lstIsOfShape(n.obj, this.shape)) {
+    else if ((state == 1 || state == 2) && lstIsOfShape(n.userdata, this.shape)) {
+      // TODO: add layer of security to avoid overwriting previously edited values
+      if (this.shape != null && lstIsOfShape(n.userdata, this.shape)) {
+        this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
+      }
       this.val_node = n;
       return true;
     }
     return false;
   }
-  try_add_dta_node(n) {
+  try_add_plt_node(n) {
     if (n == null) return; // ignore duds
-    let valid_dta_node = n.type == "obj"
+    let valid_plt_node =
+      (n.type == "idata" || n.type == "ifunc")
       && n.info != null
-      && n.info["length"] != null
-      && n.info["index"] != null;
-    let state = this.state();
-    if ((state == 0 || state == 3) && valid_dta_node) {
-      this.dta_node = n;
+      && n.info["datashape"] != null;
+    let state = this.get_state();
+    if ((state == 0 || state == 3) && valid_plt_node) {
+      this.plt_node = n;
+      this.shape = n.info["datashape"];
+      let prod = 1;
+      for (let i=0;i<this.shape.length;i++) {
+        prod = prod * this.shape[i];
+      }
+      this.length = prod;
+      this.index = 0;
+      this.values = createNDimArray(this.shape);
       return true;
     }
     return false;
   }
   get_state() {
-    if (this.dta_node == null && this.val_node == null) return 0;
-    else if (this.dta_node != null && this.shape == null) return 1;
-    else if (this.dta_node != null && this.val_node == null) return 2;
-    else if (this.dta_node == null && this.val_node != null && this.shape != null) return 3;
-    else if (this.dta_node != null && this.val_node != null && this.shape != null) return 4;
+    // empty=0 || single-plt=1 || multi-plt=2 || edt=3 || plt-edt=4
+    if (this.plt_node == null && this.val_node == null) return 0;
+    else if (this.plt_node != null && this.shape == null) return 1;
+    else if (this.plt_node != null && this.val_node == null) return 2;
+    else if (this.plt_node == null && this.val_node != null && this.shape != null) return 3;
+    else if (this.plt_node != null && this.val_node != null && this.shape != null) return 4;
     else throw "IdxEdtData: undefined state";
   }
   try_get_submit_obj() {
     // NOTE: the user will have to create the node_data event, and make sure the proper
     // conditions for data submission to that node are satisfied.
+    console.log(this.val_node, this.values)
     if (this.val_node != null) {
       return this.values;
     }
   }
-  _do_copy_to_all() {
+  do_copy_to_all() {
     if (this.values != null) {
-      this._transition();
       let value = this._getValue(this.index);
       for (let i=0;i<this.length;i++) {
-        this._setValue(i, value);
+        this._set_value(i, value);
       }
     }
   }
@@ -898,7 +860,7 @@ class IdxEdtData {
     this._set_value(this.idx, val);
   }
   get_value() {
-    this._get_value(this.idx);
+    return this._get_value(this.idx);
   }
 }
 
@@ -1220,7 +1182,7 @@ function createNDimArray(shape) {
     var rest = shape.slice(1);
     var newArray = new Array();
     for (var i = 0; i < dim; i++) {
-      newArray[i] = this._createNDimArray(rest);
+      newArray[i] = this.createNDimArray(rest);
     }
     return newArray;
   } else {
