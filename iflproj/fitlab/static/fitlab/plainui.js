@@ -859,11 +859,10 @@ class IdxEdtData {
   }
   try_add_dta_node(n) {
     if (n == null) return; // ignore duds
-
     let valid_dta_node = n.type == "obj"
       && n.info != null
       && n.info["length"] != null
-      && n.info["index"] != null);
+      && n.info["index"] != null;
     let state = this.state();
     if ((state == 0 || state == 3) && valid_dta_node) {
       this.dta_node = n;
