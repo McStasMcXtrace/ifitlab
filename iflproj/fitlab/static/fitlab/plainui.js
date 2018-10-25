@@ -807,6 +807,7 @@ class DragWindow {
   }
 }
 
+
 class SubWindowLines {
   // keeps track of helper lines to/from nodes and subwindows such as PlotWindow and IdxEditWindow
   constructor(svg_root) {
@@ -1106,8 +1107,53 @@ function setSubWindowTitle(wname, title) {
   $("#"+wname+"_header")
     .html(title);
 }
-function addHeaderButtonToSubwindow(wname, tooltip, colour, idx) {
-  // TODO: implement
+function addHeaderButtonToSubwindow(wname, tooltip, idx, onClick, colour="white") {
+  let container = $("#"+wname+"_container");
+  let width = container.width();
+  let headerheight = $("#"+wname+"_header").height();
+
+  // button
+  let btn_id = wname + "_headerbtn_" + idx;
+  let btn = $('<div id="ID">'.replace("ID", btn_id))
+    .css({
+      position : "absolute",
+      left : (width-20*(idx+1))+"px",
+      top : "0px",
+      width : headerheight+"px",
+      height : headerheight+"px",
+      cursor : "pointer",
+      "background-color" : colour,
+      "border-width" : "1px",
+      "border-style" : "solid",
+    })
+    .appendTo(container);
+
+  // tooltip
+  let div_tt = null
+  btn
+    .mouseover(() => {
+      div_tt = $('<div>'+tooltip+'</div>')
+        .css({
+          position:"absolute",
+          top:"-30px",
+          left:"-20px",
+          width:"50px",
+          height:"20px",
+          "padding-left":"6px",
+          "z-index":"666",
+          "background-color":"white",
+          "border-width":"1px",
+          "border-style":"solid",
+          "user-select":"none",
+        })
+        .appendTo(btn)
+    })
+    .mouseout(() => {
+      if (div_tt) div_tt.remove();
+    });
+
+    // click event
+    $("#"+btn_id).click(onClick);
 }
 function addElementToSubWindow(wname, element_id) {
   $("#" + element_id)
