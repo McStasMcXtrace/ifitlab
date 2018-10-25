@@ -802,82 +802,10 @@ class DragWindow {
     this.wname = title + "_debugwindowname";
     this.body_container = null;
 
-    this._createSubWindow();
-  }
-  _createSubWindow() {
-    let headerheight = 20;
-    let container_id = this.wname + "_container";
-    let container = $('<div id="ID">'.replace("ID", container_id))
-      .css({
-        position : "absolute",
-        left : this.xpos + "px",
-        top : this.ypos + "px",
-      })
-      .appendTo('body');
-
-    // header
-    let header_id = this.wname + "_header";
-    let header = $('<div id="ID">'.replace("ID", header_id))
-      .css({
-        position : "relative",
-        width : this.width + "px",
-        //width : "300px",
-        height : headerheight + "px",
-        cursor : "grab",
-        "background-color" : "#9C9CDE",
-        "border-style" : "solid",
-        "border-width" : "1px",
-        "border-color" : "gray",
-        display : "inline-block",
-      })
-      .appendTo(container)
-      .html(this.title)
-      .addClass("noselect");
-
-    // window body area - insert given div
-    let winbody = $('#' + this.content_div_id)
-      .css({
-        position:"relative",
-        width: this.width + "px",
-        height: this.height + "px",
-        "background-color":"white",
-        "border-style":"solid",
-        "border-width":"1px",
-        "border-top":"none",
-      })
-      .appendTo('#'+container_id)
-
-    $("#" + header_id).dblclick(() => {
-        $("#" + this.content_div_id).toggle();
-    });
-
-    var isDragging = false;
-    let maybeDragging = false;
-    $("#"+container_id)
-    .draggable({
-      cancel: "#" + this.content_div_id,
-      containment: "body",
-    })
-    .mousedown(function() {
-      isDragging = false;
-      maybeDragging = true;
-    })
-    .mousemove(() => {
-      if (maybeDragging && isDragging) ;/*mouseMoveCB();*/ else isDragging = true;
-    })
-    .mouseup(function() {
-      maybeDragging = false;
-      var wasDragging = isDragging;
-      isDragging = false;
-      if (!wasDragging) {
-          $("#throbble").toggle();
-      }
-    });
-
-    this.body_container = [this.content_div_id, container_id];
+    createSubWindow(this.wname, null, null, null, xpos, ypos, width, height, false);
+    addElementToSubWindow(this.wname, content_div_id);
   }
 }
-
 
 class SubWindowLines {
   // keeps track of helper lines to/from nodes and subwindows such as PlotWindow and IdxEditWindow
@@ -1165,4 +1093,150 @@ function idx2midx(idx, shape) {
     remainders[i] = remainders[i-1] % f[i];
   }
   return midx;
+}
+
+//
+// Subwindow shared code using pseudo-oop with wname-prefixed global element ids.
+//
+function removeSubWindow(wname) {
+  // this should (also) be called automatically if a user clicks close, after the closeCB has been called
+  $("#"+wname+"_container").remove();
+}
+function setSubWindowTitle(wname, title) {
+  $("#"+wname+"_header")
+    .html(title);
+}
+function addHeaderButtonToSubwindow(wname, tooltip, colour, idx) {
+  // TODO: implement
+}
+function addElementToSubWindow(wname, element_id) {
+  $("#" + element_id)
+  .appendTo("#" + wname + "_body");
+  //.appendTo("#" + wname + "_container");
+}
+function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypos, width, height, closebtn=true) {
+  // element-id variable names for container, header and contents/body:
+  // wname + "_container"
+  // wname + "_header"
+  // wname + "_winbody"
+
+  let headerheight = 20;
+  let container_id = wname + "_container";
+  let container = $('<div id="ID">'.replace("ID", container_id))
+    .css({
+      position : "absolute",
+      left : xpos+"px",
+      top : ypos+"px",
+    })
+    .appendTo('body');
+
+  // header
+  let header_id = wname + "_header";
+  let header = $('<div id="ID">'.replace("ID", header_id))
+    .css({
+      position : "relative",
+      width : width+"px",
+      height : headerheight+"px",
+      cursor : "grab",
+      "background-color" : "#9C9CDE",
+      "border-style" : "solid",
+      "border-width" : "1px",
+      "border-color" : "gray",
+      display : "inline-block",
+    })
+    .appendTo(container)
+    .html("")
+    .addClass("noselect");
+
+
+  // close button
+  if (closebtn == true) {
+    let closebtn_id = wname + "_closebtn";
+    let closebtn = $('<div id="ID">'.replace("ID", closebtn_id))
+      .css({
+        position : "absolute",
+        left : (width-20)+"px",
+        top : "0px",
+        width : headerheight+"px",
+        height : headerheight+"px",
+        cursor:"pointer",
+        "background-color":"white",
+        "border-width":"1px",
+        "border-style":"solid",
+      })
+      .appendTo(container);
+    let closebtn_tooltip = null
+    closebtn
+      .mouseover(() => {
+        closebtn_tooltip = $('<div>close</div>')
+          .css({
+            position:"absolute",
+            top:"-30px",
+            left:"-20px",
+            width:"50px",
+            height:"20px",
+            "padding-left":"6px",
+            "z-index":"666",
+            "background-color":"white",
+            "border-width":"1px",
+            "border-style":"solid",
+            "user-select":"none",
+          })
+          .appendTo(closebtn)
+      })
+      .mouseout(() => {
+        if (closebtn_tooltip) closebtn_tooltip.remove();
+      });
+  }
+
+  // window body area
+  let winbody_id = wname + "_body";
+  let winbody = $('<div id="ID">'.replace("ID", winbody_id))
+    .css({
+      position:"relative",
+      width:width+"px",
+      height:height+"px",
+      "background-color":"white",
+      "border-style":"solid",
+      "border-width":"1px",
+      "border-top":"none",
+    })
+    .appendTo('#'+container_id)
+    .mouseup(() => { if (mouseUpCB != null) mouseUpCB() } );
+
+  // generic mouse events: collapse and close
+  $("#"+header_id).dblclick(() => {
+      $("#"+winbody_id).toggle();
+  });
+
+  if (closebtn == true) {
+    $("#"+closebtn_id).click(() => {
+      if (beforeCloseCB != null) beforeCloseCB();
+      removeSubWindow(wname);
+    });
+  }
+
+  // window drag functionality
+  var isDragging = false;
+  let maybeDragging = false;
+  $("#"+container_id)
+  .draggable({
+    cancel: "#"+winbody_id,
+    containment: "body",
+  })
+  .mousedown(function() {
+    isDragging = false;
+    maybeDragging = true;
+  })
+  .mousemove(() => {
+    if (maybeDragging && isDragging && mouseMoveCB != null) mouseMoveCB(); else isDragging = true;
+  })
+  .mouseup(function() {
+    maybeDragging = false;
+    var wasDragging = isDragging;
+    isDragging = false;
+    if (!wasDragging) {
+        $("#throbble").toggle();
+    }
+  });
 }
