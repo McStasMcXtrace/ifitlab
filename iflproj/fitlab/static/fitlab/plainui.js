@@ -15,9 +15,10 @@ class PlotWindow {
     this.logscaleCB = this._logscaleCB.bind(this);
     this.sizeCB = this._toggleSizeCB.bind(this);
 
+    this.body_container = null;
     this.large = false;
     this.sizes = [330, 220, 900, 600];
-    this._removeSubWindow();
+    removeSubWindow(this.wname)
     this._createSubWindow(xpos, ypos, this.sizes[0], this.sizes[1]);
 
     this.plotbranch = null;
@@ -42,7 +43,7 @@ class PlotWindow {
     left = Math.max(left, 0);
     top = Math.max(top, 0);
 
-    this._removeSubWindow();
+    removeSubWindow(this.wname)
     this._createSubWindow(left, top, w, h);
 
     this.plotbranch = null;
@@ -200,7 +201,7 @@ class PlotWindow {
     }
   }
   close() {
-    this._removeSubWindow();
+    removeSubWindow(this.wname)
     this.body_container = null;
     this._closeOuterCB(this);
   }
@@ -209,216 +210,11 @@ class PlotWindow {
     for (let id in this.data) n++;
     return n;
   }
-  _removeSubWindow() {
-    $("#"+this.wname+"_container").remove();
-  }
   _createSubWindow(xpos, ypos, width, height) {
-    let mouseupCB = this.mouseupCB;
-    let mouseMoveCB = this.dragCB;
-    let closeCB = this.closeCB;
-    let logscaleCB = this.logscaleCB;
-    let sizeCB = this.sizeCB;
-    let wname = this.wname;
-    let title = this.title;
-
-    let headerheight = 20;
-    let container_id = wname + "_container";
-    let container = $('<div id="ID">'.replace("ID", container_id))
-      .css({
-        position : "absolute",
-        left : xpos+"px",
-        top : ypos+"px",
-      })
-      .appendTo('body');
-
-    // header
-    let header_id = wname + "_header";
-    let header = $('<div id="ID">'.replace("ID", header_id))
-      .css({
-        position : "relative",
-        width : width+"px",
-        height : headerheight+"px",
-        cursor : "grab",
-        "background-color" : "#9C9CDE",
-        "border-style" : "solid",
-        "border-width" : "1px",
-        "border-color" : "gray",
-        display : "inline-block",
-      })
-      .appendTo(container)
-      .html(title)
-      .addClass("noselect");
-
-    // close button
-    let closebtn_id = wname + "_minmiz";
-    let closebtn = $('<div id="ID">'.replace("ID", closebtn_id))
-      .css({
-        position : "absolute",
-        left : (width-20)+"px",
-        top : "0px",
-        width : headerheight+"px",
-        height : headerheight+"px",
-        cursor:"pointer",
-        "background-color":"white",
-        "border-width":"1px",
-        "border-style":"solid",
-      })
-      .appendTo(container);
-    let closebtn_tooltip = null
-    closebtn
-      .mouseover(() => {
-        closebtn_tooltip = $('<div>close</div>')
-          .css({
-            position:"absolute",
-            top:"-30px",
-            left:"-20px",
-            width:"50px",
-            height:"20px",
-            "padding-left":"6px",
-            "z-index":"666",
-            "background-color":"white",
-            "border-width":"1px",
-            "border-style":"solid",
-            "user-select":"none",
-          })
-          .appendTo(closebtn)
-      })
-      .mouseout(() => {
-        if (closebtn_tooltip) closebtn_tooltip.remove();
-      });
-
-    // log toggle button
-    let logbtn_id = null;
-    let logbtn = null;
-    logbtn_id = wname + "_logbtn";
-    logbtn = $('<div id="ID" title="Toggle logscale">'.replace("ID", logbtn_id))
-      .css({
-        position:"absolute",
-        left: (width-40)+"px",
-        top:"0px",
-        width:headerheight+"px",
-        height:headerheight+"px",
-        cursor:"pointer",
-        "background-color":"lightgray",
-        "border-width":"1px",
-        "border-style":"solid",
-      })
-      .appendTo(container);
-    let logbtn_tooltip = null
-    logbtn
-      .mouseover(() => {
-        logbtn_tooltip = $('<div>log</div>')
-          .css({
-            position:"absolute",
-            top:"-30px",
-            left:"-20px",
-            width:"40px",
-            height:"20px",
-            "padding-left":"12px",
-            "z-index":"666",
-            "background-color":"lightgray",
-            "border-width":"1px",
-            "border-style":"solid",
-            "user-select":"none",
-          })
-          .appendTo(logbtn)
-      })
-      .mouseout(() => {
-        if (logbtn_tooltip) logbtn_tooltip.remove();
-      });
-
-    // log toggle button
-    let resizebtn_id = null;
-    let resizebtn = null;
-    resizebtn_id = wname + "_resizebtn";
-    resizebtn = $('<div id="ID" title="Toggle logscale">'.replace("ID", resizebtn_id))
-    .css({
-      position:"absolute",
-      left: (width-60)+"px",
-      top:"0px",
-      width:headerheight+"px",
-      height:headerheight+"px",
-      cursor:"pointer",
-      "background-color":"gray",
-      "border-width":"1px",
-      "border-style":"solid",
-    })
-    .appendTo(container);
-    let resizebtn_tooltip = null
-    resizebtn
-      .mouseover(() => {
-        resizebtn_tooltip = $('<div>size</div>')
-          .css({
-            position:"absolute",
-            top:"-30px",
-            left:"-20px",
-            width:"40px",
-            height:"20px",
-            "padding-left":"10px",
-            "z-index":"666",
-            "background-color":"gray",
-            "border-width":"1px",
-            "border-style":"solid",
-            "user-select":"none",
-          })
-          .appendTo(resizebtn)
-      })
-      .mouseout(() => {
-        if (resizebtn_tooltip) resizebtn_tooltip.remove();
-      });
-
-    // window body area
-    let winbody_id = wname + "_body";
-    let winbody = $('<div id="ID">'.replace("ID", winbody_id))
-      .css({
-        position:"relative",
-        width:width+"px",
-        height:height+"px",
-        "background-color":"white",
-        "border-style":"solid",
-        "border-width":"1px",
-        "border-top":"none",
-      })
-      .appendTo('#'+container_id)
-      .mouseup(mouseupCB);
-
-    $("#"+header_id).dblclick(() => {
-        $("#"+winbody_id).toggle();
-    });
-    $("#"+closebtn_id).click(() => {
-        closeCB();
-    });
-    $("#"+logbtn_id).click(() => {
-      logscaleCB();
-    });
-    $("#"+resizebtn_id).click(() => {
-      sizeCB();
-    });
-
-    var isDragging = false;
-    let maybeDragging = false;
-    $("#"+container_id)
-    .draggable({
-      cancel: "#"+winbody_id,
-      containment: "body",
-    })
-    .mousedown(function() {
-      isDragging = false;
-      maybeDragging = true;
-    })
-    .mousemove(() => {
-      if (maybeDragging && isDragging) mouseMoveCB(); else isDragging = true;
-    })
-    .mouseup(function() {
-      maybeDragging = false;
-      var wasDragging = isDragging;
-      isDragging = false;
-      if (!wasDragging) {
-          $("#throbble").toggle();
-      }
-    });
-
-    this.body_container = [winbody_id, container_id];
+    this.body_container = createSubWindow(
+      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width, height, true);
+    addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
+    addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
   }
 }
 
@@ -1160,7 +956,7 @@ function addElementToSubWindow(wname, element_id) {
   .appendTo("#" + wname + "_body");
   //.appendTo("#" + wname + "_container");
 }
-function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypos, width, height, closebtn=true) {
+function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypos, width, height, include_closebtn=true) {
   // element-id variable names for container, header and contents/body:
   // wname + "_container"
   // wname + "_header"
@@ -1194,9 +990,10 @@ function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypo
     .html("")
     .addClass("noselect");
 
-
   // close button
-  if (closebtn == true) {
+  let closebtn_id = null;
+  if (include_closebtn == true) {
+    // element
     let closebtn_id = wname + "_closebtn";
     let closebtn = $('<div id="ID">'.replace("ID", closebtn_id))
       .css({
@@ -1211,6 +1008,7 @@ function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypo
         "border-style":"solid",
       })
       .appendTo(container);
+    // tooltip
     let closebtn_tooltip = null
     closebtn
       .mouseover(() => {
@@ -1233,6 +1031,11 @@ function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypo
       .mouseout(() => {
         if (closebtn_tooltip) closebtn_tooltip.remove();
       });
+    // event
+    $("#"+closebtn_id).click(() => {
+      if (beforeCloseCB != null) beforeCloseCB();
+      removeSubWindow(wname);
+    });
   }
 
   // window body area
@@ -1254,13 +1057,6 @@ function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypo
   $("#"+header_id).dblclick(() => {
       $("#"+winbody_id).toggle();
   });
-
-  if (closebtn == true) {
-    $("#"+closebtn_id).click(() => {
-      if (beforeCloseCB != null) beforeCloseCB();
-      removeSubWindow(wname);
-    });
-  }
 
   // window drag functionality
   var isDragging = false;
@@ -1285,4 +1081,6 @@ function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypo
         $("#throbble").toggle();
     }
   });
+
+  return [winbody_id, container_id];
 }
