@@ -329,142 +329,30 @@ class IdxEditWindow {
     $("#"+this.wname+"_container").remove();
   }
   _createSubWindow(xpos, ypos, width, height) {
-    let mouseupCB = this.mouseupCB;
-    let mouseMoveCB = this.dragCB;
-    let closeCB = this.closeCB;
-    let title = this.title;
+    // standard window
+    this.body_container = createSubWindow(
+      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width, height);
 
-    let headerheight = 20;
-    let container_id = this.wname + "_container";
-    let container = $('<div id="ID">'.replace("ID", container_id))
-      .css({
-        position : "absolute",
-        left : xpos+"px",
-        top : ypos+"px",
-      })
-      .appendTo('body');
-
-    // header
-    let header_id = this.wname + "_header";
-    let header = $('<div id="ID">'.replace("ID", header_id))
-      .css({
-        position : "relative",
-        width : width+"px",
-        height : headerheight+"px",
-        cursor : "grab",
-        "background-color" : "#9C9CDE",
-        "border-style" : "solid",
-        "border-width" : "1px",
-        "border-color" : "gray",
-        display : "inline-block",
-      })
-      .appendTo(container)
-      .html(title)
-      .addClass("noselect");
-
-    // close button
-    let closebtn_id = this.wname + "_minmiz";
-    let closebtn = $('<div id="ID"></div>'.replace("ID", closebtn_id))
-      .css({
-        position : "absolute",
-        left : (width-20)+"px",
-        top : "0px",
-        width : headerheight+"px",
-        height : headerheight+"px",
-        cursor:"pointer",
-        "background-color":"white",
-        "border-width":"1px",
-        "border-style":"solid",
-      })
-      .appendTo(container);
-    let closebtn_tooltip = null
-    closebtn
-      .mouseover(() => {
-        closebtn_tooltip = $('<div>close</div>')
-          .css({
-            position:"absolute",
-            top:"-30px",
-            left:"-20px",
-            width:"50px",
-            height:"20px",
-            "padding-left":"6px",
-            "z-index":"666",
-            "background-color":"white",
-            "border-width":"1px",
-            "border-style":"solid",
-            "user-select":"none",
-          })
-          .appendTo(closebtn)
-      })
-      .mouseout(() => {
-        if (closebtn_tooltip) closebtn_tooltip.remove();
-      });
-
-    // window body - div containing textarea
-    let winbody_id = this.wname + "_body";
-    let winbody = $('<div style="text-align:right" id="ID"></div>'.replace("ID", winbody_id))
-      .css({
-        position:"relative",
-        width:width+"px",
-        height:height+"px",
-        "background-color":"white",
-        "border-style":"solid",
-        "border-width":"1px",
-        "border-top":"none",
-      })
-      .appendTo('#'+container_id)
-      .mouseup(mouseupCB);
-    $('<textarea rows=11 id='+ this.wname + "_textarea" +'></textarea>')
+    let tarea_id = this.wname + "_tarea";
+    let tarea = $('<textarea rows=11 id=ID></textarea>'.replace("ID", tarea_id))
       .css({
         resize: "none",
         width: "99%",
         border: "none",
       })
-      .appendTo(winbody)
       .change(this._pull_tarea_value.bind(this));
-    let tarea = $('#'+this.wname+"_textarea");
-
-    $('<button id="'+ this.wname + '_btn2"' +'>Current Value to All</button>')
-      .appendTo(winbody);
-    let copy_btn = $('#'+ this.wname +"_btn2")
+    let btn1 = $('<button id="'+ this.wname + '_btn2"' +'>Current Value to All</button>')
       .click(this.model.do_copy_to_all.bind(this));
-
-    $('<button id="'+ this.wname + '_btn"' +'>Submit List</button>')
-      .appendTo(winbody);
-    let submit_btn = $('#'+ this.wname +"_btn")
+    let btn2 = $('<button id="'+ this.wname + '_btn"' +'>Submit List</button>')
       .click(this._submit.bind(this));
 
-    $("#"+header_id).dblclick(() => {
-        $("#"+winbody_id).toggle();
-    });
-    $("#"+closebtn_id).click(() => {
-        closeCB();
-    });
+    // add elements
+    addElementToSubWindow(this.wname, tarea);
+    addElementToSubWindow(this.wname, btn1);
+    addElementToSubWindow(this.wname, btn2);
 
-    var isDragging = false;
-    let maybeDragging = false;
-    $("#"+container_id)
-    .draggable({
-      cancel: "#"+winbody_id,
-      containment: "body",
-    })
-    .mousedown(function() {
-      isDragging = false;
-      maybeDragging = true;
-    })
-    .mousemove(() => {
-      if (maybeDragging && isDragging) mouseMoveCB(); else isDragging = true;
-    })
-    .mouseup(function() {
-      maybeDragging = false;
-      var wasDragging = isDragging;
-      isDragging = false;
-      if (!wasDragging) {
-          $("#throbble").toggle();
-      }
-    });
-
-    this.body_container = [winbody_id, container_id];
+    // update title
+    setSubWindowTitle(this.wname, this.title);
   }
 }
 
@@ -599,7 +487,7 @@ class DragWindow {
     this.body_container = null;
 
     createSubWindow(this.wname, null, null, null, xpos, ypos, width, height, false);
-    addElementToSubWindow(this.wname, content_div_id);
+    addIdToSubWindow(this.wname, content_div_id);
   }
 }
 
@@ -895,6 +783,11 @@ function idx2midx(idx, shape) {
 //
 // Subwindow shared code using pseudo-oop with wname-prefixed global element ids.
 //
+// Some element-id variable names for container, header and contents/body are:
+//   wname + "_container"
+//   wname + "_header"
+//   wname + "_winbody"
+//
 function removeSubWindow(wname) {
   // this should (also) be called automatically if a user clicks close, after the closeCB has been called
   $("#"+wname+"_container").remove();
@@ -951,17 +844,15 @@ function addHeaderButtonToSubwindow(wname, tooltip, idx, onClick, colour="white"
     // click event
     $("#"+btn_id).click(onClick);
 }
-function addElementToSubWindow(wname, element_id) {
-  $("#" + element_id)
-  .appendTo("#" + wname + "_body");
-  //.appendTo("#" + wname + "_container");
+function addElementToSubWindow(wname, element) {
+  element
+    .appendTo("#" + wname + "_body");
+}
+function addIdToSubWindow(wname, element) {
+  $("#"+element)
+    .appendTo("#" + wname + "_body");
 }
 function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypos, width, height, include_closebtn=true) {
-  // element-id variable names for container, header and contents/body:
-  // wname + "_container"
-  // wname + "_header"
-  // wname + "_winbody"
-
   let headerheight = 20;
   let container_id = wname + "_container";
   let container = $('<div id="ID">'.replace("ID", container_id))
