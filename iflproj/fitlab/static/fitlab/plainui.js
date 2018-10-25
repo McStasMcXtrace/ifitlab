@@ -327,7 +327,6 @@ class PlotWindow {
         if (logbtn_tooltip) logbtn_tooltip.remove();
       });
 
-
     // log toggle button
     let resizebtn_id = null;
     let resizebtn = null;
@@ -445,44 +444,6 @@ class IdxEditWindow {
     this._createSubWindow(xpos, ypos, this.w, this.h);
     this._setWindowTitle("Index Editor - add iterator obj and literal");
   }
-  dropNode(id, gNode, plotData) {
-    if (gNode == null) return false;
-
-    let n = gNode.owner;
-    if (n.type == "idata" || n.type == "ifunc") {
-      return this.model.try_add_plt_node(n);
-    }
-    else if (n.type == "literal") {
-      // data model
-      if (!this.model.try_add_val_node(n)) return false;
-
-      // view actions
-      this._push_tarea_value();
-      return true;
-    }
-    return false;
-  }
-  extractNode(nodeid, force=false) {
-    // TODO: reimplement. this attempts to determine whether the window can
-    // survive if one of its nodes were deleted
-    return false;
-
-    /*
-    if (force == true && this.idxnode != null &&this.idxnode.id == nodeid) {
-      this.idxnode = null;
-      return true;
-    }
-    if (this.idxnode != null && this.idxnode.id == nodeid) {
-      this._transition();
-      return false;
-    }
-    else if (this.targetnode != null && this.targetnode.id == nodeid) {
-      this.targetnode = null;
-      return true;
-    }
-    else return false;
-    */
-  }
   _push_tarea_value() {
     let tarea = $('#'+this.wname+"_textarea");
     let newval = this.model.get_value();
@@ -505,38 +466,6 @@ class IdxEditWindow {
   _transition() {
     // TODO: reimplement - set up ui depending on model.get_state()
     return false;
-
-    /*
-    // universal idxnode change handler - attach or run return triggered in extractnode
-    if (this.idxnode.info != null) {
-      let newindex = this.idxnode.info["index"];
-      let tarea = $('#'+this.wname+"_textarea");
-
-      if (this.shape == null && this.values == null) {
-        // init
-        this.shape = JSON.parse(this.idxnode.info["shape"]);
-        this.values = createNDimArray(this.shape);
-      } else {
-        // pull index value to vievmodel
-        let val = tarea.val();
-        if (val == "") val = null;
-        try {
-          val = JSON.parse(val);
-        }
-        catch {
-          console.log("IdxEditWindow: Not a json value, ", val);
-        }
-        if ($.isNumeric(val)) this._setValue(this.index, parseFloat(val)); else this._setValue(this.index, val);
-      }
-      // clear tarea
-      let newval = this._getValue(newindex);
-      if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval, null, 2));
-      this.index = newindex;
-      let midxtitle = JSON.stringify(this._idx2midx(this.index), null, 2).replace(/\s/g, "");
-      let onedtitle = this.idxnode.info["wtitle"];
-      this._setWindowTitle("Editing " + onedtitle + " (multi index " + midxtitle + ")");
-    }
-    */
   }
   _submit() {
     let obj = this.model.try_get_submit_obj();
@@ -545,6 +474,29 @@ class IdxEditWindow {
     } else {
       this.node_dataCB(this.model.val_node.id, JSON.stringify(obj));
     }
+  }
+  dropNode(id, gNode, plotData) {
+    if (gNode == null) return false;
+
+    let n = gNode.owner;
+    if (n.type == "idata" || n.type == "ifunc") {
+      return this.model.try_add_plt_node(n);
+    }
+    else if (n.type == "literal") {
+      // data model
+      if (!this.model.try_add_val_node(n)) return false;
+
+      // view actions
+      this._push_tarea_value();
+      return true;
+    }
+    return false;
+  }
+  extractNode(nodeid, force=false) {
+    // TODO: reimplement. this attempts to determine whether the window can
+    // survive if one of its nodes were deleted.
+    // Should the window simply close?
+    return false;
   }
   numClients() {
     if (this.targetnode != null && this.idxnode != null) return 2;
@@ -735,7 +687,7 @@ class IdxEdtData {
   _get_value(idx) {
     if (this.shape == null) return this.values;
     // nd get by oned index
-    let midx = this._idx2midx(idx);
+    let midx = idx2midx(idx, this.shape);
     // eval is bad, but in this case it is an easy way to transform an m-length midx into an array index
     let eval_idx = JSON.stringify(midx).replace(",", "][");
     let eval_str = "this.values" + eval_idx + ";";
@@ -744,49 +696,22 @@ class IdxEdtData {
   _set_value(idx, val) {
     if (this.shape == null) { this.values = val; return; }
     // nd set by one-d index
-    let midx = this._idx2midx(idx);
+    let midx = idx2midx(idx, this.shape);
     // eval is bad, but in this case it is an easy way to transform an m-length midx into an array index
     let eval_idx = JSON.stringify(midx).replace(",", "][");
     let eval_str = "this.values" + eval_idx + " = " + JSON.stringify(val) + ";";
     eval(eval_str);
-  }
-  _idx2midx(idx) {
-    function dimfactor(k, m, shape) {
-      let f = 1;
-      for (let j=k+1;j<m+1;j++) {
-        f = f*shape[j-1];
-      }
-      return f;
-    }
-    let shape = this.shape;
-    let m = shape.length; // number of dimensions
-    let f = Array(m);
-    f.fill(1);
-    for (let k=0;k<m-1;k++) {
-      f[k] = dimfactor(k+1, m, shape);
-    }
-    // calculate indices and remainders iteratively
-    let midx = Array(m);
-    midx.fill(0);
-    let remainders = Array(m);
-    remainders.fill(0);
-    midx[0] = Math.floor(idx / f[0]);
-    remainders[0] = idx % f[0];
-    for (let i=1;i<m;i++) {
-      midx[i] = Math.floor(remainders[i-1] / f[i]);
-      remainders[i] = remainders[i-1] % f[i];
-    }
-    return midx;
   }
   // external interface
   get_idx() {
     return this.idx;
   }
   try_set_idx(idx) {
+    if (Number.isInteger(idx) && idx < this.length && idx >= 0) {
+      this.idx = idx;
+      return true;
+    }
     return false;
-  }
-  _get_shape(lst) {
-    return null;
   }
   try_add_val_node(n) {
     if (n == null) return false; // ignore duds
@@ -1173,7 +1098,7 @@ class SubWindowHandler {
 }
 
 //
-// Utility functions.
+// A few numpy ndarray copatible utilities.
 //
 function createNDimArray(shape) {
   // courtesy of Barmar, SO
@@ -1213,4 +1138,31 @@ function lstIsOfShape(lst, shape) {
   catch {
     return false;
   }
+}
+function idx2midx(idx, shape) {
+  function dimfactor(k, m, shape) {
+    let f = 1;
+    for (let j=k+1;j<m+1;j++) {
+      f = f*shape[j-1];
+    }
+    return f;
+  }
+  let m = shape.length; // number of dimensions
+  let f = Array(m);
+  f.fill(1);
+  for (let k=0;k<m-1;k++) {
+    f[k] = dimfactor(k+1, m, shape);
+  }
+  // calculate indices and remainders iteratively
+  let midx = Array(m);
+  midx.fill(0);
+  let remainders = Array(m);
+  remainders.fill(0);
+  midx[0] = Math.floor(idx / f[0]);
+  remainders[0] = idx % f[0];
+  for (let i=1;i<m;i++) {
+    midx[i] = Math.floor(remainders[i-1] / f[i]);
+    remainders[i] = remainders[i-1] % f[i];
+  }
+  return midx;
 }
