@@ -241,12 +241,12 @@ class IdxEditWindow {
     this._setWindowTitle("Index Editor - add iterator obj and literal");
   }
   _push_tarea_value() {
-    let tarea = $('#'+this.wname+"_textarea");
+    let tarea = $('#' + this.wname + "_tarea");
     let newval = this.model.get_value();
     if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval, null, 2));
   }
   _pull_tarea_value() {
-    let tarea = $('#'+this.wname+"_textarea");
+    let tarea = $('#'+this.wname+"_tarea");
     let rawval = tarea.val();
     let val = null;
     try {
