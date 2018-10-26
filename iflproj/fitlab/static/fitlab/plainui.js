@@ -226,7 +226,6 @@ class IdxEditWindow {
     this.model = new IdxEdtData();
 
     this.wname = wname;
-    this.title = wname;
     this._closeOuterCB = closeOuterCB;
 
     this.node_dataCB = node_dataCB;
@@ -235,17 +234,18 @@ class IdxEditWindow {
     this.closeCB = this.close.bind(this);
 
     this.w = 380;
-    this.h = 210;
-    this._removeSubWindow();
+    this.h = 235;
+    removeSubWindow(this.wname);
     this._createSubWindow(xpos, ypos, this.w, this.h);
-    this._setWindowTitle("Index Editor - add iterator obj and literal");
   }
   _push_tarea_value() {
+    // push current value to text area
     let tarea = $('#' + this.wname + "_tarea");
     let newval = this.model.get_value();
     if (newval == null) tarea.val(""); else tarea.val(JSON.stringify(newval, null, 2));
   }
   _pull_tarea_value() {
+    // pull current value from text area
     let tarea = $('#'+this.wname+"_tarea");
     let rawval = tarea.val();
     let val = null;
@@ -259,10 +259,6 @@ class IdxEditWindow {
     if (val == "") val = null;
     this.model.set_value(val);
   }
-  _transition() {
-    // TODO: reimplement - set up ui depending on model.get_state()
-    return false;
-  }
   _submit() {
     let obj = this.model.try_get_submit_obj();
     if (obj == null) {
@@ -270,6 +266,10 @@ class IdxEditWindow {
     } else {
       this.node_dataCB(this.model.val_node.id, JSON.stringify(obj));
     }
+  }
+  close() {
+    this.body_container = null;
+    this._closeOuterCB(this);
   }
   dropNode(id, gNode, plotData) {
     if (gNode == null) return false;
@@ -284,6 +284,7 @@ class IdxEditWindow {
 
       // view actions
       this._push_tarea_value();
+      this._update_ui();
       return true;
     }
     return false;
@@ -315,19 +316,6 @@ class IdxEditWindow {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.top;
   }
-  _setWindowTitle(title) {
-    $("#"+this.wname+"_header")
-      .html(title);
-    this.title = title;
-  }
-  close() {
-    this._removeSubWindow();
-    this.body_container = null;
-    this._closeOuterCB(this);
-  }
-  _removeSubWindow() {
-    $("#"+this.wname+"_container").remove();
-  }
   _createSubWindow(xpos, ypos, width, height) {
     // standard window
     this.body_container = createSubWindow(
@@ -346,13 +334,62 @@ class IdxEditWindow {
     let btn2 = $('<button id="'+ this.wname + '_btn"' +'>Submit List</button>')
       .click(this._submit.bind(this));
 
+    // index browser
+    let brws_div = $("<div id=ID></div>".replace("ID", this.wname + "_browser"))
+      .css({ "margin" : "auto", "text-align" : "center" });
+    let prev = $("<button id=ID>prev</button>".replace("ID", this.wname + "_bnt_prev"))
+      .css({ "height" : "25px" })
+      .appendTo(brws_div)
+      .click(this._prev.bind(this));
+    let tbx_idx = $('<input type="text" id=ID></input>'.replace("ID", this.wname + "_tbx_idx"))
+      .css({ "width" : "30px", "height" : "12px" })
+      .appendTo(brws_div)
+      .change(this._idxjump.bind(this));
+    let next = $("<button id=ID>next</button>".replace("ID", this.wname + "_bnt_next"))
+      .css({ "height" : "25px" })
+      .appendTo(brws_div)
+      .click(this._next.bind(this));
+
     // add elements
+    addElementToSubWindow(this.wname, brws_div);
     addElementToSubWindow(this.wname, tarea);
     addElementToSubWindow(this.wname, btn1);
     addElementToSubWindow(this.wname, btn2);
 
     // update title
-    setSubWindowTitle(this.wname, this.title);
+    setSubWindowTitle(this.wname, "Index Editor - add iterator obj and literal");
+  }
+  _update_ui() {
+    // push tarea value
+    this._push_tarea_value();
+    // set tbx idx value
+    let tbx = $("#" + this.wname + "_tbx_idx").val(this.model.get_idx());
+    console.log(tbx);
+    // update title
+    let tit1 = this.model.get_idx() + 1 + " of " + this.model.get_length()
+    let tit2 = ", midx: [" + idx2midx(this.model.get_idx(), this.model.shape) + "]";
+    setSubWindowTitle(this.wname, tit1 + tit2);
+  }
+  _prev() {
+    this._pull_tarea_value();
+    this.model.dec();
+    this._update_ui();
+  }
+  _next() {
+    this._pull_tarea_value();
+    this.model.inc();
+    this._update_ui();
+  }
+  _idxjump() {
+    let idx = $("#" + this.wname + "_tbx_idx").val();
+    idx = parseInt(idx);
+    if (!Number.isInteger(idx)) {
+      this._update_ui();
+      return false;
+    }
+    this._pull_tarea_value();
+    this.model.try_set_idx(idx);
+    this._update_ui();
   }
 }
 
@@ -389,6 +426,17 @@ class IdxEdtData {
   // external interface
   get_idx() {
     return this.idx;
+  }
+  get_length() {
+    return this.length;
+  }
+  inc() {
+    if (this.idx < this.length - 1) this.idx = this.idx + 1;
+    else this.idx = 0;
+  }
+  dec() {
+    if (this.idx > 0) this.idx = (this.idx - 1);
+    else this.idx = this.length - 1;
   }
   try_set_idx(idx) {
     if (Number.isInteger(idx) && idx < this.length && idx >= 0) {
