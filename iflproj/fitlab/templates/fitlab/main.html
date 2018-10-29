@@ -368,7 +368,7 @@ $(document).ready(() => {
       //let titleadd = node.label + '(' + node.id + ')';
       let titleadd = null;
       if (node.info.wtitle) titleadd = node.info.wtitle;
-      subwhandler.newPlotwindow(xpos, ypos, (x, y) => { statusPlotClick(x, y); }, titleadd, node.id, node.plotdata, node.gNode)
+      subwhandler.newPlotwindow(xpos, ypos, (x, y) => { statusPlotClick(x, y); }, titleadd, node);
 
       // add the @node_delete cleanup function
       intface.addNodeDeletedListener( (id) => {
@@ -424,7 +424,7 @@ $(document).ready(() => {
     n.gNode.colour = c;
     n.plotdata.colour = c;
     // replot all instance of this node
-    subwhandler.rePlot(n.id, n.gNode, n.plotdata);
+    subwhandler.rePlot(n);
   });
   usrdiv.css({ top : 0, left : $(window)-usrdiv.width()});
 

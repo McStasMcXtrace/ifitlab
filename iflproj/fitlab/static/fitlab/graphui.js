@@ -1767,7 +1767,7 @@ class GraphInterface {
   }
   _nodeMouseDownCB(gNode) {
     let n = gNode.owner;
-    this._fireEvents(this._nodeMouseDownListn, [n.id, n.gNode, n.plotdata]);
+    this._fireEvents(this._nodeMouseDownListn, [n]);
   }
   _fireEvents(lst, args=[]) {
     for (var i=0; i<lst.length; i++) {

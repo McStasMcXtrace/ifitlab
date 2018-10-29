@@ -24,13 +24,11 @@ class PlotWindow {
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
     this.ndims = null;
+
     this.data = {}; // { id : plotdata }
+    this.model = new IdxEdtData();
 
     this.logscale = false;
-
-    if (nodeid != null && plotdata != null) {
-      this.dropNode(nodeid, null, plotdata)
-    }
   }
   _toggleSizeCB() {
     let prev_w = this.w;
@@ -77,7 +75,7 @@ class PlotWindow {
       if (cnt == 1) {
         this.dropNode(nid, null, this.data[nid], true);
       } else {
-        throw "PlotWindow: more than one 2d plot is present, misconfigured";
+        throw "PlotWindow: more than one 2d plot is present, PlotWindow is misconfigured";
       }
     }
   }
@@ -123,47 +121,42 @@ class PlotWindow {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.top;
   }
-  dropNode(nodeid, gNode, plotdata, override=false) {
-    // safeties
-    if (!plotdata || !nodeid) {
-      return false;
-    }
-    if (nodeid in this.data && !override) {
-      return false;
-    }
-    if (this.ndims == null) {
-      this.ndims = plotdata.ndims;
-    }
-    else if (this.ndims != plotdata.ndims) {
-      return false;
-    }
-    if (this.plot != null && plotdata.ndims == 2) {
-       console.log("PlotWindow: 2D multiplot is not supported");
-      return false
-    }
-
+  drawAll() {
     // init
     if (this.plotbranch == null) {
       this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
     }
-    if (!override) {
-      this.data[nodeid] = plotdata;
-    }
 
-    // plot
-    plotdata.title='';
-    plotdata.w = this.w;
-    plotdata.h = this.h;
+    // get
+    let lst = this.model.get_plots();
+    let ndims = null;
+    for (let i=0;i<lst.length;i++) {
+      let plotdata = lst[i];
+      if (!plotdata) continue;
 
-    if (this.plot == null) {
-      if (this.ndims == 1) { this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch); }
-      if (this.ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
-    } else {
-      if (plotdata.ndims == 1) this.plot.plotOneMore(plotdata);
-      if (plotdata.ndims == 2) throw "2D multiplot is not supported";
+      // make sure ndims match...
+      if (ndims == null) ndims = plotdata.ndims; else if (plotdata.ndims != ndims) continue;
+      //console.log("PlotWindow: 2D multiplot is not supported");
+
+
+      //console.log("what we got: ", ndims, this.wname, lst.length, plotdata);
+      // plot
+      plotdata.title='';
+      plotdata.w = this.w;
+      plotdata.h = this.h;
+
+      if (this.plot == null) {
+        if (ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch);
+        if (ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
+      } else {
+        if (ndims == 1) this.plot.plotOneMore(plotdata);
+        if (ndims == 2) throw "2D multiplot is not supported";
+      }
     }
 
     // update window title
+    // TODO: reimplement
+    /*
     let ids = [];
     for (let nid in this.data) {
       ids.push(nid)
@@ -173,9 +166,24 @@ class PlotWindow {
       title = title + ", " + ids[i+1];
     }
     this._setWindowTitle("(" + title + ")");
+    */
+  }
+  dropNode(n, override=false) {
+    // check
+    if (n != null && n.type != "obj" && n.type != "idata" && n.type != "ifunc" && n.plotdata != null) {
+      return false;
+    }
 
-    // signal caller proceed
-    return true;
+    // do
+    if (!override) {
+      this.data[n.id] = n.plotdata;
+    }
+    if (this.model.try_add_plt_node(n)) {
+      this.drawAll();
+      return true;
+    }
+    return false;
+
   }
   _setWindowTitle(title) {
     if (this.titleadd) title = title + ": " + this.titleadd;
@@ -271,10 +279,7 @@ class IdxEditWindow {
     this.body_container = null;
     this._closeOuterCB(this);
   }
-  dropNode(id, gNode, plotData) {
-    if (gNode == null) return false;
-
-    let n = gNode.owner;
+  dropNode(n) {
     if (n.type == "idata" || n.type == "ifunc") {
       return this.model.try_add_plt_node(n);
     }
@@ -290,9 +295,8 @@ class IdxEditWindow {
     return false;
   }
   extractNode(nodeid, force=false) {
-    // TODO: reimplement. this attempts to determine whether the window can
-    // survive if one of its nodes were deleted.
-    // Should the window simply close?
+    console.log("IdxEdtWindow: extractNode not implemented");
+    // TODO: extract a plt node, hide the plot if it was the last one
     return false;
   }
   numClients() {
@@ -364,7 +368,6 @@ class IdxEditWindow {
     this._push_tarea_value();
     // set tbx idx value
     let tbx = $("#" + this.wname + "_tbx_idx").val(this.model.get_idx());
-    console.log(tbx);
     // update title
     let tit1 = this.model.get_idx() + 1 + " of " + this.model.get_length()
     let tit2 = ", midx: [" + idx2midx(this.model.get_idx(), this.model.shape) + "]";
@@ -396,7 +399,7 @@ class IdxEditWindow {
 
 class IdxEdtData {
   constructor() {
-    this.plt_node = null;
+    this.plt_nodes = [];
     this.val_node = null;
 
     this.shape = null;
@@ -471,11 +474,12 @@ class IdxEdtData {
     if (n == null) return; // ignore duds
     let valid_plt_node =
       (n.type == "idata" || n.type == "ifunc")
-      && n.info != null
-      && n.info["datashape"] != null;
+      && n.info != null;
+    let has_shape = n.info["datashape"] != null;
+
     let state = this.get_state();
-    if ((state == 0 || state == 3) && valid_plt_node) {
-      this.plt_node = n;
+    if ((state == 0 || state == 3) && valid_plt_node && has_shape) {
+      this.plt_nodes.push(n);
       this.shape = n.info["datashape"];
       let prod = 1;
       for (let i=0;i<this.shape.length;i++) {
@@ -486,21 +490,52 @@ class IdxEdtData {
       this.values = createNDimArray(this.shape);
       return true;
     }
+    else if ((state == 0 || state == 1 || state == 2 || state == 4) && this.shape == null) {
+      this.plt_nodes.push(n);
+      return true;
+    }
+    return false;
+  }
+  get_plots(idx) {
+    // there are this.length plots for every plot node
+    if (this.shape != null) {
+      // NOTE: temp behavior
+      return [];
+
+      let shape = this.shape;
+      let cb = function(x, idx) {
+        return getShapedValue(idx2midx(idx, shape), x.plotdata);
+      }
+      return this.plt_nodes.map(x => getShapedValue(idx2midx(this.idx, shape), x.plotdata));
+    }
+    // there is one plot for every plot node
+    else if (this.plt_nodes.length > 0) {
+      return this.plt_nodes.map(x => x.plotdata);
+    }
+  }
+  try_remove_plt_node(nodeid) {
+    let lst = this.plt_nodes;
+    for (var i=0;i<lst.length;i++) {
+      let e = lst[i];
+      if (e.id == nodeid) {
+        remove(lst, e);
+        return true;
+      }
+    }
     return false;
   }
   get_state() {
     // empty=0 || single-plt=1 || multi-plt=2 || edt=3 || plt-edt=4
-    if (this.plt_node == null && this.val_node == null) return 0;
-    else if (this.plt_node != null && this.shape == null) return 1;
-    else if (this.plt_node != null && this.val_node == null) return 2;
-    else if (this.plt_node == null && this.val_node != null && this.shape != null) return 3;
-    else if (this.plt_node != null && this.val_node != null && this.shape != null) return 4;
+    if (this.plt_nodes.length == 0 && this.val_node == null) return 0;
+    else if (this.plt_nodes.length > 0 && this.shape == null) return 1;
+    else if (this.plt_nodes.length > 0 && this.val_node == null) return 2;
+    else if (this.plt_nodes.length == 0 && this.val_node != null && this.shape != null) return 3;
+    else if (this.plt_nodes.length > 0 && this.val_node != null && this.shape != null) return 4;
     else throw "IdxEdtData: undefined state";
   }
   try_get_submit_obj() {
     // NOTE: the user will have to create the node_data event, and make sure the proper
     // conditions for data submission to that node are satisfied.
-    console.log(this.val_node, this.values)
     if (this.val_node != null) {
       return this.values;
     }
@@ -654,24 +689,23 @@ class SubWindowHandler {
     this.plotWindows = [];
 
     // used for drag-and-drop plotting
-    this.tmpPlotdata = null;
-    this.tmpNodeid = null;
-    this.tmpgNode = null;
+    this.tmpNode = null;
   }
-  newPlotwindow(xpos, ypos, clickPlotCB, titleadd=null, nodeid=null, plotdata=null, gNode=null) {
+  newPlotwindow(xpos, ypos, clickPlotCB, titleadd=null, node=null) {
     let wname = "window_" + String(this.idx++);
-    if (nodeid != null && plotdata != null) {
+    //if (nodeid != null && plotdata != null) {
+    if (node != null) {
       let pltw = new PlotWindow(
         this._pwMouseUpCB.bind(this),
         this._pwDragCB.bind(this),
         this._closePltWindowCleanup.bind(this),
         clickPlotCB,
-        wname, xpos, ypos, titleadd, nodeid, plotdata);
+        wname, xpos, ypos, titleadd, node.id, node.plotdata);
       this.plotWindows.push(pltw);
-      if (gNode != null) {
-        this.subwindowlines.dragFromNode(nodeid, gNode);
-        this.subwindowlines.setLineToAndCloseData(pltw.wname, pltw);
-      }
+      pltw.dropNode(node);
+
+      this.subwindowlines.dragFromNode(node.id, node.gNode);
+      this.subwindowlines.setLineToAndCloseData(pltw.wname, pltw);
     } else {
       this.plotWindows.push(new PlotWindow(
         this._pwMouseUpCB.bind(this),
@@ -720,25 +754,23 @@ class SubWindowHandler {
     // TODO: impl. for use with data reporting
     // just returns all plots with data in them, as they are
   }
-  rePlot(id, gNode, plotdata) {
+  rePlot(node) {
     this.subwindowlines.removeLinesByNid(id);
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
-      let didremove = pltw.extractNode(id);
+      let didremove = pltw.extractNode(node.id);
       if (didremove) {
-        pltw.dropNode(id, gNode, plotdata);
+        pltw.dropNode(node);
 
-        this.subwindowlines.dragFromNode(id, gNode);
+        this.subwindowlines.dragFromNode(node.id, node.gNode);
         this.subwindowlines.setLineToAndCloseData(pltw.wname, pltw);
         this.subwindowlines.draw();
       }
     }
   }
-  nodeMouseDown(nid, gNode, plotdata) {
-    this.tmpNodeid = nid;
-    this.tmpgNode = gNode;
-    this.tmpPlotdata = plotdata;
-    this.subwindowlines.dragFromNode(nid, gNode);
+  nodeMouseDown(node) {
+    this.tmpNode = node;
+    this.subwindowlines.dragFromNode(node.id, node.gNode);
   }
   _closePltWindowCleanup(pltw) {
     remove(this.plotWindows, pltw);
@@ -749,12 +781,10 @@ class SubWindowHandler {
     this.subwindowlines.update();
   }
   _pwMouseUpCB(pltw) {
-    if (pltw.dropNode(this.tmpNodeid, this.tmpgNode, this.tmpPlotdata)) {
+    if (pltw.dropNode(this.tmpNode)) {
       this.subwindowlines.setLineToAndCloseData(pltw.wname, pltw);
     }
-    this.tmpNodeid = null;
-    this.tmpgNode = null;
-    this.tmpPlotdata = null;
+    this.tmpNode = null;
   }
 }
 
@@ -827,7 +857,13 @@ function idx2midx(idx, shape) {
   }
   return midx;
 }
-
+function getShapedValue(midx, ndarray) {
+  // eval is bad, but...
+  let eval_idx = JSON.stringify(midx).replace(",", "][");
+  let nda = ndarray;
+  let eval_str = "nda" + eval_idx + ";";
+  return eval(eval_str);
+}
 //
 // Subwindow shared code using pseudo-oop with wname-prefixed global element ids.
 //
