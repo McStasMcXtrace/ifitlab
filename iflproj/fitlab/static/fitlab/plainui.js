@@ -6,8 +6,8 @@ class PlotWindow {
     this.wname = wname;
     this.title = wname; if (nodeid) this.title = nodeid;
     this.titleadd = titleadd;
-    this._closeOuterCB = closeOuterCB;
 
+    this._closeOuterCB = closeOuterCB;
     this.mouseupCB = function() { mouseUpCB(this); }.bind(this);
     this.dragCB = function() { dragWindowCB(this) }.bind(this);
     this.clickPlotCB = clickPlotCB;
@@ -18,17 +18,15 @@ class PlotWindow {
     this.body_container = null;
     this.large = false;
     this.sizes = [330, 220, 900, 600];
-    removeSubWindow(this.wname)
-    this._createSubWindow(xpos, ypos, this.sizes[0], this.sizes[1]);
-
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
     this.ndims = null;
-
     this.data = {}; // { id : plotdata }
     this.model = new IdxEdtData();
-
     this.logscale = false;
+
+    removeSubWindow(this.wname)
+    this._createSubWindow(xpos, ypos, this.sizes[0], this.sizes[1]);
   }
   _toggleSizeCB() {
     let prev_w = this.w;
@@ -44,40 +42,8 @@ class PlotWindow {
     removeSubWindow(this.wname)
     this._createSubWindow(left, top, w, h);
 
-    this.plotbranch = null;
-    if (this.ndims == 1) {
-      let logscale = this.plot.logscale;
-      this.plot = null;
-
-      let data = [];
-      for (let id in this.data) {
-        data.push(this.data[id]);
-      }
-
-      data[0].title='';
-      data[0].w = this.w;
-      data[0].h = this.h;
-
-      this._resetPlotBranch();
-      this.plot = new Plot1D(data[0], this.wname, this.clickPlotCB, this.plotbranch, logscale);
-
-      this.plot.rePlotMany(data);
-    }
-    else if (this.ndims == 2) {
-      this.plot = null;
-
-      let cnt = 0;
-      let nid = null;
-      for (let id in this.data) {
-        cnt++;
-        nid = id;
-      }
-      if (cnt == 1) {
-        this.dropNode(nid, null, this.data[nid], true);
-      } else {
-        throw "PlotWindow: more than one 2d plot is present, PlotWindow is misconfigured";
-      }
-    }
+    this.plot = null;
+    this.drawAll();
   }
   _logscaleCB() {
     this.logscale = !this.logscale;
@@ -135,7 +101,7 @@ class PlotWindow {
       plotdata.h = this.h;
 
       if (this.plot == null) {
-        if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch);
+        if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch, this.logscale);
         if (this.ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
       } else {
         if (this.ndims == 1) this.plot.plotOneMore(plotdata);
