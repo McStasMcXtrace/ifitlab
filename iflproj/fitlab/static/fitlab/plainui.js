@@ -4,7 +4,6 @@
 class PlotWindow {
   constructor(mouseUpCB, dragWindowCB, closeOuterCB, clickPlotCB, wname, xpos, ypos, titleadd=null, nodeid=null, plotdata=null) {
     this.wname = wname;
-    this.title = wname; if (nodeid) this.title = nodeid;
     this.titleadd = titleadd;
 
     this._closeOuterCB = closeOuterCB;
@@ -110,18 +109,13 @@ class PlotWindow {
     }
 
     // update window title
-    // TODO: reimplement
-    /*
-    let ids = [];
-    for (let nid in this.data) {
-      ids.push(nid)
-    }
+    let ids = this.model.get_plt_node_ids();
     let title = ids[0];
     for (let i=0;i<ids.length-1;i++) {
       title = title + ", " + ids[i+1];
     }
-    this._setWindowTitle("(" + title + ")");
-    */
+    if (this.titleadd) title = title + ": " + this.titleadd;
+    setSubWindowTitle(this.wname, title);
   }
   dropNode(n, override=false) {
     // check
@@ -141,13 +135,6 @@ class PlotWindow {
       return true;
     }
     return false;
-
-  }
-  _setWindowTitle(title) {
-    if (this.titleadd) title = title + ": " + this.titleadd;
-    $("#"+this.wname+"_header")
-      .html(title);
-    this.title = title;
   }
   extractNode(nodeid, force=false) {
     if (this.data[nodeid] == undefined) return false;
@@ -385,6 +372,9 @@ class IdxEdtData {
     eval(eval_str);
   }
   // external interface
+  get_plt_node_ids() {
+    return this.plt_nodes.map(x => x.id);
+  }
   get_idx() {
     return this.idx;
   }
