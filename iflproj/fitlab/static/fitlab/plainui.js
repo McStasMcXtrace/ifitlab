@@ -330,7 +330,7 @@ class IdxEditWindow {
       })
       .change(this._pull_tarea_value.bind(this));
     let btn1 = $('<button id="'+ this.wname + '_btn2"' +'>Current Value to All</button>')
-      .click(this.model.do_copy_to_all.bind(this));
+      .click(this.model.do_copy_to_all.bind(this.model));
     let btn2 = $('<button id="'+ this.wname + '_btn"' +'>Submit List</button>')
       .click(this._submit.bind(this));
 
@@ -507,7 +507,7 @@ class IdxEdtData {
   }
   do_copy_to_all() {
     if (this.values != null) {
-      let value = this._getValue(this.index);
+      let value = this._get_value(this.index);
       for (let i=0;i<this.length;i++) {
         this._set_value(i, value);
       }
