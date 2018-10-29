@@ -20,7 +20,6 @@ class PlotWindow {
     this.plotbranch = null;
     this.plot = null; // Plot1D instance or svg branch if 2D
     this.ndims = null;
-    this.data = {}; // { id : plotdata }
     this.model = new IdxEdtData();
     this.logscale = false;
 
@@ -41,8 +40,7 @@ class PlotWindow {
     removeSubWindow(this.wname)
     this._createSubWindow(left, top, w, h);
 
-    this.plot = null;
-    this.drawAll();
+    this.reDraw();
   }
   _logscaleCB() {
     this.logscale = !this.logscale;
@@ -51,7 +49,7 @@ class PlotWindow {
     }
     else if (this.ndims == 2) {
       this.plot = null;
-      this.drawAll();
+      this.reDraw();
     }
   }
   get w() {
@@ -78,12 +76,13 @@ class PlotWindow {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.top;
   }
-  drawAll() {
-    // init - always reset plot branch and draw all
+  reDraw() {
+    // init - have to reset or make sure to not plot the same stuff twice
     this.plotbranch = d3.select('#'+this.body_container[0])
       .selectAll("svg")
       .remove();
     this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
+    this.plot = null;
 
     // get
     let lst = this.model.get_plots();
@@ -92,10 +91,10 @@ class PlotWindow {
       if (!plotdata) continue;
 
       // make sure ndims match...
-      if (plotdata.ndims != this.ndims) continue;
+      if (plotdata.ndims != this.ndims) {console.log("oops"); continue};
 
       // plot
-      plotdata.title='';
+      plotdata.title = '';
       plotdata.w = this.w;
       plotdata.h = this.h;
 
@@ -117,7 +116,7 @@ class PlotWindow {
     if (this.titleadd) title = title + ": " + this.titleadd;
     setSubWindowTitle(this.wname, title);
   }
-  dropNode(n, override=false) {
+  dropNode(n) {
     // check
     if (n != null && n.type != "obj" && n.type != "idata" && n.type != "ifunc" && n.plotdata != null) {
       return false;
@@ -127,31 +126,18 @@ class PlotWindow {
     }
 
     // do
-    if (!override) {
-      this.data[n.id] = n.plotdata;
-    }
     if (this.model.try_add_plt_node(n)) {
-      this.drawAll();
+      this.reDraw();
       return true;
     }
     return false;
   }
   extractNode(nodeid, force=false) {
-    if (this.data[nodeid] == undefined) return false;
-
-    delete this.data[nodeid];
-    if (this.ndims == 1) {
-      let pltdatas = [];
-      for (let id in this.data) {
-        let plotdata = this.data[id];
-        pltdatas.push(plotdata);
-      }
-      this.plot.rePlotMany(pltdatas);
+    if (this.model.try_remove_plt_node(nodeid)) {
+      if (this.model.get_num_clients() > 0) this.reDraw();
       return true;
     }
-    else if (this.ndims == 2) {
-      return true;
-    }
+    return false;
   }
   close() {
     removeSubWindow(this.wname)
@@ -159,9 +145,7 @@ class PlotWindow {
     this._closeOuterCB(this);
   }
   numClients() {
-    let n = 0;
-    for (let id in this.data) n++;
-    return n;
+    return this.model.get_num_clients();
   }
   _createSubWindow(xpos, ypos, width, height) {
     this.body_container = createSubWindow(
@@ -240,14 +224,10 @@ class IdxEditWindow {
     return false;
   }
   extractNode(nodeid, force=false) {
-    console.log("IdxEdtWindow: extractNode not implemented");
-    // TODO: extract a plt node, hide the plot if it was the last one
-    return false;
+    return this.model.try_remove_plt_node();
   }
   numClients() {
-    if (this.targetnode != null && this.idxnode != null) return 2;
-    if (this.targetnode != null || this.idxnode != null) return 1;
-    return 0
+    return this.model.get_num_clients();
   }
   get x() {
     let pos = $("#"+this.body_container[1]).position();
@@ -372,6 +352,10 @@ class IdxEdtData {
     eval(eval_str);
   }
   // external interface
+  get_num_clients() {
+    let has_vn = this.val_node != null;
+    return this.plt_nodes.length + has_vn;
+  }
   get_plt_node_ids() {
     return this.plt_nodes.map(x => x.id);
   }
@@ -457,6 +441,7 @@ class IdxEdtData {
     else if (this.plt_nodes.length > 0) {
       return this.plt_nodes.map(x => x.plotdata);
     }
+    return [];
   }
   try_remove_plt_node(nodeid) {
     let lst = this.plt_nodes;
@@ -464,6 +449,8 @@ class IdxEdtData {
       let e = lst[i];
       if (e.id == nodeid) {
         remove(lst, e);
+
+        console.log("how long after remove: ", this.plt_nodes.length)
         return true;
       }
     }
@@ -677,6 +664,8 @@ class SubWindowHandler {
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
       let didremove = pltw.extractNode(id, force);
+
+      console.log("removePlots: ", didremove, pltw.numClients());
 
       if (didremove && pltw.numClients() == 0) {
         x_y = [pltw.left, pltw.top];
