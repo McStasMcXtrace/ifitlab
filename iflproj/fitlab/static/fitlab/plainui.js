@@ -79,12 +79,6 @@ class PlotWindow {
       }
     }
   }
-  _resetPlotBranch() {
-    this.plotbranch = d3.select('#'+this.body_container[0])
-      .selectAll("svg")
-      .remove();
-    this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
-  }
   _logscaleCB() {
     this.logscale = !this.logscale;
     if (this.ndims == 1) {
@@ -92,9 +86,7 @@ class PlotWindow {
     }
     else if (this.ndims == 2) {
       this.plot = null;
-      this._resetPlotBranch();
-      let id = Object.keys(this.data)[0];
-      this.dropNode(id, null, this.data[id], true);
+      this.drawAll();
     }
   }
   get w() {
@@ -122,35 +114,32 @@ class PlotWindow {
     if (pos) return pos.top;
   }
   drawAll() {
-    // init
-    if (this.plotbranch == null) {
-      this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
-    }
+    // init - always reset plot branch and draw all
+    this.plotbranch = d3.select('#'+this.body_container[0])
+      .selectAll("svg")
+      .remove();
+    this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
 
     // get
     let lst = this.model.get_plots();
-    let ndims = null;
     for (let i=0;i<lst.length;i++) {
       let plotdata = lst[i];
       if (!plotdata) continue;
 
       // make sure ndims match...
-      if (ndims == null) ndims = plotdata.ndims; else if (plotdata.ndims != ndims) continue;
-      //console.log("PlotWindow: 2D multiplot is not supported");
+      if (plotdata.ndims != this.ndims) continue;
 
-
-      //console.log("what we got: ", ndims, this.wname, lst.length, plotdata);
       // plot
       plotdata.title='';
       plotdata.w = this.w;
       plotdata.h = this.h;
 
       if (this.plot == null) {
-        if (ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch);
-        if (ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
+        if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch);
+        if (this.ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
       } else {
-        if (ndims == 1) this.plot.plotOneMore(plotdata);
-        if (ndims == 2) throw "2D multiplot is not supported";
+        if (this.ndims == 1) this.plot.plotOneMore(plotdata);
+        if (this.ndims == 2) throw "2D multiplot is not supported";
       }
     }
 
@@ -172,6 +161,9 @@ class PlotWindow {
     // check
     if (n != null && n.type != "obj" && n.type != "idata" && n.type != "ifunc" && n.plotdata != null) {
       return false;
+    }
+    if (this.ndims == null) {
+      this.ndims = n.info.ndims;
     }
 
     // do
@@ -497,12 +489,9 @@ class IdxEdtData {
     return false;
   }
   get_plots(idx) {
-    // there are this.length plots for every plot node
-    if (this.shape != null) {
-      // NOTE: temp behavior
-      return [];
-
-      let shape = this.shape;
+    // there are this.length plots for every plot node, return list of plotdata at index
+    let shape = this.shape;
+    if (shape != null) {
       let cb = function(x, idx) {
         return getShapedValue(idx2midx(idx, shape), x.plotdata);
       }
