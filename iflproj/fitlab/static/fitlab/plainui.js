@@ -86,12 +86,13 @@ class PlotWindow {
 
     // get
     let lst = this.model.get_plots();
+    let ndims = this.model.get_ndims();
     for (let i=0;i<lst.length;i++) {
       let plotdata = lst[i];
       if (!plotdata) continue;
 
       // make sure ndims match...
-      if (plotdata.ndims != this.ndims) {console.log("oops"); continue};
+      if (plotdata.ndims != ndims) continue;
 
       // plot
       plotdata.title = '';
@@ -99,11 +100,11 @@ class PlotWindow {
       plotdata.h = this.h;
 
       if (this.plot == null) {
-        if (this.ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch, this.logscale);
-        if (this.ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
+        if (ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch, this.logscale);
+        if (ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
       } else {
-        if (this.ndims == 1) this.plot.plotOneMore(plotdata);
-        if (this.ndims == 2) throw "2D multiplot is not supported";
+        if (ndims == 1) this.plot.plotOneMore(plotdata);
+        if (ndims == 2) throw "2D multiplot is not supported";
       }
     }
 
@@ -120,9 +121,6 @@ class PlotWindow {
     // check
     if (n != null && n.type != "obj" && n.type != "idata" && n.type != "ifunc" && n.plotdata != null) {
       return false;
-    }
-    if (this.ndims == null) {
-      this.ndims = n.info.ndims;
     }
 
     // do
@@ -352,6 +350,23 @@ class IdxEdtData {
     eval(eval_str);
   }
   // external interface
+  get_ndims() {
+    // returns the ndims (plot data dimensionality) of the first plotdata of the first plot node, or null
+    if (this.plt_nodes.length > 0) {
+      let n = this.plt_nodes[0];
+      if (n.info.datashape != null) {
+        if (n.plotdata.length > 0) {
+          // vectorized
+          let pd = getShapedValue(idx2midx(0, this.shape), n.plotdata);
+          if (pd) return pd.ndims;
+        }
+      } else {
+        // not vectorized
+        return n.plotdata.ndims;
+      }
+    }
+    return null;
+  }
   get_num_clients() {
     let has_vn = this.val_node != null;
     return this.plt_nodes.length + has_vn;
@@ -428,14 +443,12 @@ class IdxEdtData {
     }
     return false;
   }
-  get_plots(idx) {
+  get_plots() {
     // there are this.length plots for every plot node, return list of plotdata at index
     let shape = this.shape;
+    let idx = this.idx;
     if (shape != null) {
-      let cb = function(x, idx) {
-        return getShapedValue(idx2midx(idx, shape), x.plotdata);
-      }
-      return this.plt_nodes.map(x => getShapedValue(idx2midx(this.idx, shape), x.plotdata));
+      return this.plt_nodes.map(x => getShapedValue(idx2midx(idx, shape), x.plotdata));
     }
     // there is one plot for every plot node
     else if (this.plt_nodes.length > 0) {
@@ -664,8 +677,6 @@ class SubWindowHandler {
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
       let didremove = pltw.extractNode(id, force);
-
-      console.log("removePlots: ", didremove, pltw.numClients());
 
       if (didremove && pltw.numClients() == 0) {
         x_y = [pltw.left, pltw.top];
