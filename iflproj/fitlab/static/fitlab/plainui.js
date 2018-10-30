@@ -2,7 +2,7 @@
 //  A plain jquery ui lib to accompany graphui
 //
 class PlotWindow {
-  constructor(mouseUpCB, dragWindowCB, closeOuterCB, clickPlotCB, wname, xpos, ypos, titleadd=null, nodeid=null, plotdata=null) {
+  constructor(mouseUpCB, dragWindowCB, closeOuterCB, clickPlotCB, wname, xpos, ypos, titleadd=null) {
     this.wname = wname;
     this.titleadd = titleadd;
 
@@ -156,7 +156,7 @@ class PlotWindow {
 
 class IdxEditWindow {
   // can be connected to two nodes at the time, used for editing the index given by the first one, of the other one's list data
-  constructor(node_dataCB, mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos) {
+  constructor(node_dataCB, mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos, clickPlotCB, ) {
     // model
     this.model = new IdxEdtData();
 
@@ -638,14 +638,13 @@ class SubWindowHandler {
   }
   newPlotwindow(xpos, ypos, clickPlotCB, titleadd=null, node=null) {
     let wname = "window_" + String(this.idx++);
-    //if (nodeid != null && plotdata != null) {
     if (node != null) {
       let pltw = new PlotWindow(
         this._pwMouseUpCB.bind(this),
         this._pwDragCB.bind(this),
         this._closePltWindowCleanup.bind(this),
         clickPlotCB,
-        wname, xpos, ypos, titleadd, node.id, node.plotdata);
+        wname, xpos, ypos, titleadd);
       this.plotWindows.push(pltw);
       pltw.dropNode(node);
 
