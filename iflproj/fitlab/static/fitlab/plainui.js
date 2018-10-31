@@ -44,10 +44,11 @@ class PlotWindow {
   }
   _logscaleCB() {
     this.logscale = !this.logscale;
-    if (this.ndims == 1) {
+    let ndims = this.model.get_ndims();
+    if (ndims == 1) {
       this.plot.toggleLogscale();
     }
-    else if (this.ndims == 2) {
+    else if (ndims == 2) {
       this.plot = null;
       this.reDraw();
     }
@@ -155,24 +156,132 @@ class PlotWindow {
 
 
 class IdxEditWindow {
-  // can be connected to two nodes at the time, used for editing the index given by the first one, of the other one's list data
-  constructor(node_dataCB, mouseUpCB, dragWindowCB, closeOuterCB, wname, xpos, ypos, clickPlotCB, ) {
-    // model
-    this.model = new IdxEdtData();
+  constructor(node_dataCB, mouseUpCB, dragWindowCB, closeOuterCB, clickPlotCB, wname, xpos, ypos, titleadd=null) {
+    // PlotWindow
+    this.clickPlotCB = clickPlotCB;
+    this.logscaleCB = this._logscaleCB.bind(this);
+    this.sizeCB = this._toggleSizeCB.bind(this);
 
+    this.large = false;
+    this.plotbranch = null;
+    this.plot = null; // Plot1D instance or svg branch if 2D
+    this.logscale = false;
+    this.body_container = null;
+
+    // IdxEdtWindow
+    this.node_dataCB = node_dataCB;
+
+    // shared
+    this.titleadd = titleadd;
+    this.sizes = [380, 235, 900, 600];
+    this.model = new IdxEdtData();
     this.wname = wname;
     this._closeOuterCB = closeOuterCB;
-
-    this.node_dataCB = node_dataCB;
     this.mouseupCB = function() { mouseUpCB(this); }.bind(this);
     this.dragCB = function() { dragWindowCB(this) }.bind(this);
     this.closeCB = this.close.bind(this);
 
-    this.w = 380;
-    this.h = 235;
     removeSubWindow(this.wname);
     this._createSubWindow(xpos, ypos, this.w, this.h);
   }
+
+  // PlotWindow section
+  _toggleSizeCB() {
+    let prev_w = this.w;
+    let prev_h = this.h;
+    this.large = !this.large;
+    let w = this.w;
+    let h = this.h;
+    let left = this.left + prev_w/2 - w/2;
+    let top = this.top + prev_h/2 - h/2;
+    left = Math.max(left, 0);
+    top = Math.max(top, 0);
+
+    removeSubWindow(this.wname)
+    this._createSubWindow(left, top, w, h);
+
+    this.reDraw();
+  }
+  _logscaleCB() {
+    this.logscale = !this.logscale;
+    let ndims = this.model.get_ndims();
+    if (ndims == 1) {
+      this.plot.toggleLogscale();
+      this.reDraw();
+    }
+    else if (ndims == 2) {
+      this.plot = null;
+      this.reDraw();
+    }
+  }
+  get w() {
+    if (this.large) return this.sizes[2]
+    return this.sizes[0];
+  }
+  get h() {
+    if (this.large) return this.sizes[3]
+    return this.sizes[1];
+  }
+  get x() {
+    let pos = $("#"+this.body_container[1]).position();
+    if (pos) return pos.left + this.w/2;
+  }
+  get y() {
+    let pos = $("#"+this.body_container[1]).position();
+    if (pos) return pos.top + this.h/2;
+  }
+  get left() {
+    let pos = $("#"+this.body_container[1]).position();
+    if (pos) return pos.left;
+  }
+  get top() {
+    let pos = $("#"+this.body_container[1]).position();
+    if (pos) return pos.top;
+  }
+  reDraw() {
+    // init - have to reset or make sure to not plot the same stuff twice
+    this.plotbranch = d3.select('#'+this.body_container[0])
+      .selectAll("svg")
+      .remove();
+    //this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
+    this.plotbranch = d3.select('#'+this.body_container[0]).insert("svg", "#"+this.wname+"_browser");
+    this.plot = null;
+
+    // get
+    let lst = this.model.get_plots();
+    let ndims = this.model.get_ndims();
+    for (let i=0;i<lst.length;i++) {
+      let plotdata = lst[i];
+      if (!plotdata) continue;
+
+      // proceed only if ndims match
+      if (plotdata.ndims != ndims) continue;
+
+      // plot
+      plotdata.title = '';
+      plotdata.w = this.w;
+      plotdata.h = this.h;
+
+      if (this.plot == null) {
+        if (ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch, this.logscale);
+        if (ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
+      } else {
+        if (ndims == 1) this.plot.plotOneMore(plotdata);
+        if (ndims == 2) throw "2D multiplot is not supported";
+      }
+    }
+
+    // update window title
+    let ids = this.model.get_plt_node_ids();
+    let title = ids[0];
+    for (let i=0;i<ids.length-1;i++) {
+      title = title + ", " + ids[i+1];
+    }
+    if (this.titleadd) title = title + ": " + this.titleadd;
+    setSubWindowTitle(this.wname, title);
+  }
+
+  // IdxEdtWindow section
   _push_tarea_value() {
     // push current value to text area
     let tarea = $('#' + this.wname + "_tarea");
@@ -207,6 +316,9 @@ class IdxEditWindow {
     this._closeOuterCB(this);
   }
   dropNode(n) {
+    // TODO: fix a but that makes this function be called @ every mouseup on the window
+    if (n==null) return false;
+
     if (n.type == "idata" || n.type == "ifunc") {
       return this.model.try_add_plt_node(n);
     }
@@ -247,6 +359,8 @@ class IdxEditWindow {
     // standard window
     this.body_container = createSubWindow(
       this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width, height);
+    addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
+    addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
 
     let tarea_id = this.wname + "_tarea";
     let tarea = $('<textarea rows=11 id=ID></textarea>'.replace("ID", tarea_id))
@@ -287,6 +401,9 @@ class IdxEditWindow {
     setSubWindowTitle(this.wname, "Index Editor - add iterator obj and literal");
   }
   _update_ui() {
+    // update plots
+    this.reDraw();
+
     // push tarea value
     this._push_tarea_value();
     // set tbx idx value
@@ -659,7 +776,7 @@ class SubWindowHandler {
         wname, xpos, ypos));
     }
   }
-  newIdxEdtWindow(xpos, ypos, node_dataCB) {
+  newIdxEdtWindow(xpos, ypos, node_dataCB, clickPlotCB) {
     let wname = "window_" + String(this.idx++);
 
     this.plotWindows.push(new IdxEditWindow(
@@ -667,6 +784,7 @@ class SubWindowHandler {
       this._pwMouseUpCB.bind(this),
       this._pwDragCB.bind(this),
       this._closePltWindowCleanup.bind(this),
+      clickPlotCB,
       wname, xpos, ypos));
   }
   removePlots(id, force=false) {
