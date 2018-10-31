@@ -571,7 +571,13 @@ class IdxEdtData {
     let shape = this.shape;
     let idx = this.idx;
     if (shape != null) {
-      return this.plt_nodes.map(x => getShapedValue(idx2midx(idx, shape), x.plotdata));
+      let cb = function(x) {
+        let plotdata = getShapedValue(idx2midx(idx, shape), x.plotdata);
+        // apply node colour to the entry, rather than the list AKA ndarray
+        if (plotdata != null) plotdata.colour = x.gNode.colour;
+        return plotdata;
+      }
+      return this.plt_nodes.map(cb);
     }
     // there is one plot for every plot node
     else if (this.plt_nodes.length > 0) {
