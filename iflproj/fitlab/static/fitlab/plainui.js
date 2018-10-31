@@ -24,7 +24,7 @@ class PlotWindow {
     this.logscale = false;
 
     removeSubWindow(this.wname)
-    this._createSubWindow(xpos, ypos, this.sizes[0], this.sizes[1]);
+    this._createSubWindow(xpos, ypos, this.sizes[0]);
   }
   _toggleSizeCB() {
     let prev_w = this.w;
@@ -38,7 +38,7 @@ class PlotWindow {
     top = Math.max(top, 0);
 
     removeSubWindow(this.wname)
-    this._createSubWindow(left, top, w, h);
+    this._createSubWindow(left, top, w);
 
     this.reDraw();
   }
@@ -146,9 +146,9 @@ class PlotWindow {
   numClients() {
     return this.model.get_num_clients();
   }
-  _createSubWindow(xpos, ypos, width, height) {
+  _createSubWindow(xpos, ypos, width) {
     this.body_container = createSubWindow(
-      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width, height, true);
+      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width, true);
     addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
     addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
   }
@@ -182,7 +182,7 @@ class IdxEditWindow {
     this.closeCB = this.close.bind(this);
 
     removeSubWindow(this.wname);
-    this._createSubWindow(xpos, ypos, this.w, this.h);
+    this._createSubWindow(xpos, ypos, this.w);
   }
 
   // PlotWindow section
@@ -358,16 +358,16 @@ class IdxEditWindow {
   _createSubWindow(xpos, ypos, width, height) {
     // standard window
     this.body_container = createSubWindow(
-      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width, height);
+      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width);
     addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
     addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
 
     let tarea_id = this.wname + "_tarea";
-    let tarea = $('<textarea rows=11 id=ID></textarea>'.replace("ID", tarea_id))
+    let tarea = $('<textarea rows=5 id=ID></textarea>'.replace("ID", tarea_id))
       .css({
         resize: "none",
         width: "99%",
-        border: "none",
+        //border: "none",
       })
       .change(this._pull_tarea_value.bind(this));
     let btn1 = $('<button id="'+ this.wname + '_btn2"' +'>Current Value to All</button>')
@@ -377,7 +377,13 @@ class IdxEditWindow {
 
     // index browser
     let brws_div = $("<div id=ID></div>".replace("ID", this.wname + "_browser"))
-      .css({ "margin" : "auto", "text-align" : "center" });
+      .css({
+        "margin" : "auto",
+        "text-align" : "center",
+        "border-top" : "1px solid black",
+        "margin-top" : "2px",
+        "padding-top" : "2px",
+      });
     let prev = $("<button id=ID>prev</button>".replace("ID", this.wname + "_bnt_prev"))
       .css({ "height" : "25px" })
       .appendTo(brws_div)
@@ -631,7 +637,7 @@ class DragWindow {
     this.wname = title + "_debugwindowname";
     this.body_container = null;
 
-    createSubWindow(this.wname, null, null, null, xpos, ypos, width, height, false);
+    createSubWindow(this.wname, null, null, null, xpos, ypos, width, false);
     addIdToSubWindow(this.wname, content_div_id);
   }
 }
@@ -998,7 +1004,7 @@ function addIdToSubWindow(wname, element) {
   $("#"+element)
     .appendTo("#" + wname + "_body");
 }
-function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypos, width, height, include_closebtn=true) {
+function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypos, width, include_closebtn=true) {
   let headerheight = 20;
   let container_id = wname + "_container";
   let container = $('<div id="ID">'.replace("ID", container_id))
@@ -1081,7 +1087,6 @@ function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypo
     .css({
       position:"relative",
       width:width+"px",
-      height:height+"px",
       "background-color":"white",
       "border-style":"solid",
       "border-width":"1px",
