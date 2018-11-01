@@ -156,6 +156,7 @@ class PlotWindow {
 
 
 class IdxEditWindow {
+  // This class is a multi-purpose window containing a plotter, a browser, and an index editor all in one.
   constructor(node_dataCB, mouseUpCB, dragWindowCB, closeOuterCB, clickPlotCB, wname, xpos, ypos, titleadd=null) {
     // PlotWindow
     this.clickPlotCB = clickPlotCB;
@@ -198,7 +199,7 @@ class IdxEditWindow {
     top = Math.max(top, 0);
 
     removeSubWindow(this.wname)
-    this._createSubWindow(left, top, w, h);
+    this._createSubWindow(left, top, w);
 
     this.reDraw();
   }
@@ -244,7 +245,7 @@ class IdxEditWindow {
       .selectAll("svg")
       .remove();
     //this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
-    this.plotbranch = d3.select('#'+this.body_container[0]).insert("svg", "#"+this.wname+"_browser");
+    this.plotbranch = d3.select('#'+this.body_container[0]).insert("svg", "#"+this.wname+"_tarea");
     this.plot = null;
 
     // get
@@ -311,6 +312,8 @@ class IdxEditWindow {
       this.node_dataCB(this.model.val_node.id, JSON.stringify(obj));
     }
   }
+
+  // shared
   close() {
     this.body_container = null;
     this._closeOuterCB(this);
@@ -355,13 +358,14 @@ class IdxEditWindow {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.top;
   }
-  _createSubWindow(xpos, ypos, width, height) {
+  _createSubWindow(xpos, ypos, width) {
     // standard window
     this.body_container = createSubWindow(
       this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width);
     addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
     addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
 
+    // header buttons size and log
     let tarea_id = this.wname + "_tarea";
     let tarea = $('<textarea rows=5 id=ID></textarea>'.replace("ID", tarea_id))
       .css({
@@ -370,38 +374,65 @@ class IdxEditWindow {
         //border: "none",
       })
       .change(this._pull_tarea_value.bind(this));
-    let btn1 = $('<button id="'+ this.wname + '_btn2"' +'>Current Value to All</button>')
-      .click(this.model.do_copy_to_all.bind(this.model));
-    let btn2 = $('<button id="'+ this.wname + '_btn"' +'>Submit List</button>')
-      .click(this._submit.bind(this));
-
-    // index browser
-    let brws_div = $("<div id=ID></div>".replace("ID", this.wname + "_browser"))
+    let buttons_div = $("<div id=ID></div>".replace("ID", this.wname + "_buttons"))
       .css({
         "margin" : "auto",
-        "text-align" : "center",
-        "border-top" : "1px solid black",
+        "text-align" : "right",
+      });
+    let btn1 = $('<button id="'+ this.wname + '_btn2"' +'>To All</button>')
+      .click(this.model.do_copy_to_all.bind(this.model))
+      .appendTo(buttons_div);
+    let btn2 = $('<button id="'+ this.wname + '_btn"' +'>Submit</button>')
+      .click(this._submit.bind(this))
+      .appendTo(buttons_div);
+
+    // index browser
+    let brws_container = $("<div id=ID></div>".replace("ID", this.wname + "_browsecontainer"))
+      .css({
+        "margin" : "auto",
+        "width" : width,
+        "position" : "absolute",
+      });
+    let brws_div = $("<div id=ID></div>".replace("ID", this.wname + "_browser"))
+      .css({
         "margin-top" : "2px",
         "padding-top" : "2px",
-      });
-    let prev = $("<button id=ID>prev</button>".replace("ID", this.wname + "_bnt_prev"))
-      .css({ "height" : "25px" })
-      .appendTo(brws_div)
-      .click(this._prev.bind(this));
-    let tbx_idx = $('<input type="text" id=ID></input>'.replace("ID", this.wname + "_tbx_idx"))
-      .css({ "width" : "30px", "height" : "12px" })
-      .appendTo(brws_div)
-      .change(this._idxjump.bind(this));
-    let next = $("<button id=ID>next</button>".replace("ID", this.wname + "_bnt_next"))
-      .css({ "height" : "25px" })
-      .appendTo(brws_div)
-      .click(this._next.bind(this));
+        "text-align" : "center",
+        "border" : "none",
+      })
+      .appendTo(brws_container);
+    let prev = $("<div id=ID></div>".replace("ID", this.wname + "_prev"))
+      .css({
+        "width" : "30px",
+        "height" : "20px",
+        "text-align" : "center",
+        "border" : "1px solid blue",
+        "display" : "inline-block",
+        "cursor" : "pointer",
+        "background-color" : "white",
+      })
+      .html("<")
+      .click(this._prev.bind(this))
+      .appendTo(brws_div);
+    let next = $("<div id=ID></div>".replace("ID", this.wname + "_next"))
+      .css({
+        "width" : "30px",
+        "height" : "20px",
+        "text-align" : "center",
+        "border" : "1px solid blue",
+        "border-left" : "none",
+        "display" : "inline-block",
+        "cursor" : "pointer",
+        "background-color" : "white",
+        })
+      .html(">")
+      .click(this._next.bind(this))
+      .appendTo(brws_div);
 
     // add elements
-    addElementToSubWindow(this.wname, brws_div);
+    addElementToSubWindow(this.wname, brws_container);
     addElementToSubWindow(this.wname, tarea);
-    addElementToSubWindow(this.wname, btn1);
-    addElementToSubWindow(this.wname, btn2);
+    addElementToSubWindow(this.wname, buttons_div);
 
     // update title
     setSubWindowTitle(this.wname, "Index Editor - add iterator obj and literal");
@@ -964,7 +995,7 @@ function addHeaderButtonToSubwindow(wname, tooltip, idx, onClick, colour="white"
   let btn = $('<div id="ID">'.replace("ID", btn_id))
     .css({
       position : "absolute",
-      left : (width-20*(idx+1))+"px",
+      left : (width-2-20*(idx+1))+"px",
       top : "0px",
       width : headerheight+"px",
       height : headerheight+"px",
