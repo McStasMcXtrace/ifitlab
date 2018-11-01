@@ -204,12 +204,15 @@ class IdxEditWindow {
     this.reDraw();
   }
   _logscaleCB() {
+    let state = this.model.get_state();
+    if (state == 0 || state == 3) return;
     this.logscale = !this.logscale;
     let ndims = this.model.get_ndims();
     if (ndims == 1) {
       this.plot.toggleLogscale();
       this.reDraw();
     }
+
     else if (ndims == 2) {
       this.plot = null;
       this.reDraw();
@@ -240,11 +243,13 @@ class IdxEditWindow {
     if (pos) return pos.top;
   }
   reDraw() {
+    let state = this.model.get_state();
+    if (state == 0 || state == 3) return false;
+
     // init - have to reset or make sure to not plot the same stuff twice
     this.plotbranch = d3.select('#'+this.body_container[0])
       .selectAll("svg")
       .remove();
-    //this.plotbranch = d3.select('#'+this.body_container[0]).append("svg");
     this.plotbranch = d3.select('#'+this.body_container[0]).insert("svg", "#"+this.wname+"_tarea");
     this.plot = null;
 
@@ -293,12 +298,13 @@ class IdxEditWindow {
     // pull current value from text area
     let tarea = $('#'+this.wname+"_tarea");
     let rawval = tarea.val();
+    if (rawval == "") rawval = "null";
     let val = null;
     try {
       val = JSON.parse(rawval, null, 2);
     }
     catch {
-      console.log("IdxEdt: could not push current non-JSON value: ", rawval);
+      console.log("IdxEdt: could not push current non-JSON value: '" + rawval + "'");
       return false;
     }
     if (val == "") val = null;
@@ -323,7 +329,9 @@ class IdxEditWindow {
     if (n==null) return false;
 
     if (n.type == "idata" || n.type == "ifunc") {
-      return this.model.try_add_plt_node(n);
+      let ans = this.model.try_add_plt_node(n);
+      if (ans == true) this._update_ui();
+      return ans;
     }
     else if (n.type == "literal") {
       // data model
@@ -403,7 +411,7 @@ class IdxEditWindow {
       .appendTo(brws_container);
     let prev = $("<div id=ID></div>".replace("ID", this.wname + "_prev"))
       .css({
-        "width" : "30px",
+        "width" : "25px",
         "height" : "20px",
         "text-align" : "center",
         "border" : "1px solid blue",
@@ -416,7 +424,7 @@ class IdxEditWindow {
       .appendTo(brws_div);
     let next = $("<div id=ID></div>".replace("ID", this.wname + "_next"))
       .css({
-        "width" : "30px",
+        "width" : "25px",
         "height" : "20px",
         "text-align" : "center",
         "border" : "1px solid blue",
@@ -441,13 +449,17 @@ class IdxEditWindow {
     // update plots
     this.reDraw();
 
+    let state = this.model.get_state();
+    if (state == 0) return;
+
     // push tarea value
     this._push_tarea_value();
     // set tbx idx value
     let tbx = $("#" + this.wname + "_tbx_idx").val(this.model.get_idx());
     // update title
-    let tit1 = this.model.get_idx() + 1 + " of " + this.model.get_length()
-    let tit2 = ", midx: [" + idx2midx(this.model.get_idx(), this.model.shape) + "]";
+    let tit1 = this.model.get_idx() + 1 + " of " + this.model.get_length();
+    let tit2 = "";
+    if (this.model.shape != null) tit2 = ", midx: [" + idx2midx(this.model.get_idx(), this.model.shape) + "]";
     setSubWindowTitle(this.wname, tit1 + tit2);
   }
   _prev() {
@@ -480,7 +492,6 @@ class IdxEdtData {
     this.val_node = null;
 
     this.shape = null;
-    this.length = null;
     this.idx = 0;
 
     this.values = null;
@@ -555,7 +566,12 @@ class IdxEdtData {
 
     let state = this.get_state();
     if (state == 0) {
+      let nshape = guessShape(n.userdata);
+      if (this.shape == null && nshape != null) {
+        this.shape = nshape.slice();
+      }
       if (this.shape != null && lstIsOfShape(n.userdata, this.shape)) {
+        console.log("setting values...")
         this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
       }
       this.val_node = n;
@@ -571,6 +587,14 @@ class IdxEdtData {
     }
     return false;
   }
+  get length() {
+    if (this.shape == null) return null;
+    let prod = 1;
+    for (let i=0;i<this.shape.length;i++) {
+      prod = prod * this.shape[i];
+    }
+    return prod;
+  }
   try_add_plt_node(n) {
     if (n == null) return; // ignore duds
     let valid_plt_node =
@@ -579,19 +603,14 @@ class IdxEdtData {
     let has_shape = n.info["datashape"] != null;
 
     let state = this.get_state();
-    if ((state == 0 || state == 3) && valid_plt_node && has_shape) {
+    if (state == 0 && valid_plt_node && has_shape) {
       this.plt_nodes.push(n);
       this.shape = n.info["datashape"];
-      let prod = 1;
-      for (let i=0;i<this.shape.length;i++) {
-        prod = prod * this.shape[i];
-      }
-      this.length = prod;
       this.index = 0;
       this.values = createNDimArray(this.shape);
       return true;
     }
-    else if ((state == 0 || state == 1 || state == 2 || state == 4) && this.shape == null) {
+    else if ((state == 0 || state == 1 || state == 2 || state == 3 || state == 4)) {
       this.plt_nodes.push(n);
       return true;
     }
@@ -622,8 +641,6 @@ class IdxEdtData {
       let e = lst[i];
       if (e.id == nodeid) {
         remove(lst, e);
-
-        console.log("how long after remove: ", this.plt_nodes.length)
         return true;
       }
     }
@@ -648,7 +665,8 @@ class IdxEdtData {
   do_copy_to_all() {
     if (this.values != null) {
       let value = this._get_value(this.index);
-      for (let i=0;i<this.length;i++) {
+      let l = this.length;
+      for (let i=0;i<l;i++) {
         this._set_value(i, value);
       }
     }
@@ -896,6 +914,24 @@ class SubWindowHandler {
 //
 // A few numpy ndarray copatible utilities.
 //
+function guessShape(a) {
+  // Uses JSON to count the depth, then takes the
+  // length of those first lists and checks regularity.
+  let s = JSON.stringify(a);
+  let lbracks = s.match(/\[+/g);
+  if (lbracks == null) return;
+  let m = lbracks[0].length;
+  let shape = [];
+  for (let i=0;i<m;i++) {
+    eval_str = "a";
+    for (let j=0;j<i;j++) {
+      eval_str = eval_str + "[0]";
+    }
+    let val = eval(eval_str + ".length");
+    shape.push(val);
+  }
+  if (lstIsOfShape(a, shape)) return shape;
+}
 function createNDimArray(shape) {
   // courtesy of Barmar, SO
   if (shape.length > 0) {
@@ -912,7 +948,6 @@ function createNDimArray(shape) {
 }
 function lstIsOfShape(lst, shape) {
   if (shape == null) {
-    console.log(lst.length);
     throw "lstIsOfShape: implement null shape comparisson";
   }
   // returns true if lst can accomodate shape. lst may not be wider than shape, but it may be deeper.
