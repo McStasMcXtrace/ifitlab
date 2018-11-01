@@ -201,7 +201,7 @@ class IdxEditWindow {
     removeSubWindow(this.wname)
     this._createSubWindow(left, top, w);
 
-    this.reDraw();
+    this._update_ui();
   }
   _logscaleCB() {
     let state = this.model.get_state();
@@ -374,8 +374,7 @@ class IdxEditWindow {
     addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
 
     // header buttons size and log
-    let tarea_id = this.wname + "_tarea";
-    let tarea = $('<textarea rows=5 id=ID></textarea>'.replace("ID", tarea_id))
+    let tarea = $('<textarea rows=5 id=ID></textarea>'.replace("ID", this.wname + "_tarea"))
       .css({
         resize: "none",
         width: "99%",
@@ -445,6 +444,20 @@ class IdxEditWindow {
     // update title
     setSubWindowTitle(this.wname, "Index Editor - add iterator obj and literal");
   }
+  _hide_tarea() {
+    $("#" + this.wname + "_tarea").hide();
+    $("#" + this.wname + "_buttons").hide();
+  }
+  _show_tarea() {
+    $("#" + this.wname + "_tarea").show();
+    $("#" + this.wname + "_buttons").show();
+  }
+  _hide_browser() {
+    $("#" + this.wname + "_browsecontainer").hide();
+  }
+  _show_browser() {
+    $("#" + this.wname + "_browsecontainer").show();
+  }
   _update_ui() {
     // update plots
     this.reDraw();
@@ -452,15 +465,21 @@ class IdxEditWindow {
     let state = this.model.get_state();
     if (state == 0) return;
 
-    // push tarea value
-    this._push_tarea_value();
-    // set tbx idx value
-    let tbx = $("#" + this.wname + "_tbx_idx").val(this.model.get_idx());
-    // update title
-    let tit1 = this.model.get_idx() + 1 + " of " + this.model.get_length();
-    let tit2 = "";
-    if (this.model.shape != null) tit2 = ", midx: [" + idx2midx(this.model.get_idx(), this.model.shape) + "]";
-    setSubWindowTitle(this.wname, tit1 + tit2);
+    if (state == 1) {
+      // non-vectorized plotting
+      this._hide_tarea();
+      this._hide_browser();
+    } else {
+      // push tarea value
+      this._push_tarea_value();
+      // set tbx idx value
+      let tbx = $("#" + this.wname + "_tbx_idx").val(this.model.get_idx());
+      // update title
+      let tit1 = this.model.get_idx() + 1 + " of " + this.model.get_length();
+      let tit2 = "";
+      if (this.model.shape != null) tit2 = ", midx: [" + idx2midx(this.model.get_idx(), this.model.shape) + "]";
+      setSubWindowTitle(this.wname, tit1 + tit2);
+    }
   }
   _prev() {
     this._pull_tarea_value();
