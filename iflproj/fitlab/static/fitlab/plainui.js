@@ -297,23 +297,25 @@ class IdxEditWindow {
   _pull_tarea_value() {
     // pull current value from text area
     let tarea = $('#'+this.wname+"_tarea");
-    let rawval = tarea.val();
+    let rawval = "" + tarea.val();
     if (rawval == "") rawval = "null";
     let val = null;
     try {
-      val = JSON.parse(rawval, null, 2);
+      if (rawval != 0) val = JSON.parse(rawval, null, 2); else val = 0;
     }
     catch {
       console.log("IdxEdt: could not push current non-JSON value: '" + rawval + "'");
       return false;
     }
-    if (val == "") val = null;
+    // WARNING: js doesn't handle the value 0 very well, because it is the prefix of octals.
+    // for some reason, checking val=="" for val==0, trigggers val=""
+    if (val != 0 && val == "") val = null;
     this.model.set_value(val);
   }
   _submit() {
     let obj = this.model.try_get_submit_obj();
     if (obj == null) {
-      alert('Please add an "obj" node with index information.');
+      alert('Could not submit values.');
     } else {
       this.node_dataCB(this.model.val_node.id, JSON.stringify(obj));
     }
@@ -596,7 +598,7 @@ class IdxEdtData {
       this.val_node = n;
       return true;
     }
-    else if ((state == 1 || state == 2) && lstIsOfShape(n.userdata, this.shape)) {
+    else if (state == 1 || state == 2) {
       // TODO: add layer of security to avoid overwriting previously edited values
       if (this.shape != null && lstIsOfShape(n.userdata, this.shape)) {
         this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
