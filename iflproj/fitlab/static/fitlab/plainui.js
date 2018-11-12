@@ -320,9 +320,9 @@ class IdxEditWindow {
       this.node_dataCB(this.model.val_node.id, JSON.stringify(obj));
     }
   }
-
   // shared
   close() {
+    removeSubWindow(this.wname);
     this.body_container = null;
     this._closeOuterCB(this);
   }
@@ -332,7 +332,10 @@ class IdxEditWindow {
 
     if (n.type == "idata" || n.type == "ifunc") {
       let ans = this.model.try_add_plt_node(n);
-      if (ans == true) this._update_ui();
+      if (ans == true) {
+        this._update_ui();
+        this._toggleEditor(true);
+      }
       return ans;
     }
     else if (n.type == "literal") {
@@ -347,7 +350,11 @@ class IdxEditWindow {
     return false;
   }
   extractNode(nodeid, force=false) {
-    return this.model.try_remove_plt_node();
+    if (this.model.try_remove_plt_node(nodeid)) {
+      if (this.model.get_num_clients() > 0) this.reDraw();
+      return true;
+    }
+    return false;
   }
   numClients() {
     return this.model.get_num_clients();
@@ -368,12 +375,22 @@ class IdxEditWindow {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.top;
   }
+  _toggleEditor(hide=false) {
+    if (hide==true) {
+      $("#" + this.wname + "_tarea").hide();
+      $("#" + this.wname + "_buttons").hide();
+    } else {
+      $("#" + this.wname + "_tarea").toggle();
+      $("#" + this.wname + "_buttons").toggle();
+    }
+  }
   _createSubWindow(xpos, ypos, width) {
     // standard window
     this.body_container = createSubWindow(
       this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width);
     addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
     addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
+    addHeaderButtonToSubwindow(this.wname, "editor", 3, this._toggleEditor.bind(this), "dimgray");
 
     // header buttons size and log
     let tarea = $('<textarea rows=5 id=ID></textarea>'.replace("ID", this.wname + "_tarea"))
@@ -622,20 +639,31 @@ class IdxEdtData {
       (n.type == "idata" || n.type == "ifunc")
       && n.info != null;
     let has_shape = n.info["datashape"] != null;
+    let has_plot = this.has_plot_at_current_idx(n, n.info["datashape"]);
 
     let state = this.get_state();
-    if (state == 0 && valid_plt_node && has_shape) {
+    if (state == 0 && valid_plt_node && has_shape && has_plot) {
       this.plt_nodes.push(n);
       this.shape = n.info["datashape"];
       this.index = 0;
       this.values = createNDimArray(this.shape);
       return true;
     }
-    else if ((state == 0 || state == 1 || state == 2 || state == 3 || state == 4)) {
+    else if ((state == 0 || state == 1 || state == 2 || state == 3 || state == 4) && has_plot) {
       this.plt_nodes.push(n);
       return true;
     }
     return false;
+  }
+  has_plot_at_current_idx(n, shape) {
+    let idx = this.idx;
+    if (shape != null) {
+      let plotdata = getShapedValue(idx2midx(idx, shape), n.plotdata);
+      return plotdata != null;
+    }
+    else {
+      return n.plotdata != null;
+    }
   }
   get_plots() {
     // there are this.length plots for every plot node, return list of plotdata at index
@@ -858,16 +886,27 @@ class SubWindowHandler {
         wname, xpos, ypos));
     }
   }
-  newIdxEdtWindow(xpos, ypos, node_dataCB, clickPlotCB) {
+  newIdxEdtWindow(xpos, ypos, node_dataCB, clickPlotCB, node=null) {
     let wname = "window_" + String(this.idx++);
 
-    this.plotWindows.push(new IdxEditWindow(
+    let w = new IdxEditWindow(
       node_dataCB,
       this._pwMouseUpCB.bind(this),
       this._pwDragCB.bind(this),
       this._closePltWindowCleanup.bind(this),
       clickPlotCB,
-      wname, xpos, ypos));
+      wname, xpos, ypos);
+    this.plotWindows.push(w)
+
+    if (node != null) {
+      if (w.dropNode(node)) {
+        this.subwindowlines.dragFromNode(node.id, node.gNode);
+        this.subwindowlines.setLineToAndCloseData(w.wname, w);
+      } else {
+        w.close();
+        remove(this.plotWindows, w);
+      }
+    }
   }
   removePlots(id, force=false) {
     // Remove subwindows and lines by node id. At e.g. node deletion, use force==true to ensure removal.
