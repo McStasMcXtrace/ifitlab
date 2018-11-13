@@ -181,6 +181,7 @@ class IdxEditWindow {
     this.mouseupCB = function() { mouseUpCB(this); }.bind(this);
     this.dragCB = function() { dragWindowCB(this) }.bind(this);
     this.closeCB = this.close.bind(this);
+    this.btnedt_id = null;
 
     removeSubWindow(this.wname);
     this._createSubWindow(xpos, ypos, this.w);
@@ -390,7 +391,7 @@ class IdxEditWindow {
       this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width);
     addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
     addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
-    addHeaderButtonToSubwindow(this.wname, "editor", 3, this._toggleEditor.bind(this), "dimgray");
+    this.btnedt_id = addHeaderButtonToSubwindow(this.wname, "editor", 3, this._toggleEditor.bind(this), "dimgray");
 
     // header buttons size and log
     let tarea = $('<textarea rows=5 id=ID></textarea>'.replace("ID", this.wname + "_tarea"))
@@ -477,6 +478,9 @@ class IdxEditWindow {
   _show_browser() {
     $("#" + this.wname + "_browsecontainer").show();
   }
+  _hide_btnedt() {
+    $("#" + this.btnedt_id).hide();
+  }
   _update_ui() {
     // update plots
     this.reDraw();
@@ -488,6 +492,7 @@ class IdxEditWindow {
       // non-vectorized plotting
       this._hide_tarea();
       this._hide_browser();
+      this._hide_btnedt();
     } else {
       // push tarea value
       this._push_tarea_value();
@@ -615,7 +620,10 @@ class IdxEdtData {
       this.val_node = n;
       return true;
     }
-    else if (state == 1 || state == 2) {
+    else if (state == 1) {
+      return false;
+    }
+    else if (state == 2) {
       // TODO: add layer of security to avoid overwriting previously edited values
       if (this.shape != null && lstIsOfShape(n.userdata, this.shape)) {
         this.values = JSON.parse(JSON.stringify(n.userdata)); // this will deep-copy the list
@@ -1127,6 +1135,9 @@ function addHeaderButtonToSubwindow(wname, tooltip, idx, onClick, colour="white"
 
     // click event
     $("#"+btn_id).click(onClick);
+
+    // return the id of said button
+    return btn_id;
 }
 function addElementToSubWindow(wname, element) {
   element
