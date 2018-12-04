@@ -12,7 +12,23 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 
 import os
 
-# home-made settings
+''' ldap '''
+MCWEB_LDAP_DN = 'dc=fysik,dc=dtu,dc=dk'
+#MCWEB_LDAP_DN = 'dc=nodomain'
+
+import ldap
+from django_auth_ldap.config import LDAPSearch
+AUTH_LDAP_SERVER_URI = "ldap://localhost"
+AUTH_LDAP_BIND_DN = ""
+AUTH_LDAP_BIND_PASSWORD = ""
+AUTH_LDAP_USER_SEARCH = LDAPSearch("ou=users,%s" % MCWEB_LDAP_DN, ldap.SCOPE_SUBTREE, "(uid=%(user)s)")
+AUTHENTICATION_BACKENDS = (
+    'django_auth_ldap.backend.LDAPBackend',
+    #'django.contrib.auth.backends.ModelBackend',
+)
+
+
+''' home-made settings '''
 IFIT_DIR = "/srv/mcweb/iFit/"
 MATFILES_DIRNAME = "/srv/mcweb/ifitlab/iflproj/matsaves"
 UI_COORDS_UPDATE_INTERVAL_MS = 30000
@@ -26,7 +42,6 @@ SYSMON_LOGFILE = "sysmon.log"
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.0/howto/deployment/checklist/
