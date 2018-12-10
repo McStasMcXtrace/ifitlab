@@ -13,47 +13,6 @@ const distanceChargeStrength = -10;
 const pathLinkStrength = 1;
 const distance = 20;
 
-class ConnRulesBasic {
-  // the bare-bones rules determining whether nodes can be connected
-  static canConnect(a1, a2) {
-    if (a1.idx==-1 && a2.idx==-1) {
-      let tpe1 = a1.owner.owner.basetype;
-      let tpe2 = a2.owner.owner.basetype;
-      let t1 = ["object_idata", "object_ifunc", "obj"].indexOf(tpe1) != -1 && tpe2 == "method";
-      let t2 = tpe1 == "method" && ["object_idata", "object_ifunc", "obj"].indexOf(tpe2) != -1;
-      let t3 = a1.numconnections == 0;
-      let t4 = a2.numconnections == 0;
-      return t1 && t4 || t2 && t3;
-    }
-
-    //  a2 input anchor, a1 output
-    let t1 = a2.i_o;
-    let t2 = !a1.i_o;
-    // inputs can only have one connection
-    let t5 = a2.numconnections == 0;
-    // both anchors must be of the same type
-    let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == '';
-    let t8 = a1.type == 'obj' || a2.type == 'obj';
-
-    let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
-    return ans;
-  }
-  static couldConnect(a1, a2) {
-    // could a1 and a2 be connected if a2 was unoccupied?
-    //  a2 input anchor, a1 output
-    let t1 = a2.i_o;
-    let t2 = !a1.i_o;
-    // both anchors must be of the same type
-    let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == '';
-    let t8 = a1.type == 'obj' || a2.type == 'obj';
-
-    let ans = ( t1 && t2 ) && (t6 || t7 || t8);
-    return ans;
-  }
-}
-
 class LinkHelper {
   // helper line draw / register & deregister events
   // TODO: FIX LinkHelper to check for self-destruction at every mouse move, use
@@ -584,6 +543,47 @@ function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail
   return isalive;
 }
 
+class ConnectionRulesIfl {
+  // bare-bones rules determining whether and how nodes can be connected
+  static canConnect(a1, a2) {
+    if (a1.idx==-1 && a2.idx==-1) {
+      let tpe1 = a1.owner.owner.basetype;
+      let tpe2 = a2.owner.owner.basetype;
+      let t1 = ["object_idata", "object_ifunc", "obj"].indexOf(tpe1) != -1 && tpe2 == "method";
+      let t2 = tpe1 == "method" && ["object_idata", "object_ifunc", "obj"].indexOf(tpe2) != -1;
+      let t3 = a1.numconnections == 0;
+      let t4 = a2.numconnections == 0;
+      return t1 && t4 || t2 && t3;
+    }
+
+    //  a2 input anchor, a1 output
+    let t1 = a2.i_o;
+    let t2 = !a1.i_o;
+    // inputs can only have one connection
+    let t5 = a2.numconnections == 0;
+    // both anchors must be of the same type
+    let t6 = a1.type == a2.type;
+    let t7 = a1.type == '' || a2.type == '';
+    let t8 = a1.type == 'obj' || a2.type == 'obj';
+
+    let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
+    return ans;
+  }
+  static couldConnect(a1, a2) {
+    // could a1 and a2 be connected if a2 was unoccupied?
+    //  a2 input anchor, a1 output
+    let t1 = a2.i_o;
+    let t2 = !a1.i_o;
+    // both anchors must be of the same type
+    let t6 = a1.type == a2.type;
+    let t7 = a1.type == '' || a2.type == '';
+    let t8 = a1.type == 'obj' || a2.type == 'obj';
+
+    let ans = ( t1 && t2 ) && (t6 || t7 || t8);
+    return ans;
+  }
+}
+
 class GraphInterface {
   // high/user-level interface to graph data and drawing
   constructor(gs_id, tab_id) {
@@ -591,7 +591,7 @@ class GraphInterface {
     this.tab_id = tab_id;
     this.isalive = true;
 
-    this.graphData = new GraphTree(ConnRulesBasic);
+    this.graphData = new GraphTree(ConnectionRulesIfl);
     let linkCB = this._tryCreateLink.bind(this);
     let delNodeCB = this._delNodeAndLinks.bind(this);
     let selNodeCB = this._selNodeCB.bind(this);
@@ -599,7 +599,7 @@ class GraphInterface {
     let createNodeCB = this._createNodeCB.bind(this);
     let nodeMouseDownCB = this._nodeMouseDownCB.bind(this);
     this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, createNodeCB, nodeMouseDownCB);
-    this.truth = ConnRulesBasic;
+    this.truth = ConnectionRulesIfl;
 
     // id, node dict,for high-level nodes
     this.nodes = {};
@@ -1206,7 +1206,6 @@ class NodeTypeMenu {
     // the lbl set-reset hack here is to get the right labels everywhere in a convoluted way...
     let lbl = conf.label;
     conf.label = conf.type;
-    //let n = ConnRulesBasic.createNode(conf, "", 50, 50);
     let n = NodeTypeHelper.createNode(50, 50, "", conf);
     conf.label = lbl;
 

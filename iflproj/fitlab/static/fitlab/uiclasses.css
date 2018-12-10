@@ -1,0 +1,91 @@
+.noselect {
+  -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version */
+}
+.select {
+  -webkit-touch-callout: auto; /* iOS Safari */
+    -webkit-user-select: auto; /* Safari */
+     -khtml-user-select: auto; /* Konqueror HTML */
+       -moz-user-select: auto; /* Firefox */
+        -ms-user-select: auto; /* Internet Explorer/Edge */
+            user-select: auto; /* Non-prefixed version */
+}
+.linkHelper {
+  stroke: black;
+  stroke-dasharray: 10,6;
+  pointer-events: none;
+}
+.plotLine {
+  stroke-width: 3px;
+  stroke-dasharray: 2,3;
+  pointer-events: none;
+}
+
+/* node states */
+.disconnected {
+  stroke-dasharray: 10,6;
+  fill-opacity: 1;
+  stroke-opacity: 1;
+  fill: lightgray;
+  cursor: pointer;
+}
+.passive {
+  fill-opacity: 1;
+  stroke-opacity: 1;
+  fill: lightgray;
+  cursor: pointer;
+}
+.active {
+  fill: white;
+  /*opacity: .5;*/
+  stroke-opacity: 1;
+  cursor: pointer;
+}
+.running {
+  fill: #009423;
+  opacity: .8;
+  cursor: pointer;
+}
+.fail {
+  fill: #c43838;
+  opacity: .8;
+  cursor: pointer;
+}
+
+/* connected to the "active" property on GraphicsNode */
+.selected {
+  stroke-width: 2px;
+}
+.visible {
+  opacity: 1;
+}
+.hidden {
+  opacity: 0;
+}
+.arrow {
+  fill: none;
+  stroke: black;
+  stroke-width: 1px;
+}
+.arrowThick {
+  fill: none;
+  stroke: gray;
+  stroke-width: 12px;
+}
+.arrowThin {
+  fill: none;
+  stroke: white;
+  stroke-width: 10px;
+}
+.menuItem {
+  border: 1px solid black;
+  margin-bottom: -1px;
+}
+.menuItemSelected {
+  border: 2px solid black;
+  margin-bottom: -1px;
+}
