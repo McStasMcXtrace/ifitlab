@@ -4,807 +4,60 @@
 * Written by Jakob Garde 2017-2018.
 */
 
-// graphics node settings
+// various drawing settings
 const width = 790;
 const height = 700;
-const nodeRadius = 30;
 const anchorRadius = 6;
-
-const extensionLength = 40;
-const anchSpace = 40;
 const pathChargeStrength = -10;
 const distanceChargeStrength = -10;
 const pathLinkStrength = 1;
 const distance = 20;
 
-const arrowHeadLength = 12;
-const arrowHeadAngle = 25;
-
-//
-// convenience functions
-//
-function remove(lst, element) {
-  let index = lst.indexOf(element);
-  if (index > -1) {
-    lst.splice(index, 1);
-  }
-}
-function wrap_ajax_validation_ids(gs_id, tab_id) {
-  return { "gs_id" : gs_id, "tab_id" : tab_id };
-}
-function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail=true) {
-  let isalive = true;
-  $.ajax({
-    type: "POST",
-    url: url,
-    data: { "gs_id": gs_id, "tab_id": tab_id, "data_str" : JSON.stringify(data) },
-  })
-  .fail(function(xhr, statusText, errorThrown) {
-    if (!showfail) return
-    if (fail_cb) fail_cb();
-    $("body").css("cursor", "default");
-    $(window.open().document.body).html(errorThrown + xhr.status + xhr.responseText);
-  })
-  .success(function(msg) {
-    // parse & json errors
-    let obj = null;
-    try {
-      obj = JSON.parse(msg);
-    }
-    catch(error) {
-      console.log("JSON.parse error on string: ", msg);
-      alert("uncomprehensible server response: ", msg);
-      throw error;
+class ConnRulesBasic {
+  // the bare-bones rules determining whether nodes can be connected
+  static canConnect(a1, a2) {
+    if (a1.idx==-1 && a2.idx==-1) {
+      let tpe1 = a1.owner.owner.basetype;
+      let tpe2 = a2.owner.owner.basetype;
+      let t1 = ["object_idata", "object_ifunc", "obj"].indexOf(tpe1) != -1 && tpe2 == "method";
+      let t2 = tpe1 == "method" && ["object_idata", "object_ifunc", "obj"].indexOf(tpe2) != -1;
+      let t3 = a1.numconnections == 0;
+      let t4 = a2.numconnections == 0;
+      return t1 && t4 || t2 && t3;
     }
 
-    // fatal errors
-    let fatalerror = obj["fatalerror"];
-    if (fatalerror) {
-      isalive = false;
-      alert("Please restart the session. Fatal error: " + fatalerror);
-      //location.reload();
-      close();
-    }
+    //  a2 input anchor, a1 output
+    let t1 = a2.i_o;
+    let t2 = !a1.i_o;
+    // inputs can only have one connection
+    let t5 = a2.numconnections == 0;
+    // both anchors must be of the same type
+    let t6 = a1.type == a2.type;
+    let t7 = a1.type == '' || a2.type == '';
+    let t8 = a1.type == 'obj' || a2.type == 'obj';
 
-    // timeouts
-    let timeout = obj["timeout"];
-    if (timeout) {
-      alert("timeout: " + timeout);
-    }
+    let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
+    return ans;
+  }
+  static couldConnect(a1, a2) {
+    // could a1 and a2 be connected if a2 was unoccupied?
+    //  a2 input anchor, a1 output
+    let t1 = a2.i_o;
+    let t2 = !a1.i_o;
+    // both anchors must be of the same type
+    let t6 = a1.type == a2.type;
+    let t7 = a1.type == '' || a2.type == '';
+    let t8 = a1.type == 'obj' || a2.type == 'obj';
 
-    // pass it on
-    success_cb(obj)
-  });
-  return isalive;
-}
-
-function isString(value) {
-  let b1 = (typeof value === 'string' || value instanceof String);
-  return b1;
-}
-
-//
-// Type config tree
-//
-// this function reads and returns an item from a TreeJsonAddr, given a dot-address
-function nodeTypeRead(address) {
-  let branch = nodeTypes;
-  let splt = address.split('.');
-  let key = splt[splt.length-1];
-  try {
-    for (let i=0;i<splt.length-1;i++) {
-      branch = branch[splt[i]]['branch'];
-    }
-    let item = branch[key]["leaf"];
-    return item;
-  }
-  catch(err) {
-    throw "no item found at address: " + address;
-  }
-}
-function cloneConf(conf) {
-  return Object.assign({}, conf);
-}
-
-//
-// GraphicsNode related
-//
-NodeIconType = {
-  CIRCE : 0,
-  CIRCLEPAD : 1,
-  SQUARE : 2,
-  FLUFFY : 3,
-  FLUFFYPAD : 4,
-  HEXAGONAL : 5,
-}
-NodeState = {
-  DISCONNECTED : 0,
-  PASSIVE : 1,
-  ACTIVE : 2,
-  RUNNING : 3,
-  FAIL : 4,
-}
-function getNodeStateClass(state) {
-  if (state==NodeState.DISCONNECTED) return "disconnected";
-  else if (state==NodeState.PASSIVE) return "passive";
-  else if (state==NodeState.ACTIVE) return "active";
-  else if (state==NodeState.RUNNING) return "running";
-  else if (state==NodeState.FAIL) return "fail";
-  else throw "invalid value"
-}
-
-// type supplying graphical data
-class GraphicsNode {
-  // graphical base type - this will not draw itself on the screen
-  constructor(owner, label, x, y) {
-    this.owner = owner;
-    this.label = label;
-    this._x = x;
-    this._y = y;
-
-    this.anchors = null;
-    this.r = nodeRadius;
-    this.colliderad = this.r;
-
-    this.centerAnchor = new CenterAnchor(this);
-
-    // graphics switch on this property, which is updated externally according to some rule
-    this.state = NodeState.DISCONNECTED;
-    this.active = false;
-
-    this.colour = "black";
-  }
-  setAnchors(anchors) {
-    if (this.anchors) throw "anchors only intended to be set once";
-    this.anchors = anchors;
-  }
-  get x() {
-    return this._x;
-  }
-  set x(value) {
-    this._x = value;
-  }
-  get y() {
-    return this._y;
-  }
-  set y(value) {
-    this._y = value;
-  }
-  // level means itypes/otypes == 0/1
-  getAnchor(idx, level) {
-    if (idx == -1) return this.centerAnchor;
-
-    let a = null;
-    for (var i=0;i<this.anchors.length;i++) {
-      a = this.anchors[i];
-      if (a.idx==idx && (!a.i_o | 0) == level)
-        return a;
-    }
-    throw "could not get anchor: ", idx, level;
-  }
-  hasCenterConnection() {
-    return this.centerAnchor.numconnections >= 1;
-  }
-  draw(branch, i) {
-    return branch
-      .attr('stroke', ()=>{ return this.colour; })
-      .classed(getNodeStateClass(this.state), true)
-  }
-  // hooks for higher level nodes
-  onConnect(link, isInput) {}
-  onDisconnect(link, isInput) {}
-  setOutputAncorTypes(anchorTypes) {
-    let anchors = this.anchors;
-    let a = null;
-    let oanchors = anchors.filter(a => !a.i_o);
-    for (var j=0;j<oanchors.length;j++) {
-      a = oanchors[j];
-      a.type = anchorTypes[j];
-    }
+    let ans = ( t1 && t2 ) && (t6 || t7 || t8);
+    return ans;
   }
 }
 
-class GraphicsNodeCircular extends GraphicsNode {
-  constructor(owner, label, x, y) {
-    super(owner, label, x, y);
-  }
-  draw(branch, i) {
-    branch = super.draw(branch, i);
-    return branch
-      .append('circle')
-      .attr('r', function(d) { return d.r; })
-  }
-}
-
-class GraphicsNodeCircularPad extends GraphicsNode {
-  constructor(owner, label, x, y) {
-    super(owner, label, x, y);
-  }
-  draw(branch, i) {
-    branch = super.draw(branch, i);
-    branch
-      .append('circle')
-      .attr('r', 0.85*this.r)
-      .attr('fill', "none")
-      .lower()
-    branch
-      .append('circle')
-      .attr('r', this.r)
-      .lower()
-    return branch;
-  }
-}
-
-class GraphicsNodeSquare extends GraphicsNode {
-  constructor(owner, label, x, y) {
-    super(owner, label, x, y);
-    this.r = 0.85 * nodeRadius; // this is now the half height/width of the square
-  }
-  draw(branch, i) {
-    branch = super.draw(branch, i);
-    return branch
-      .append("g")
-      .lower()
-      .append('rect')
-      .attr('width', function(d) { return 2*d.r; })
-      .attr('height', function(d) { return 2*d.r; })
-      .attr('x', function(d) { return -d.r; })
-      .attr('y', function(d) { return -d.r; })
-  }
-}
-
-class GraphicsNodeHexagonal extends GraphicsNode {
-  constructor(owner, label, x, y) {
-    super(owner, label, x, y);
-    this.r = 1.05 * nodeRadius;
-    this.colliderad = 1.07 * this.r;
-
-    this._x = x;
-    this._Y = y;
-    this._attach = null;
-  }
-  draw(branch, i) {
-    let r = 1.1 * this.r;
-    let alpha;
-    let points = [];
-    for (i=0; i<6; i++) {
-      alpha = i*Math.PI*2/6;
-      points.push( {x : r*Math.cos(alpha), y : - r*Math.sin(alpha) } );
-    }
-    points.push(points[0]);
-
-    branch = super.draw(branch, i);
-    return branch
-      .append('path')
-      .datum(points)
-      .attr('d', d3.line()
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-  }
-  get x() {
-    if (this._attach == null) {
-      return this._x;
-    } else {
-      return this._x + this._attach.x;
-    }
-  }
-  set x(value) {
-    if (this._attach == null) {
-      this._x = value;
-    } else {
-      return;
-      //  this._x = value - this._attach.x;
-    }
-  }
-  get y() {
-    if (this._attach == null) {
-      return this._y;
-    } else {
-      return this._y + this._attach.y;
-    }
-  }
-  set y(value) {
-    if (this._attach == null) {
-      this._y = value;
-    } else {
-      return;
-      //this._y = value - this._attach.y;
-    }
-  }
-  attachMoveToCenterLink(link) {
-    if (link.d1.owner.owner.basetype == "method") this._attach = link.d2.owner;
-    if (link.d2.owner.owner.basetype == "method") this._attach = link.d1.owner;
-    if (this._attach == null) return;
-
-    this._x = this._x - this._attach.x;
-    this._y = this._y - this._attach.y;
-  }
-  detachMove() {
-    if (this._attach == null) return;
-    this._x = this._x + this._attach.x;
-    this._y = this._y + this._attach.y;
-    this._attach = null;
-  }
-}
-
-class GraphicsNodeFluffy extends GraphicsNode {
-  constructor(owner, label, x, y) {
-    super(owner, label, x, y);
-    this.numfluff = 14;
-    this.fluffrad = 7;
-    this.r = 1.05 * nodeRadius;
-    this.colliderad = this.r;
-  }
-  draw(branch, i) {
-    let r = 0.80 * this.r;
-    let alpha;
-    let points = [];
-    for (let j=0; j<this.numfluff; j++) {
-      alpha = j*Math.PI*2/this.numfluff;
-      points.push( {x : r*Math.cos(alpha), y : - r*Math.sin(alpha) } );
-    }
-    branch = super.draw(branch, i);
-    branch.append("g").lower()
-      .append('circle')
-      .attr('r', r)
-      .attr("stroke", "none")
-      .lower();
-    branch.append("g").lower()
-      .selectAll("circle")
-      .data(points)
-      .enter()
-      .append("circle")
-      .attr('r', this.fluffrad)
-      .attr("transform", function(p) { return "translate(" + p.x + "," + p.y + ")" } );
-
-    return branch;
-  }
-}
-
-class GraphicsNodeFluffySmall extends GraphicsNode {
-  constructor(owner, label, x, y) {
-    super(owner, label, x, y);
-    this.numfluff = 5;
-    this.fluffrad = 7;
-    this.r = 0.5 * nodeRadius;
-    this.colliderad = 0.7 * nodeRadius;
-
-    this._attachAnch = null;
-    this._localx = 20;
-    this._localy = -40;
-  }
-  get x() {
-    if (this._attachAnch == null) return this._x;
-    return this._localx + this._attachAnch.x;
-  }
-  set x(value) {
-    if (this._attachAnch == null) this._x = value;
-  }
-  get y() {
-    if (this._attachAnch == null) return this._y;
-    return this._localy + this._attachAnch.y;
-  }
-  set y(value) {
-    if (this._attachAnch == null) this._y = value;
-  }
-  attachMoveTo(d) {
-    this._attachAnch = d;
-    this._localx = d.localx*2;
-    this._localy = d.localy*2;
-  }
-  detachMove() {
-    this._attachAnch = null;
-  }
-  draw(branch, i) {
-    let r = 0.80 * this.r;
-    let alpha;
-    let points = [];
-    for (let j=0; j<this.numfluff; j++) {
-      alpha = j*Math.PI*2/this.numfluff;
-      points.push( {x : r*Math.cos(alpha), y : - r*Math.sin(alpha) } );
-    }
-    branch = super.draw(branch, i);
-    branch.append("g").lower()
-      .append('circle')
-      .attr('r', r)
-      .attr("stroke", "none")
-      .lower();
-    branch.append("g").lower()
-      .selectAll("circle")
-      .data(points)
-      .enter()
-      .append("circle")
-      .attr('r', this.fluffrad)
-      .attr("transform", function(p) { return "translate(" + p.x + "," + p.y + ")" } );
-
-    return branch;
-  }
-}
-
-class GraphicsNodeFluffyPad extends GraphicsNode {
-  constructor(owner, label, x, y) {
-    super(owner, label, x, y);
-    this.numfluff = 8;
-    this.fluffrad = 13;
-    this.colliderad = 1.1 * this.r;
-  }
-  draw(branch, i) {
-    branch = super.draw(branch, i);
-    branch
-      .append('circle')
-      .attr('r', 0.9*this.r);
-
-    let r = 0.7 * this.r;
-    let alpha;
-    let points = [];
-    for (let j=0; j<this.numfluff; j++) {
-      alpha = j*Math.PI*2/this.numfluff;
-      points.push( {x : r*Math.cos(alpha), y : - r*Math.sin(alpha) } );
-    }
-
-    branch.append("g").lower()
-      .append('circle')
-      .attr('r', r)
-      .attr("stroke", "none")
-      .lower();
-    branch.append("g").lower()
-      .selectAll("circle")
-      .data(points)
-      .enter()
-      .append("circle")
-      .attr('r', this.fluffrad)
-      .attr("transform", function(p) { return "translate(" + p.x + "," + p.y + ")" } );
-
-    return branch;
-  }
-}
-
-// connection anchor point fixed on a node at a circular periphery
-class Anchor {
-  constructor(owner, angle, type, parname, i_o, idx) {
-    this.owner = owner;
-    this.angle = angle;
-    this.type = type;
-    this.parname = parname;
-
-    this.vx = 0;
-    this.vy = 0;
-    this.r = 3;
-    this.localx = null;
-    this.localy = null;
-
-    this.ext = null;
-
-    this.arrowHead = null;
-    this.i_o = i_o;
-    this.idx = idx;
-    this.numconnections = 0;
-    this.type = type;
-  }
-  get isLinked() {
-    return this.numconnections > 0;
-  }
-  get isTarget() {
-    return (this.i_o == true) && (this.numconnections > 0);
-  }
-  get tt() {
-    // including parname in the tooltip was apparently "to confusing"
-    let parname = this.parname;
-    if (!parname) parname = '';
-    return parname + "(" + this.type + ")";
-    //return "(" + this.type + ")";
-  }
-  get x() { return this.owner.x + this.localx; }
-  set x(value) { /* empty:)) */ }
-  get y() { return this.owner.y + this.localy; }
-  set y(value) { /* empty:)) */ }
-  drawArrowhead(branch, i) {
-    if (!this.isTarget) return branch;
-
-    let angle1 = Math.PI/180*(this.angle - arrowHeadAngle);
-    let angle2 = Math.PI/180*(this.angle + arrowHeadAngle);
-    let x0 = this.localx;
-    let y0 = this.localy;
-    let x1 = x0 + arrowHeadLength*Math.cos(angle1);
-    let y1 = y0 - arrowHeadLength*Math.sin(angle1);
-    let x2 = x0 + arrowHeadLength*Math.cos(angle2);
-    let y2 = y0 - arrowHeadLength*Math.sin(angle2);
-    let points = [{x:x1,y:y1}, {x:x0,y:y0}, {x:x2,y:y2}];
-
-    this.arrowHead = branch.append("path")
-      .datum(points)
-      .classed("arrow", true)
-      .attr('d', d3.line()
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    return this.arrowHead;
-  }
-}
-
-class AnchorCircular extends Anchor {
-  constructor(owner, angle, type, parname, i_o, idx) {
-    super(owner, angle, type, parname, i_o, idx);
-    this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
-    this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
-
-    let ext_localx = (owner.r + extensionLength) * Math.cos(this.angle/360*2*Math.PI);
-    let ext_localy = - (this.owner.r + extensionLength) * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
-    this.ext = new ExtensionAnchor(owner, ext_localx, ext_localy);
-  }
-}
-
-class AnchorCircularNoext extends Anchor {
-  constructor(owner, angle, type, parname, i_o, idx) {
-    super(owner, angle, type, parname, i_o, idx);
-    this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
-    this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
-    this.ext = new ExtensionAnchor(owner, this.localx, this.localy);
-  }
-}
-
-class AnchorSquare extends Anchor {
-  constructor(owner, angle, type, parname, i_o, idx) {
-    super(owner, angle, type, parname, i_o, idx);
-    this.localx = owner.r * Math.cos(this.angle/360*2*Math.PI);
-    this.localy = - this.owner.r * Math.sin(this.angle/360*2*Math.PI); // svg inverted y-axis
-
-    // TODO: angle = angle modulus 360 and shift to positive
-    if (0 <= angle && angle < 360/8) {
-      this.localx = owner.r;
-      this.localy = -owner.r * Math.tan(angle/180*Math.PI);
-    }
-    else if (360/8 <= angle && angle < 3*360/8) {
-      //this.localx = owner.r * Math.cos(angle/180*Math.PI);
-      this.localx = -owner.r * Math.tan(angle/180*Math.PI - Math.PI/2);
-      this.localy = -owner.r;
-    }
-    else if (3*360/8 <= angle && angle < 5*360/8) {
-      this.localx = -owner.r;
-      this.localy = owner.r * Math.tan(angle/180*Math.PI - Math.PI);
-    }
-    else if (5*360/8 <= angle && angle < 7*360/8) {
-      this.localx = owner.r * Math.tan(angle/180*Math.PI - 3*Math.PI/2);
-      this.localy = owner.r;
-    }
-    else if (7*360/8 <= angle && angle < 360) {
-      this.localx = owner.r;
-      this.localy = -owner.r * Math.tan(angle/180*Math.PI);
-    }
-
-    let ext_localx = this.localx + this.localx/owner.r * extensionLength;
-    let ext_localy = this.localy + this.localy/owner.r * extensionLength;
-    this.ext = new ExtensionAnchor(owner, ext_localx, ext_localy);
-  }
-}
-
-// a "path helper" radial extension to Anchor
-class ExtensionAnchor {
-  constructor(owner, localx, localy) {
-    this.owner = owner; // this is the node, not the anchor
-    this.vx = 0;
-    this.vy = 0;
-    this.localx = localx;
-    this.localy = localy;
-    this.type = "ExtensionAnchor";
-  }
-  get x() { return this.owner.x + this.localx; }
-  set x(value) { /* empty:)) */ }
-  get y() { return this.owner.y + this.localy; }
-  set y(value) { /* empty:)) */ }
-}
-
-// path helper node type
-class PathAnchor {
-  constructor(x, y, owner) {
-    this.owner = owner; // this must be a link object
-    this.x = x;
-    this.y = y;
-    this.vx = 0;
-    this.vy = 0;
-    this.type = "PathAnchor";
-  }
-}
-
-// placed at Node centers, used to provide a static charge for path layout simulations
-class CenterAnchor {
-  constructor(owner) {
-    this.owner = owner;
-    this.vx = 0;
-    this.vy = 0;
-    this.idx = -1; // this default index of -1 will accomodate the link_add interface
-    this.type = "CenterAnchor";
-    this.numconnections = 0;
-  }
-  get x() { return new Number(this.owner.x); }
-  set x(value) { /* empty:)) */ }
-  get y() { return new Number(this.owner.y); }
-  set y(value) { /* empty:)) */ }
-}
-
-// link data type
-class Link {
-  constructor(d1, d2) {
-    this.d1 = d1;
-    this.d2 = d2;
-    this.pathAnchors = [];
-    this.recalcPathAnchors();
-
-    d1.numconnections += 1;
-    d2.numconnections += 1;
-  }
-  recalcPathAnchors() {
-    this.pathAnchors = [];
-    let x1 = this.d1.ext.x;
-    let y1 = this.d1.ext.y;
-    let x2 = this.d2.ext.x;
-    let y2 = this.d2.ext.y;
-
-    let distx = Math.abs(x1 - x2);
-    let disty = Math.abs(y1 - y2);
-    let len = Math.sqrt( distx*distx + disty*disty );
-    let xScale = d3.scaleLinear()
-      .domain([0, len])
-      .range([x1, x2]);
-    let yScale = d3.scaleLinear()
-      .domain([0, len])
-      .range([y1, y2]);
-    let na = Math.floor(len/anchSpace) - 1;
-    let space = len/na;
-    for (let i=1; i <= na; i++) {
-      this.pathAnchors.push( new PathAnchor(xScale(i*space), yScale(i*space), this) );
-    }
-  }
-  length() {
-    let dx = d2.x - d1.x;
-    let dy = d2.y - d1.y;
-    return Math.sqrt(dx*dx + dy*dy);
-  }
-  getAnchors() {
-    let result = [this.d1, this.d1.ext].concat(this.pathAnchors);
-    result.push(this.d2.ext);
-    result.push(this.d2);
-    return result;
-  }
-  detatch() {
-    this.d1.numconnections -= 1;
-    this.d2.numconnections -= 1;
-  }
-}
-
-class LinkSingle extends Link {
-  constructor(d1, d2) {
-    super(d1, d2);
-  }
-  draw(branch, i) {
-    let anchors = this.getAnchors();
-    return branch
-      .append('path')
-      .datum(anchors)
-      .attr("class", "arrow")
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-  }
-  update(branch, i) {
-    let anchors = this.getAnchors();
-    return branch
-      .select('path')
-      .datum(anchors)
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-  }
-}
-
-class LinkDouble extends Link {
-  constructor(d1, d2) {
-    super(d1, d2);
-  }
-  draw(branch, i) {
-    let anchors = this.getAnchors();
-    branch
-      .append('path')
-      .datum(anchors)
-      .attr("class", "arrowThick")
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    branch
-      .append('path')
-      .datum(anchors)
-      .attr("class", "arrowThin")
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    return branch;
-  }
-  update(branch, i) {
-    let anchors = this.getAnchors();
-    branch
-      .select('path')
-      .datum(anchors)
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    branch
-      .selectAll('path')
-      .filter(function (d, i) { return i === 1; })
-      .datum(anchors)
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    return branch;
-  }
-}
-
-class LinkCenter extends Link {
-  constructor(d1, d2) {
-    super(d1, d2);
-  }
-  recalcPathAnchors() {}
-  getAnchors() { return [this.d1, this.d2]; }
-  draw(branch, i) {
-    let anchors = this.getAnchors();
-    branch
-      .append('path')
-      .datum(anchors)
-      .attr("class", "arrowThick")
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    branch
-      .append('path')
-      .datum(anchors)
-      .attr("class", "arrowThin")
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    return branch;
-  }
-  update(branch, i) {
-    let anchors = this.getAnchors();
-    branch
-      .select('path')
-      .datum(anchors)
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    branch
-      .selectAll('path')
-      .filter(function (d, i) { return i === 1; })
-      .datum(anchors)
-      .attr('d', d3.line()
-        .curve(d3.curveBasis)
-        .x( function(p) { return p.x; } )
-        .y( function(p) { return p.y; } )
-      );
-    return branch;
-  }
-}
-
-// helper line draw / register & deregister events
-// TODO: FIX LinkHelper to check for self-destruction at every mouse move, use mouse state as a determinant
 class LinkHelper {
+  // helper line draw / register & deregister events
+  // TODO: FIX LinkHelper to check for self-destruction at every mouse move, use
+  // mouse state as a determinant
   constructor(svgroot, svgbranch, p0, destructor) {
     svgroot
       .on("mousemove", function() {
@@ -1096,6 +349,7 @@ class GraphDraw {
   }
   static drawNodes(branch) {
     // draw anchor nodes
+    // TODO:
     branch.each( function(d, i) {
       let sbranch = d3.select(this)
         .append("g")
@@ -1242,333 +496,9 @@ class GraphDraw {
   }
 }
 
-function getInputAngles(num) {
-  // .reverse()'d into left-to-right ordering in the return list
-  if (num == 0) {
-    return [];
-  } else if (num == 1) {
-    return [90];
-  } else if (num == 2) {
-    return [80, 100].reverse();
-  } else if (num == 3) {
-    return [70, 90, 110].reverse();
-  } else if (num == 4) {
-    return [60, 80, 100, 120].reverse();
-  } else if (num == 5) {
-    return [50, 70, 90, 110, 130].reverse();
-  } else throw "give a number from 0 to 5";
-}
-function getOutputAngles(num) {
-  if (num == 0) {
-    return [];
-  } else if (num == 1) {
-    return [270];
-  } else if (num == 2) {
-    return [260, 280];
-  } else if (num == 3) {
-    return [250, 270, 290];
-  } else if (num == 4) {
-    return [240, 260, 280, 300];
-  } else if (num == 5) {
-    return [230, 250, 270, 290, 310];
-  } else throw "give a number from 0 to 5";
-}
-
-
-class ConnRulesBasic {
-  static canConnect(a1, a2) {
-    if (a1.idx==-1 && a2.idx==-1) {
-      let tpe1 = a1.owner.owner.basetype;
-      let tpe2 = a2.owner.owner.basetype;
-      let t1 = ["object_idata", "object_ifunc", "obj"].indexOf(tpe1) != -1 && tpe2 == "method";
-      let t2 = tpe1 == "method" && ["object_idata", "object_ifunc", "obj"].indexOf(tpe2) != -1;
-      let t3 = a1.numconnections == 0;
-      let t4 = a2.numconnections == 0;
-      return t1 && t4 || t2 && t3;
-    }
-
-    //  a2 input anchor, a1 output
-    let t1 = a2.i_o;
-    let t2 = !a1.i_o;
-    // inputs can only have one connection
-    let t5 = a2.numconnections == 0;
-    // both anchors must be of the same type
-    let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == '';
-    let t8 = a1.type == 'obj' || a2.type == 'obj';
-
-    let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
-    return ans;
-  }
-  static couldConnect(a1, a2) {
-    // could a1 and a2 be connected if a2 was unoccupied?
-    //  a2 input anchor, a1 output
-    let t1 = a2.i_o;
-    let t2 = !a1.i_o;
-    // both anchors must be of the same type
-    let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == '';
-    let t8 = a1.type == 'obj' || a2.type == 'obj';
-
-    let ans = ( t1 && t2 ) && (t6 || t7 || t8);
-    return ans;
-  }
-}
-
-// high-level datagraph node types
-//
-class Node {
-  static get basetype() { throw "Node: basetype property must be overridden"; }
-  static get prefix() { throw "Node: prefix property must be overridden"; }
-  constructor (x, y, id, name, label, typeconf) {
-    this.id = id;
-    this.name = name;
-    this.type = typeconf.type;
-    this.address = typeconf.address;
-    this._obj = null; // the data object of this handle
-    this.static = typeconf.static != "false";
-    this.executable = typeconf.executable != "false";
-    this.edit = typeconf.edit != "false";
-    this.docstring = typeconf.docstring;
-
-    // craete the GraphicsNode
-    let nt = this._getGNType();
-    this.gNode = new nt(this, label, x, y);
-
-    let iangles = getInputAngles(typeconf.itypes.length);
-    let oangles = getOutputAngles(typeconf.otypes.length);
-
-    let anchors = [];
-    let at = this._getAnchorType();
-    for (var i=0;i<iangles.length;i++) { anchors.push( new at(this.gNode, iangles[i], typeconf.itypes[i], typeconf.ipars[i], true, i) ); }
-    for (var i=0;i<oangles.length;i++) { anchors.push( new at(this.gNode, oangles[i], typeconf.otypes[i], null, false, i) ); }
-
-    this.gNode.setAnchors(anchors);
-    this.gNode.onConnect = this.onConnect.bind(this);
-    this.gNode.onDisconnect = this.onDisconnect.bind(this);
-  }
-  get obj() {
-    return this._obj;
-  }
-  set obj(value) {
-    this._obj = value;
-    this.onObjChange(value);
-  }
-  set userdata(value) {
-    if (this._obj == null) this._obj = {};
-    this._obj.userdata = value;
-    this.onUserDataChange(value);
-  }
-  get userdata() {
-    if (this._obj) return this._obj.userdata;
-    return null;
-  }
-  get plotdata() {
-    if (this._obj) return this._obj.plotdata;
-    return null;
-  }
-  set info(value) {
-    if (this._obj == null) this._obj = {};
-    this._obj.info = value;
-  }
-  get info() {
-    if (this._obj) return this._obj.info;
-    return null;
-  }
-  onUserDataChange(userdata) {}
-  onObjChange(obj) {}
-  get label() {
-    return this.gNode.label;
-  }
-  set label(value) {
-    if (value || value=="") this.gNode.label = value;
-  }
-  _getGNType() {
-    throw "abstract method call"
-  }
-  _getAnchorType() {
-    throw "abstract method call"
-  }
-  isConnected(connectivity) {
-    throw "abstract method call";
-  }
-  isActive() {
-    let val = this.obj != null;
-    return val;
-  }
-  onConnect(link, isInput) { }
-  onDisconnect(link, isInput) { }
-}
-
-class NodeFunction extends Node {
-  static get basetype() { return "function"; }
-  get basetype() { return NodeFunction.basetype; }
-  static get prefix() { return "f"; }
-  constructor(x, y, id, name, label, typeconf) {
-    super(x, y, id, name, label, typecond);
-  }
-  _getGNType() {
-    return GraphicsNodeCircular;
-  }
-  _getAnchorType() {
-    return AnchorCircular;
-  }
-  isConnected(connectivity) {
-    return connectivity.indexOf(false) == -1;
-  }
-}
-
-class NodeFunctionNamed extends Node {
-  static get basetype() { return "function_named"; }
-  get basetype() { return NodeFunctionNamed.basetype; }
-  static get prefix() { return "f"; }
-  constructor(x, y, id, name, label, typeconf) {
-    super(x, y, id, name, label, typeconf);
-  }
-  _getGNType() {
-    return GraphicsNodeCircular;
-  }
-  _getAnchorType() {
-    return AnchorCircular;
-  }
-  isConnected(connectivity) {
-    return connectivity.indexOf(false) == -1;
-  }
-  isActive() {
-    // assumed to be associated with an underlying function object
-    return true;
-  }
-}
-
-class NodeMethod extends Node {
-  static get basetype() { return "method"; }
-  get basetype() { return NodeMethod.basetype; }
-  static get prefix() { return "m"; }
-  constructor(x, y, id, name, label, typeconf) {
-    super(x, y, id, name, label, typeconf);
-  }
-  _getGNType() {
-    return GraphicsNodeHexagonal;
-  }
-  _getAnchorType() {
-    return AnchorCircular;
-  }
-  isConnected(connectivity) {
-    return connectivity.indexOf(false) == -1 && this.gNode.hasCenterConnection();
-  }
-  isActive() {
-    // assumed to be associated with an underlying function object
-    return true;
-  }
-  onConnect(link, isInput) {
-    let gateKept = ["object", "object_idata", "object_ifunc", "method"];
-    let t1 = gateKept.indexOf(link.d1.owner.owner.basetype) != -1;
-    let t2 = gateKept.indexOf(link.d2.owner.owner.basetype) != -1;
-    let t3 = link.d1.idx == -1 && link.d2.idx == -1;
-    if (t1 && t2 && t3 && !isInput) {
-      this.gNode.attachMoveToCenterLink(link);
-    }
-  }
-  onDisconnect(link, isInput) {
-    this.gNode.detachMove();
-  }
-}
-
-class NodeMethodAsFunction extends NodeFunctionNamed {
-  static get basetype() { return "method_as_function"; }
-  get basetype() { return NodeMethodAsFunction.basetype; }
-  _getGNType() {
-    return GraphicsNodeHexagonal;
-  }
-}
-
-class NodeObject extends Node {
-  static get basetype() { return "object"; }
-  get basetype() { return NodeObject.basetype; }
-  static get prefix() { return "o"; }
-  constructor(x, y, id, name, label, typeconf, iotype='obj') {
-    typeconf.itypes = [iotype];
-    typeconf.otypes = [iotype];
-    typeconf.ipars = [''];
-    super(x, y, id, name, label, typeconf);
-    this.iotype = iotype;
-  }
-  _getGNType() {
-    return GraphicsNodeFluffy;
-  }
-  _getAnchorType() {
-    return AnchorCircular;
-  }
-  isConnected(connectivity) {
-    if (connectivity.length > 0) {
-      return connectivity[0];
-    }
-  }
-  onConnect(link, isInput) {
-    if (isInput) {
-      this.gNode.setOutputAncorTypes([link.d1.type]);
-    }
-  }
-  onDisconnect(link, isInput) {
-    if (isInput) {
-      this.gNode.setOutputAncorTypes([this.iotype]);
-    }
-  }
-}
-
-class NodeObjectLiteral extends Node {
-  static get basetype() { return "object_literal"; }
-  get basetype() { return NodeObjectLiteral.basetype; }
-  static get prefix() { return "o"; }
-  constructor(x, y, id, name, label, typeconf) {
-    typeconf.itypes = [];
-    typeconf.otypes = ['obj'];
-    typeconf.ipars = [''];
-
-    super(x, y, id, name, label, typeconf);
-  }
-  _getGNType() {
-    return GraphicsNodeFluffySmall;
-  }
-  _getAnchorType() {
-    return AnchorCircularNoext;
-  }
-  isConnected(connectivity) {
-    if (connectivity.length > 0) {
-      return connectivity[0];
-    }
-  }
-  onUserDataChange(userdata) {
-    this.onObjChange(userdata);
-  }
-  // auto-set label
-  onObjChange(obj) {
-    if (obj || obj=="") {
-      this.gNode.label = JSON.stringify(obj).substring(0, 5)
-    }
-    else {
-      this.gNode.label = "null";
-    }
-  }
-  isActive() {
-    let val = this.obj != null && this.userdata != null;
-    return val;
-  }
-  get label() {
-    return this.gNode.label;
-  }
-  set label(value) {
-    // just ignore external set-label calls
-  }
-  onConnect(link, isInput) {
-    this.gNode.attachMoveTo(link.d2);
-    link.recalcPathAnchors();
-  }
-  onDisconnect(link, isInput) {
-    this.gNode.detachMove();
-  }
-}
-
+/*
+* Custom Node types (IFL specific)
+*/
 class NodeIData extends NodeObject {
   static get basetype() { return "object_idata"; }
   get basetype() { return NodeIData.basetype; }
@@ -1603,27 +533,59 @@ class NodeIFunc extends NodeObject {
   }
 }
 
-class NodeFunctional extends Node {
-  static get basetype() { return "functional"; }
-  get basetype() { return NodeFunctional.basetype; }
-  static get prefix() { return "op"; }
-  constructor(x, y, id, name, label, typeconf) {
-    super(x, y, id, name, label, typeconf);
-  }
-  _getGNType() {
-    return GraphicsNodeSquare;
-  }
-  _getAnchorType() {
-    return AnchorSquare;
-  }
-  isConnected(connectivity) {
-    return connectivity.indexOf(false) == -1;
-  }
+function wrap_ajax_validation_ids(gs_id, tab_id) {
+  // GraphInterface utility function
+  return { "gs_id" : gs_id, "tab_id" : tab_id };
+}
+function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail=true) {
+  // GraphInterface utility function
+  let isalive = true;
+  $.ajax({
+    type: "POST",
+    url: url,
+    data: { "gs_id": gs_id, "tab_id": tab_id, "data_str" : JSON.stringify(data) },
+  })
+  .fail(function(xhr, statusText, errorThrown) {
+    if (!showfail) return
+    if (fail_cb) fail_cb();
+    $("body").css("cursor", "default");
+    $(window.open().document.body).html(errorThrown + xhr.status + xhr.responseText);
+  })
+  .success(function(msg) {
+    // parse & json errors
+    let obj = null;
+    try {
+      obj = JSON.parse(msg);
+    }
+    catch(error) {
+      console.log("JSON.parse error on string: ", msg);
+      alert("uncomprehensible server response: ", msg);
+      throw error;
+    }
+
+    // fatal errors
+    let fatalerror = obj["fatalerror"];
+    if (fatalerror) {
+      isalive = false;
+      alert("Please restart the session. Fatal error: " + fatalerror);
+      //location.reload();
+      close();
+    }
+
+    // timeouts
+    let timeout = obj["timeout"];
+    if (timeout) {
+      alert("timeout: " + timeout);
+    }
+
+    // pass it on
+    success_cb(obj)
+  });
+  return isalive;
 }
 
-// high/user-level interface to graph data and drawing
-//
 class GraphInterface {
+  // high/user-level interface to graph data and drawing
   constructor(gs_id, tab_id) {
     this.gs_id = gs_id;
     this.tab_id = tab_id;
@@ -2206,8 +1168,8 @@ class UndoRedoCommandStack {
   }
 }
 
-// a single-column node creation menu ui
 class NodeTypeMenu {
+  // a single-column node creation menu ui
   constructor(selectConfCB, rootelementid, branchname) {
     this.menus = [];
     this.root = d3.select("#"+rootelementid);
