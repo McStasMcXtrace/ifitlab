@@ -1242,38 +1242,40 @@ class GraphDraw {
   }
 }
 
-class ConnRulesBasic {
+function getInputAngles(num) {
   // .reverse()'d into left-to-right ordering in the return list
-  static getInputAngles(num) {
-    if (num == 0) {
-      return [];
-    } else if (num == 1) {
-      return [90];
-    } else if (num == 2) {
-      return [80, 100].reverse();
-    } else if (num == 3) {
-      return [70, 90, 110].reverse();
-    } else if (num == 4) {
-      return [60, 80, 100, 120].reverse();
-    } else if (num == 5) {
-      return [50, 70, 90, 110, 130].reverse();
-    } else throw "give a number from 0 to 5";
-  }
-  static getOutputAngles(num) {
-    if (num == 0) {
-      return [];
-    } else if (num == 1) {
-      return [270];
-    } else if (num == 2) {
-      return [260, 280];
-    } else if (num == 3) {
-      return [250, 270, 290];
-    } else if (num == 4) {
-      return [240, 260, 280, 300];
-    } else if (num == 5) {
-      return [230, 250, 270, 290, 310];
-    } else throw "give a number from 0 to 5";
-  }
+  if (num == 0) {
+    return [];
+  } else if (num == 1) {
+    return [90];
+  } else if (num == 2) {
+    return [80, 100].reverse();
+  } else if (num == 3) {
+    return [70, 90, 110].reverse();
+  } else if (num == 4) {
+    return [60, 80, 100, 120].reverse();
+  } else if (num == 5) {
+    return [50, 70, 90, 110, 130].reverse();
+  } else throw "give a number from 0 to 5";
+}
+function getOutputAngles(num) {
+  if (num == 0) {
+    return [];
+  } else if (num == 1) {
+    return [270];
+  } else if (num == 2) {
+    return [260, 280];
+  } else if (num == 3) {
+    return [250, 270, 290];
+  } else if (num == 4) {
+    return [240, 260, 280, 300];
+  } else if (num == 5) {
+    return [230, 250, 270, 290, 310];
+  } else throw "give a number from 0 to 5";
+}
+
+
+class ConnRulesBasic {
   static canConnect(a1, a2) {
     if (a1.idx==-1 && a2.idx==-1) {
       let tpe1 = a1.owner.owner.basetype;
@@ -1311,48 +1313,6 @@ class ConnRulesBasic {
     let ans = ( t1 && t2 ) && (t6 || t7 || t8);
     return ans;
   }
-  static _nodeBaseClasses() {
-    return [
-      NodeObject,
-      NodeObjectLiteral,
-      NodeFunction,
-      NodeFunctionNamed,
-      NodeMethodAsFunction,
-      NodeMethod,
-      NodeIData,
-      NodeIFunc,
-      NodeFunctional,
-    ];
-  }
-  static getNodeIdPrefix(basetype) {
-    let ncs = this._nodeBaseClasses();
-    let prefixes = ncs.map(cn => cn.prefix);
-    let basetypes = ncs.map(cn => cn.basetype);
-    let i = basetypes.indexOf(basetype);
-    if (i >= 0) return prefixes[i]; else throw "getNodeIdPrefix: unknown basetype";
-  }
-  static createNode(typeconf, id, x=0, y=0) {
-    // find the node basetype class
-    let tpe = null
-    let ncs = this._nodeBaseClasses();
-    let nt = ncs.map(cn => cn.basetype);
-    let i = nt.indexOf(typeconf.basetype);
-    if (i >= 0) tpe = ncs[i]; else {
-      console.log(typeconf)
-      throw "unknown typeconf.basetype: " + typeconf.basetype
-    }
-
-    // create the node
-    let n = new tpe(x, y, id,
-      typeconf.name,
-      typeconf.label,
-      typeconf,
-    );
-    if (typeconf.data) {
-      n.userdata = typeconf.data;
-    }
-    return n;
-  }
 }
 
 // high-level datagraph node types
@@ -1375,8 +1335,8 @@ class Node {
     let nt = this._getGNType();
     this.gNode = new nt(this, label, x, y);
 
-    let iangles = ConnRulesBasic.getInputAngles(typeconf.itypes.length);
-    let oangles = ConnRulesBasic.getOutputAngles(typeconf.otypes.length);
+    let iangles = getInputAngles(typeconf.itypes.length);
+    let oangles = getOutputAngles(typeconf.otypes.length);
 
     let anchors = [];
     let at = this._getAnchorType();
@@ -2284,7 +2244,8 @@ class NodeTypeMenu {
     // the lbl set-reset hack here is to get the right labels everywhere in a convoluted way...
     let lbl = conf.label;
     conf.label = conf.type;
-    let n = ConnRulesBasic.createNode(conf, "", 50, 50);
+    //let n = ConnRulesBasic.createNode(conf, "", 50, 50);
+    let n = NodeTypeHelper.createNode(50, 50, "", conf);
     conf.label = lbl;
 
     let branch = this.root

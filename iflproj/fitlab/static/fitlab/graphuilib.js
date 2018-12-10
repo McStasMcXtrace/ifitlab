@@ -3,7 +3,27 @@
 *
 * Written by Jakob Garde 2018.
 */
+
+/*
+* Graphics Node types
+*/
+
+
+
+
+/*
+* Node types
+*/
+
+
+
+
+/*
+* GraphTree
+*/
+
 class NodeTypeHelper {
+  // node construction helper functions
   constructor() {
     this.idxs = {};
     this.colourPickedIdx = 0;
@@ -44,7 +64,7 @@ class NodeTypeHelper {
     }
     return id;
   }
-  createNode(x, y, id, typeconf) {
+  static createNode(x, y, id, typeconf) {
     // get node class
     let cls = null
     let nodeclasses = NodeTypeHelper._nodeClasses();
@@ -69,6 +89,7 @@ class NodeTypeHelper {
 }
 
 class GraphTreeBranch {
+  // unit level of the graph tree
   constructor(parent=null) {
     // tree
     this.parent = parent
@@ -80,6 +101,7 @@ class GraphTreeBranch {
 }
 
 class GraphTree {
+  // a node graph with vertical/tree potential
   constructor(connrules) {
     this._connrules = connrules;
     this._helper = new NodeTypeHelper();
@@ -90,6 +112,7 @@ class GraphTree {
     this._viewAnchors = [];
     this._selectedNode = null;
   }
+
   // **********************************************
   // get interface - returns high-level information
   // **********************************************
@@ -199,6 +222,7 @@ class GraphTree {
   // **************************
   // ui and graphdraw interface
   // **************************
+
   recalcPathAnchorsAroundNodeObj(g) {
     // called before anchors are used, triggers link.recalcPathAnchors
     let id = g.owner.id;
@@ -231,7 +255,7 @@ class GraphTree {
     // will throw an error if the requested id already exists, as this should not happen
     if ((id == '') || !id || (id in this._current.nodes))
       id = this._helper.getId(conf.basetype, Object.keys(this._current.nodes));
-    let n = this._helper.createNode(x, y, id, conf);
+    let n = NodeTypeHelper.createNode(x, y, id, conf);
     if (n) {
       this._viewNodes.push(n);
       this._current.nodes[id] = n;
