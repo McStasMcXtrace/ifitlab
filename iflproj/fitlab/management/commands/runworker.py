@@ -183,7 +183,6 @@ class Workers:
                 try:
                     someses = self.sessions[next(iter(self.sessions))]
                     who = someses.graph.middleware.totalwho()
-                    #logging.debug(", ".join(who))
                     num_matlab_vars = len(who)
                 except Exception as e:
                     pass
@@ -275,7 +274,7 @@ class Workers:
                     session.graph.shutdown()
                     del self.sessions[gs_id]
                 except Exception as e:
-                    logging.error("error: " + str(e))
+                    _log("error: " + str(e))
 
     def load_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
@@ -302,7 +301,7 @@ class Workers:
             self.sessions[task.gs_id] = session
 
         except Exception as e:
-            logging.error("autoload failed... (%s)" % str(e))
+            _log("autoload failed... (%s)" % str(e))
             return self.revert_session(task)
 
         return self.sessions.get(task.gs_id, None)
@@ -332,7 +331,7 @@ class Workers:
             self.sessions[task.gs_id] = session
 
         except Exception as e:
-            logging.error("quickload failed (%s)" % str(e))
+            _log("revert failed (%s)" % str(e))
             # fallback: reconstruct
             return self.reconstruct_session(task)
 
@@ -370,7 +369,7 @@ class Workers:
             obj.save()
             self.sessions[task.gs_id] = session
         except Exception as e:
-            logging.error("fallback loading failed: %s" % str(e))
+            _log("reconstruct failed: %s" % str(e))
 
         return session
 
@@ -463,11 +462,8 @@ class Workers:
                         gd = session.graph.extract_graphdef()
                         update = session.graph.extract_update()
                     except:
-                        # "dry graphdef" fallback
-                        session = self.quickload_repair_and_reset_nonliteral_data(task)
                         if not session:
-                            raise Exception("session could not be loaded: %s" % task.gs_id)
-                        gd = session.graph.extract_graphdef()
+                            raise Exception("session could not be reverted: %s" % task.gs_id)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
                     graphreply.save()
@@ -639,7 +635,7 @@ class Workers:
                 _log("task done")
 
             except Exception as e:
-                logging.error("fatal error: " + str(e))
+                _log("fatal error: " + str(e))
 
                 graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "fatalerror" : str(e) } ))
                 graphreply.save()
