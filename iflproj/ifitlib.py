@@ -583,6 +583,7 @@ class IFunc(enginterface.ObjReprJson):
             _vectcollect(datashape, get_element, vnargs, args, ndaargs, usrs)
 
             outdct = usrs.tolist()
+            usrdct = outdct
             pltdct = plts.tolist()
             infdct = {'datashape' : datashape, 'ndims' : None}
 
@@ -1071,4 +1072,11 @@ def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
     # handle IFunc axis lims inheritane
     retobj._set_plotaxes(fitfunc._plotaxes, fitfunc._plotdims)
     return retobj
+
+
+'''
+jg-20190501: Legacy symbols kept around to make it easier to update graph defs.
+'''
+class PltIter(): pass
+class FitIter(): pass
 
