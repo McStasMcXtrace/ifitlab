@@ -13,8 +13,7 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 import os
 
 ''' ldap '''
-MCWEB_LDAP_DN = 'dc=fysik,dc=dtu,dc=dk'
-#MCWEB_LDAP_DN = 'dc=nodomain'
+MCWEB_LDAP_DN = 'dc=nodomain'
 
 import ldap
 from django_auth_ldap.config import LDAPSearch
@@ -48,6 +47,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'e^vu3p6nhfhk5fh!+&zskh!xr_szi9bv+u(x3g$_qk%pp8m#k&'
+SESSION_COOKIE_NAME = "sessionid_ifl"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
