@@ -18,6 +18,7 @@ node.
 Module level:
 - A function "_load_middleware" may be implemented, and must return an object subclassed from enginterface.MiddeWare.
 '''
+from builtins import str
 __author__ = "Jakob Garde"
 
 import enginterface
@@ -148,6 +149,8 @@ def _load_middleware():
 namecategories = collections.OrderedDict({
     'IData' : 'tools',
     'IData.mask' : 'tools',
+    'IData.subtract' : 'tools',
+    'IData.rebin' : 'tools',
     'IFunc' : 'tools',
     'IFunc.guess' : 'tools',
     'IFunc.fixpars' : 'tools',
@@ -155,11 +158,17 @@ namecategories = collections.OrderedDict({
     'Gauss' : 'models',
     'Lorentz' : 'models',
     'add' : 'functions',
-    'mult' : 'functions',
+#    'mult' : 'functions',
     'combine' : 'functions',
+    'map_signal' : 'functions',
+    'map_axis' : 'functions',
     'fit' : 'functions',
     'separate' : 'functions',
 })
+
+
+''' IData section '''
+
 
 class IData(enginterface.ObjReprJson):
     ''' Creates an IData object using data file located at url. '''
@@ -278,6 +287,14 @@ class IData(enginterface.ObjReprJson):
             _vectorized(shape, rmint_atomic, vnargs, args, ndaargs)
         else:
             rmint_atomic(self.varname, min, max)
+
+    def rebin(self, nbins: int):
+        '''  '''
+        pass
+
+    def subtract(self, background: IData):
+        '''  '''
+        pass
 
 def _get_iData_repr(idata_symb):
     ndims = int(_eval('ndims(%s);' % idata_symb))
@@ -481,6 +498,22 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     p['ndims'] = 2
 
     return params
+
+
+''' IData functions '''
+
+
+def map_signal(data: IData, symb: str):
+    ''' Maps the signal of an idata object given an iFit compatible math symbol. '''
+    pass
+
+def map_axis_1d(data: IData, symb: str):
+    ''' Maps the axis of a one-dimensional idata object, given an iFit compatible math symbol. '''
+    pass
+
+
+''' IFunc section '''
+
 
 class IFunc(enginterface.ObjReprJson):
     ''' Creates an IFunc object, a flexible fitting model. Use iFit syntax to input a model specification in the "symbol" argument. '''
@@ -935,26 +968,28 @@ def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
         add_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
     return retobj
 
-def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-    ''' Outputs the multiplication of two IFunc model objects '''
-    # check datashape
-    shape = ifunc_a._get_datashape()
-    shape2 = ifunc_b._get_datashape()
-    if shape != shape2:
-        raise Exception("datashape mismatch: %s vs. %s" % (str(shape), str(shape2)))
-    
-    def mult_atomic(vn1, vn2, vn_sum):
-        _eval('%s = %s * %s;' % (vn_sum, vn1, vn2), nargout=0)
-    
-    retobj = IFunc(shape)
-    if shape not in (None, tuple(),):
-        vnargs = (ifunc_a.varname, ifunc_b.varname, retobj.varname, )
-        args = ()
-        ndaargs = ()
-        _vectorized(shape, mult_atomic, vnargs, args, ndaargs)
-    else:
-        mult_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
-    return retobj
+# NOTE: disabled to save space, perhaps this one is not necessary at the moment
+#def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
+#    ''' Outputs the multiplication of two IFunc model objects '''
+#    # check datashape
+#    shape = ifunc_a._get_datashape()
+#    shape2 = ifunc_b._get_datashape()
+#    if shape != shape2:
+#        raise Exception("datashape mismatch: %s vs. %s" % (str(shape), str(shape2)))
+#    
+#    def mult_atomic(vn1, vn2, vn_sum):
+#        _eval('%s = %s * %s;' % (vn_sum, vn1, vn2), nargout=0)
+#    
+#    retobj = IFunc(shape)
+#    if shape not in (None, tuple(),):
+#        vnargs = (ifunc_a.varname, ifunc_b.varname, retobj.varname, )
+#        args = ()
+#        ndaargs = ()
+#        _vectorized(shape, mult_atomic, vnargs, args, ndaargs)
+#    else:
+#        mult_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
+#    return retobj
+
 
 
 '''
@@ -1113,6 +1148,7 @@ def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
 '''
 jg-20190501: Legacy symbols kept around to make it easier to update graph defs.
 '''
-class PltIter(): pass
-class FitIter(): pass
+#class PltIter(): pass
+#class FitIter(): pass
 
+#def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc: pass
