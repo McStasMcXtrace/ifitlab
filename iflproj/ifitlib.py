@@ -560,14 +560,14 @@ class IFunc(enginterface.ObjReprJson):
             pltdct, infdct, usrdct = _get_iFunc_repr(self.varname, self._plotaxes, self._plotdims)
             outdct = usrdct
         else:
-            def get_repr_atomic(symb):
-                pltdct, infdct, userdct = _get_iFunc_repr(symb, None, None)
+            def get_repr_atomic(symb, pltax, pltdims):
+                pltdct, infdct, userdct = _get_iFunc_repr(symb, pltax, pltdims)
                 return pltdct, infdct, userdct
             def get_element(idx, e):
                 return e[idx]
             
             vnargs = (self.varname, )
-            args = ()
+            args = (self._plotaxes, self._plotdims, )
             ndaargs = ()
             ndout = np.empty(datashape, object)
             _vectcollect(datashape, get_repr_atomic, vnargs, args, ndaargs, ndout)
@@ -846,6 +846,12 @@ def _vectorized(shape, atomic_func, vnargs, args, ndaargs):
         atomic_func(*symbols, *constants, *elements)
 
 def _vectcollect(shape, atomic_func, vnargs, args, ndaargs, collectarg):
+    '''
+    This _vectcollect does the same as the above _vectorized, but it also assigns
+    the return value of called function to the appropriate entry of the n-dimensional
+    collectarg. This container must be initialized correctly, using e.g.
+    np.empty(datashape, object) or similar.
+    '''
     it = np.ndindex(shape)
     for ndindex in it:
         indices = [i+1 for i in ndindex] # convert to matlab indexing
@@ -857,6 +863,35 @@ def _vectcollect(shape, atomic_func, vnargs, args, ndaargs, collectarg):
         
         value = atomic_func(*symbols, *constants, *elements)
         exec("collectarg%s = value" % str(list(ndindex)))
+
+def _vectcollect_general(shape, atomic_func, vnargs, args, ndaargs, collectargs):
+    '''
+    Adds an extra layer for plural return values of atomic_func, as one explicit outer
+    dimension/args tuple.
+    This can be handy for elliminating the need to unpack values later on.
+    '''
+    it = np.ndindex(shape)
+    for ndindex in it:
+        indices = [i+1 for i in ndindex] # convert to matlab indexing
+        indices = str(indices).replace("[","(").replace("]",")")
+        
+        symbols = tuple("%s%s" % (vn, indices) for vn in vnargs)
+        constants = args
+        elements = tuple(eval("a%s" % str(list(ndindex))) for a in ndaargs) # this is not pretty, but it works
+        
+        value = atomic_func(*symbols, *constants, *elements)
+
+        
+        if type(value) != tuple:
+            exec("collectargs%s = value" % str(list(ndindex)))
+        else:
+            if len(collectargs) == len(value):
+                for i in range(len(value)):
+                    val = value[i]
+                    exec("collectargs[i]%s = val" % str(list(ndindex)))
+            else:
+                raise Exception("_vectorcollect_general: Mismatching atomic_func return tuple length and collectargs length.")
+
 
 
 '''
@@ -941,20 +976,16 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         finally:
             _eval('clear o_%s;' % vn_outfunc, nargout=0)
 
-    def get_axislims_atomic(vn_data, acclst=[]):
+    def get_axislims_atomic(vn_data):
         ''' returns (axislims, ndims) where axislims is a tuple of (xmin, xmax) or (xmin, xmax, ymin, ymax) '''
         plotdata = _get_iData_repr(vn_data)[0]
         if plotdata:
             ndims = plotdata["ndims"]
             if ndims == 1:
                 x = plotdata["x"]
-                acclst.append((np.min(x), np.max(x), 1, ))
-                return acclst[-1], 1
-                #return (np.min(x), np.max(x)), 1
+                return (np.min(x), np.max(x)), 1
             elif ndims == 2:
-                acclst.append((plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax'], 2, ))
-                return acclst[-1], 2
-                #return (plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax']), 2
+                return (plotdata['xmin'], plotdata['xmax'], plotdata['ymin'], plotdata['ymax']), 2
 
     ds1 = idata._get_datashape()
     ds2 = ifunc._get_datashape()
@@ -969,14 +1000,19 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         ndaargs = ()
         _vectorized(shape, fit_atomic, vnargs, args, ndaargs)
         
-        axeslims = []
+        # TODO: fix axis lims gathering method
+        '''
+        axeslims = np.empty(shape, object)
+        axesdims = np.empty(shape, object)
         vnargs = (idata.varname, )
-        args = (axeslims, )
-        _vectorized(shape, get_axislims_atomic, vnargs, args, ndaargs)
-        retobj._set_plotaxes(axeslims, axeslims[0][2])
+        args = ()
+        collectargs = (axeslims, axesdims, )
+        _vectcollect_general(shape, get_axislims_atomic, vnargs, args, ndaargs, collectargs)
+        retobj._set_plotaxes(axeslims, axesdims)
+        '''
     else:
         fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
-        # flag retobj to produce plotdata with the current idata axes
+        
         lims, ndims = get_axislims_atomic(idata.varname)
         retobj._set_plotaxes(lims, ndims)
     return retobj
