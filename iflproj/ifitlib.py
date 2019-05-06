@@ -263,7 +263,7 @@ class IData(enginterface.ObjReprJson):
 
         return retdct
 
-    def mask(self, min, max):
+    def mask(self, min: float, max: float):
         ''' Masks data of the specified interval. '''
 
         ''' 
@@ -289,11 +289,11 @@ class IData(enginterface.ObjReprJson):
             rmint_atomic(self.varname, min, max)
 
     def rebin(self, nbins: int):
-        '''  '''
+        ''' Rebin evently. '''
         pass
 
-    def subtract(self, background: IData):
-        '''  '''
+    def subtract(self, background: 'IData'):
+        ''' Subtract external data set from this instance. '''
         pass
 
 def _get_iData_repr(idata_symb):
@@ -503,11 +503,11 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
 ''' IData functions '''
 
 
-def map_signal(data: IData, symb: str):
+def map_signal(data: IData, symb: 'str'):
     ''' Maps the signal of an idata object given an iFit compatible math symbol. '''
     pass
 
-def map_axis_1d(data: IData, symb: str):
+def map_axis_1d(data: IData, symb: 'str'):
     ''' Maps the axis of a one-dimensional idata object, given an iFit compatible math symbol. '''
     pass
 
