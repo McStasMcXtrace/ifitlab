@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 import os
 
 ''' ldap '''
-MCWEB_LDAP_DN = 'dc=nodomain'
+MCWEB_LDAP_DN = 'dc=fysik,dc=dtu,dc=dk'
 
 import ldap
 from django_auth_ldap.config import LDAPSearch
