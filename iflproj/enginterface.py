@@ -753,6 +753,8 @@ def get_nodetype_candidates(pymodule):
     for member in inspect.getmembers(pymodule):
         # get classes
         if inspect.isclass(member[1]):
+            if member[1].__module__ != pymodule.__name__:
+                continue
             clsobj = member[1]
             # rather few and stable exceptions
             if clsobj.__name__ in (excepted_classes):
