@@ -34,7 +34,6 @@ import os
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import numpy as np
-import functools
 import collections
 import uuid
 import datetime
@@ -149,7 +148,6 @@ def _load_middleware():
 namecategories = collections.OrderedDict({
     'IData' : 'tools',
     'IData.mask' : 'tools',
-    'IData.subtract' : 'tools',
     'IData.rebin' : 'tools',
     'IFunc' : 'tools',
     'IFunc.guess' : 'tools',
@@ -160,8 +158,8 @@ namecategories = collections.OrderedDict({
     'add' : 'functions',
 #    'mult' : 'functions',
     'combine' : 'functions',
-    'map_signal' : 'functions',
-    'map_axis' : 'functions',
+    'map' : 'functions',
+    'map_ax1' : 'functions',
     'fit' : 'functions',
     'separate' : 'functions',
 })
@@ -292,9 +290,6 @@ class IData(enginterface.ObjReprJson):
         ''' Rebin evently. '''
         pass
 
-    def subtract(self, background: 'IData'):
-        ''' Subtract external data set from this instance. '''
-        pass
 
 def _get_iData_repr(idata_symb):
     ndims = int(_eval('ndims(%s);' % idata_symb))
@@ -503,11 +498,11 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
 ''' IData functions '''
 
 
-def map_signal(data: IData, symb: 'str'):
+def map(data: IData, symb: str) -> IData:
     ''' Maps the signal of an idata object given an iFit compatible math symbol. '''
     pass
 
-def map_axis_1d(data: IData, symb: 'str'):
+def map_ax1(data: IData, symb: str) -> IData:
     ''' Maps the axis of a one-dimensional idata object, given an iFit compatible math symbol. '''
     pass
 
