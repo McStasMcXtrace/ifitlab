@@ -155,9 +155,12 @@ namecategories = collections.OrderedDict({
     'Lin' : 'models',
     'Gauss' : 'models',
     'Lorentz' : 'models',
+    'Log': 'models',
+    'Square': 'models',
     'add' : 'functions',
 #    'mult' : 'functions',
     'combine' : 'functions',
+    'subtract' : 'functions',
     'map' : 'functions',
     'map_ax1' : 'functions',
     'fit' : 'functions',
@@ -495,18 +498,6 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
     return params
 
 
-''' IData functions '''
-
-
-def map(data: IData, symb: str) -> IData:
-    ''' Maps the signal of an idata object given an iFit compatible math symbol. '''
-    pass
-
-def map_ax1(data: IData, symb: str) -> IData:
-    ''' Maps the axis of a one-dimensional idata object, given an iFit compatible math symbol. '''
-    pass
-
-
 ''' IFunc section '''
 
 
@@ -524,7 +515,8 @@ class IFunc(enginterface.ObjReprJson):
                                      "sine", "sinedamp", "strline", "triangl", "tophat", "twoexp", "voigt", "gauss2d", 
                                      "lorz2d", "plane2d", "pseudovoigt2d", "quad2d", "gaussnd", "sf_hard_spheres", "rietveld",
                                      "sqw_sine3d", "sqw_spinw", "sqw_vaks", "sqw_cubic_monoatomic", "sqw_phonons",
-                                     "sqw_linquad", "sqw_acoustopt")
+                                     "sqw_linquad", "sqw_acoustopt",
+                                     "log", "square")
             def canbe_ifit_expression(expr):
                 ''' p(1)... notation, see ifit docs '''
                 m = re.match('[0-9a-zA-Z\.\-\+\*\/\(\)\^]+', expr)
@@ -923,19 +915,27 @@ def _vectcollect_general(shape, atomic_func, vnargs, args, ndaargs, collectargs)
 
 
 '''
-constructor functions for various models, substitutes for class constructors
+Explicit constructor functions providing various ifunc models
 '''
 def Gauss(datashape:list=None) -> IFunc:
-    ''' Creates a Gauss IFunc model object. '''
+    ''' Creates a Gauss IFunc model. '''
     return IFunc(datashape, 'gauss')
 
 def Lorentz(datashape:list=None) -> IFunc:
-    ''' Creates a Lorentz IFunc model object. '''
+    ''' Creates a Lorentz IFunc model. '''
     return IFunc(datashape, 'lorz')
 
 def Lin(datashape:list=None) -> IFunc:
-    ''' Creates a Linear IFunc model object. '''
+    ''' Creates a Linear IFunc model. '''
     return IFunc(datashape, 'strline')
+
+def Log(datashape:list=None) -> IFunc:
+    ''' Creates a log IFunc model. '''
+    return IFunc(datashape, 'log')
+
+def Square(datashape:list=None) -> IFunc:
+    ''' Creates a square IFunc model. '''
+    return IFunc(datashape, 'square')
 
 
 '''
@@ -1047,6 +1047,7 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         retobj._set_plotaxes(lims, ndims)
     return retobj
 
+
 def combine(filenames:list) -> IData:
     ''' Combines and outputs multiple data files into a single IData object '''
     logging.debug("combine")
@@ -1081,6 +1082,7 @@ def combine(filenames:list) -> IData:
         raise Exception("combine: rank must be in Z_0")
     
     return retobj
+
 
 def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
     ''' Extracts parameter values and axis information from fitfunc given the parameters in typefunc. Returns a new IFunc object with that parameter configuration.'''
@@ -1138,6 +1140,23 @@ def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
     # handle IFunc axis lims inheritane
     retobj._set_plotaxes(fitfunc._plotaxes, fitfunc._plotdims)
     return retobj
+
+
+def subtract(sample: IData, background: IData) -> IData:
+    ''' Subtract a calibration set, e.g. background from data. '''
+    pass
+
+
+def map(data: IData, map: IFunc) -> IData:
+    ''' Maps data using an ifunc. '''
+    pass
+
+
+def map_ax1(data: IData, map: IFunc) -> IData:
+    ''' Maps the first axis of data using an ifunc. '''
+    pass
+
+
 
 
 '''
