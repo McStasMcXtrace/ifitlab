@@ -533,11 +533,11 @@ class IFunc(enginterface.ObjReprJson):
             parameternames = _eval('%s.Parameters;' % vn, nargout=1) # we basically just need the length
             parameternames = [p.split()[0] for p in parameternames]
 
-        def create_model_array(vn, shape, symb):
+        def create_model_array(vn, shape):
             if len(shape) == 1:
                 shape = (shape[0], 1)
             shape = str(list(shape)).replace("[","").replace("]","")
-            _eval("%s = zeros(%s, %s);" % (vn, symb, shape), nargout=0)
+            _eval("%s = zeros(iFunc, %s);" % (vn, shape), nargout=0)
 
         if symbol == None or symbol == "":
             symbol = "iFunc"
@@ -549,11 +549,12 @@ class IFunc(enginterface.ObjReprJson):
 
         datashape = _npify_shape(datashape)
         if datashape not in [None, tuple()]:
-            create_model_array(self.varname, datashape, symbol)
-            vnargs = (self.varname, )
-            args = (symbol, )
-            ndaargs = ()
-            _vectorized(datashape, create_ifunc, vnargs, args, ndaargs)
+            create_model_array(self.varname, datashape)
+            if symbol != "iFunc":
+                vnargs = (self.varname, )
+                args = (symbol, )
+                ndaargs = ()
+                _vectorized(datashape, create_ifunc, vnargs, args, ndaargs)
         else:
             create_ifunc(self.varname, symbol)
 
@@ -580,15 +581,17 @@ class IFunc(enginterface.ObjReprJson):
             pltdct, infdct, usrdct = _get_iFunc_repr(self.varname, self._plotaxes, self._plotdims)
             outdct = usrdct
         else:
-            def get_repr_atomic(symb, pltax, pltdims):
+            def get_repr_atomic(symb, pltax=None, pltdims=None):
                 pltdct, infdct, userdct = _get_iFunc_repr(symb, pltax, pltdims)
                 return pltdct, infdct, userdct
             def get_element(idx, e):
                 return e[idx]
             
             vnargs = (self.varname, )
-            args = (self._plotaxes, self._plotdims, )
+            args = ()
             ndaargs = ()
+            if (self._plotaxes is not None) and (self._plotdims is not None):
+                ndaargs = (self._plotaxes, self._plotdims, )
             ndout = np.empty(datashape, object)
             _vectcollect(datashape, get_repr_atomic, vnargs, args, ndaargs, ndout)
 
@@ -913,7 +916,6 @@ def _vectcollect_general(shape, atomic_func, vnargs, args, ndaargs, collectargs)
                 raise Exception("_vectorcollect_general: Mismatching atomic_func return tuple length and collectargs length.")
 
 
-
 '''
 Explicit constructor functions providing various ifunc models
 '''
@@ -1030,8 +1032,6 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         ndaargs = ()
         _vectorized(shape, fit_atomic, vnargs, args, ndaargs)
         
-        # TODO: fix axis lims gathering method
-        '''
         axeslims = np.empty(shape, object)
         axesdims = np.empty(shape, object)
         vnargs = (idata.varname, )
@@ -1039,7 +1039,6 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
         collectargs = (axeslims, axesdims, )
         _vectcollect_general(shape, get_axislims_atomic, vnargs, args, ndaargs, collectargs)
         retobj._set_plotaxes(axeslims, axesdims)
-        '''
     else:
         fit_atomic(idata.varname, ifunc.varname, retobj.varname, optimizer)
         
