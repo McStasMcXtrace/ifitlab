@@ -1141,6 +1141,21 @@ def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
     return retobj
 
 
+def _create_empty_idata():
+    retvar = IData(url=None)
+    _eval("%s = iData;" % retvar.varname, nargout=0)
+    return retvar
+
+def _create_empty_idata_array(shape):
+    retvar = IData(url=None)
+    if len(shape) == 1:
+        shape = (shape[0], 1)
+    shape_str = str(list(shape)).replace("[","").replace("]","")
+    _eval("%s = zeros(iData, %s);" % (retvar.varname, shape_str), nargout=0)
+
+    return retvar
+
+
 def subtract(sample: IData, background: IData) -> IData:
     ''' Subtract a calibration set, e.g. background from data. '''
     logging.debug("subtract")
@@ -1148,33 +1163,18 @@ def subtract(sample: IData, background: IData) -> IData:
     def subtract_atomic(vn_out, vn_1, vn_2):
         _eval("%s = %s - %s;" % (vn_out, vn_1, vn_2), nargout=0)
 
-    def create_empty_idata():
-        retvar = IData(url=None)
-        vn = _get_idata_uuid()
-        _eval("%s = iData;" % vn, nargout=0)
-        return retvar
-
-    def create_empty_idata_array(shape):
-        retvar = IData(url=None)
-        if len(shape) == 1:
-            shape = (shape[0], 1)
-        shape_str = str(list(shape)).replace("[","").replace("]","")
-        _eval("%s = zeros(iData, %s);" % (retvar.varname, shape_str), nargout=0)
-
-        return retvar
-
     ds1 = sample._get_datashape()
     ds2 = background._get_datashape()
     if ds1 != ds2:
-        raise Exception("subtract: datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
 
     shape = ds1
     retobj = None
     if shape in (None, tuple(),):
-        retobj = create_empty_idata()
+        retobj = _create_empty_idata()
         subtract_atomic(retobj.varname, sample.varname, background.varname)
     else:
-        retobj = create_empty_idata_array(shape)
+        retobj = _create_empty_idata_array(shape)
         vnargs = (retobj.varname, sample.varname, background.varname, )
         args = ()
         ndaargs = ()
@@ -1185,12 +1185,59 @@ def subtract(sample: IData, background: IData) -> IData:
 
 def map(data: IData, map: IFunc) -> IData:
     ''' Maps data using an ifunc. '''
-    pass
+    logging.debug("map")
+
+    def map_atomic(vn_out, vn_f, vn_d):
+        raise Exception("TODO: implement e.g.: %s = %s(%s);" % (vn_out, vn_d, vn_f))
+        #_eval("%s = %s(%s);" % (vn_out, vn_d, vn_f), nargout=0)
+
+    ds1 = data._get_datashape()
+    ds2 = map._get_datashape()
+    if ds1 != ds2:
+        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+
+    shape = ds1
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        map_atomic(retobj.varname, map.varname, data.varname)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, map.varname, data.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, map_atomic, vnargs, args, ndaargs)
+
+    return retobj
 
 
 def map_ax1(data: IData, map: IFunc) -> IData:
     ''' Maps the first axis of data using an ifunc. '''
-    pass
+    logging.debug("map_ax1")
+
+    def map_atomic(vn_out, vn_f, vn_d):
+        # TODO: impl
+        raise Exception("TODO: implement")
+        #_eval("%s = %s(%s);" % (vn_out, vn_f, vn_d), nargout=0)
+
+    ds1 = data._get_datashape()
+    ds2 = map._get_datashape()
+    if ds1 != ds2:
+        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+
+    shape = ds1
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        map_atomic(retobj.varname, map.varname, data.varname)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, map.varname, data.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, map_atomic, vnargs, args, ndaargs)
+
+    return retobj
 
 
 
