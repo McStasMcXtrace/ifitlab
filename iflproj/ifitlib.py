@@ -266,7 +266,7 @@ class IData(enginterface.ObjReprJson):
 
     def mask(self, min: float, max: float):
         ''' Masks data of the specified interval. '''
-
+        logging.debug("IData.mask")
         ''' 
         NOTE: a (minmax_lst) signatured version of mask (previously rmint) would require a "rank" or "shape" indexing 
         depth parameter (same as combine).
@@ -279,7 +279,7 @@ class IData(enginterface.ObjReprJson):
 
         shape = self._get_datashape()
         if np.shape(min) != shape or np.shape(max) != shape:
-            raise Exception("shape mismatch, min and max must match %s" % str(shape))
+            raise Exception("shape mismatch, shape of min and max must match %s" % str(shape))
 
         if len(shape) > 0:
             vnargs = (self.varname, )
@@ -290,8 +290,26 @@ class IData(enginterface.ObjReprJson):
             rmint_atomic(self.varname, min, max)
 
     def rebin(self, nbins: int):
-        ''' Rebin evently. '''
-        pass
+        ''' Rebins, using interpolation. '''
+        logging.debug("IData.rebin")
+
+        def rebin_atomic(vn, nbins):
+            raise Exception("TODO: implement")
+            #_eval("%s = xlim(%s, [%f %f], 'exclude');" % (vn, vn, start, end), nargout=0)
+
+        nbins = _ifregular_squeeze_cast(nbins)
+
+        shape = self._get_datashape()
+        if np.shape(nbins) != shape:
+            raise Exception("shape mismatch, shape of nbins must match %s" % str(shape))
+
+        if len(shape) > 0:
+            vnargs = (self.varname, )
+            args = ()
+            ndaargs = (nbins, )
+            _vectorized(shape, rebin_atomic, vnargs, args, ndaargs)
+        else:
+            rebin_atomic(self.varname, nbins)
 
 
 def _get_iData_repr(idata_symb):
