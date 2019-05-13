@@ -1143,7 +1143,44 @@ def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
 
 def subtract(sample: IData, background: IData) -> IData:
     ''' Subtract a calibration set, e.g. background from data. '''
-    pass
+    logging.debug("subtract")
+
+    def subtract_atomic(vn_out, vn_1, vn_2):
+        _eval("%s = %s - %s;" % (vn_out, vn_1, vn_2), nargout=0)
+
+    def create_empty_idata():
+        retvar = IData(url=None)
+        vn = _get_idata_uuid()
+        _eval("%s = iData;" % vn, nargout=0)
+        return retvar
+
+    def create_empty_idata_array(shape):
+        retvar = IData(url=None)
+        if len(shape) == 1:
+            shape = (shape[0], 1)
+        shape_str = str(list(shape)).replace("[","").replace("]","")
+        _eval("%s = zeros(iData, %s);" % (retvar.varname, shape_str), nargout=0)
+
+        return retvar
+
+    ds1 = sample._get_datashape()
+    ds2 = background._get_datashape()
+    if ds1 != ds2:
+        raise Exception("subtract: datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+
+    shape = ds1
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = create_empty_idata()
+        subtract_atomic(retobj.varname, sample.varname, background.varname)
+    else:
+        retobj = create_empty_idata_array(shape)
+        vnargs = (retobj.varname, sample.varname, background.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, subtract_atomic, vnargs, args, ndaargs)
+
+    return retobj
 
 
 def map(data: IData, map: IFunc) -> IData:
