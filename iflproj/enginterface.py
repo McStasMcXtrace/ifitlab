@@ -524,7 +524,7 @@ class NodeConfig:
         self.executable = 'false'
         self.edit = 'true'
         self.name = funcname
-        self.label = funcname[0:5]
+        self.label = funcname
         self.data = data
 
     def make_method_like_wtypehints(self, address, methodname, args, annotations, clsobj, data=None):
@@ -539,7 +539,7 @@ class NodeConfig:
         self.executable = 'true'
         self.edit = 'true'
         self.name = methodname
-        self.label = methodname[0:5]
+        self.label = methodname
         self.data = data
 
     def make_method_wtypehints(self, address, methodname, args, annotations, clsobj, data=None):
@@ -554,7 +554,7 @@ class NodeConfig:
         self.executable = 'true'
         self.edit = 'true'
         self.name = methodname
-        self.label = methodname[0:5]
+        self.label = methodname
         self.data = data
 
     def make_object(self, branch):
