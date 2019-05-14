@@ -622,7 +622,8 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
     # object
     obj = NodeConfig()
     obj.make_object('handles')
-    tree.put('handles', obj.get_repr(), get_key)
+    # jg-20190514: unused node omitted for now
+    #tree.put('handles', obj.get_repr(), get_key)
     addrss.append((obj.address, 3))
 
     categories['handles'] = ""
