@@ -1215,13 +1215,23 @@ def Log(data: IData, axis: int=0) -> IData:
 
 def Power(data: IData, axis: int=0, power: int=2) -> IData:
     ''' A power dataset operator (square, cube, ...). "axis": 0 is signal, 1 first axis, etc. '''
-    retobj = _create_empty_idata()
-    vn_dest = retobj.varname
-    vn_source = data.varname
-    if axis==0:
-        _eval("%s = power(%s,%d);" % (vn_dest, vn_source, power), nargout=0)
+    def power_atomic(vn_dest, vn_source, axis, power):
+        if axis==0:
+            _eval("%s = power(%s,%d);" % (vn_dest, vn_source, power), nargout=0)
+        else:
+            _eval("%s = setaxis(%s, %d, power(getaxis(%s, %d), %d));" % (vn_dest, vn_source, axis, vn_source, axis, power), nargout=0)
+
+    shape = data._get_datashape()
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        power_atomic(retobj.varname, data.varname, axis, power)
     else:
-        _eval("%s = setaxis(%s, %d, power(getaxis(%s, %d), %d));" % (vn_dest, vn_source, axis, vn_source, axis, power), nargout=0)
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, data.varname, )
+        args = (axis, power, )
+        ndaargs = ()
+        _vectorized(shape, power_atomic, vnargs, args, ndaargs)
+
     return retobj
 
 
