@@ -152,19 +152,20 @@ namecategories = collections.OrderedDict({
     'IFunc' : 'tools',
     'IFunc.guess' : 'tools',
     'IFunc.fixpars' : 'tools',
+    'fit' : 'tools',
+
     'Lin' : 'models',
     'Gauss' : 'models',
     'Lorentz' : 'models',
-    'Log': 'models',
-    'Square': 'models',
-    'add' : 'functions',
-#    'mult' : 'functions',
-    'combine' : 'functions',
-    'subtract' : 'functions',
-    'map' : 'functions',
-    'map_ax1' : 'functions',
-    'fit' : 'functions',
-    'separate' : 'functions',
+    'add_models' : 'models',
+    'mult_models' : 'models',
+    'separate' : 'models',
+
+    'Log': 'operators',
+    'Power': 'operators',
+    'From_model' : 'operators',
+    'combine_data' : 'operators',
+    'subtract_data' : 'operators',
 })
 
 
@@ -240,20 +241,20 @@ class IData(enginterface.ObjReprJson):
                 return pltdct, infdct
             def get_element(idx, e):
                 return e[idx]
-            
+
             vnargs = (self.varname, )
             args = ()
             ndaargs = ()
             ndout = np.empty(datashape, object)
             _vectcollect(datashape, get_repr_atomic, vnargs, args, ndaargs, ndout)
-            
+
             # this will extract the first element (of the ndout ndarray elements) into a similarly shaped ndarray
             vnargs = ()
             args = (0, )
             ndaargs = (ndout, )
             plts = np.empty(datashape, object)
             _vectcollect(datashape, get_element, vnargs, args, ndaargs, plts)
-            
+
             pltdct = plts.tolist()
             outdct = None
             infdct = {'datashape' : datashape, 'ndims' : None} # ndims refers to (individual) data dimensionality
@@ -330,22 +331,29 @@ def _get_iData_repr(idata_symb):
         ' the trivial case, no data is present '
         pltdct = None
     elif ndims == 1:
+
         xvals = _eval('%s.%s;' % (idata_symb, axes_names[0]))
         if len(xvals)==1:
             try:
                 xvals = xvals[0]
             except:
                 pass
-        xvals = np.reshape(xvals, (1, len(xvals)))[0].tolist()
+        xvals = np.reshape(xvals, (1, len(xvals)))[0]
 
         signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
-        signal = np.reshape(signal, (1, len(signal)))[0].tolist()
-        
+        signal = np.reshape(signal, (1, len(signal)))[0]
+
         try:
             error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
-            error = np.reshape(error, (1, len(error)))[0].tolist()
+            error = np.reshape(error, (1, len(error)))[0]
         except:
-            error = np.sqrt(signal).tolist()
+            error = np.sqrt(signal)
+
+        # remove all NaN, Inf and -Inf entries
+        include_set = np.logical_not(np.isnan(np.subtract(signal, error)))
+        signal = signal[include_set].tolist()
+        xvals = xvals[include_set].tolist()
+        error = error[include_set].tolist()
 
         # get rid of nan
         cnt = 0
@@ -949,20 +957,12 @@ def Lin(datashape:list=None) -> IFunc:
     ''' Creates a Linear IFunc model. '''
     return IFunc(datashape, 'strline')
 
-def Log(datashape:list=None) -> IFunc:
-    ''' Creates a log IFunc model. '''
-    return IFunc(datashape, 'log')
-
-def Square(datashape:list=None) -> IFunc:
-    ''' Creates a square IFunc model. '''
-    return IFunc(datashape, 'square')
-
 
 '''
 ifunc combination functions / operators
 '''
 
-def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
+def add_models(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     ''' Outputs the sum of two IFunc model objects, preserving configuration state. '''
     # check datashape
     shape = ifunc_a._get_datashape()
@@ -984,26 +984,26 @@ def add(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
     return retobj
 
 # NOTE: disabled to save space, perhaps this one is not necessary at the moment
-#def mult(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
-#    ''' Outputs the multiplication of two IFunc model objects '''
-#    # check datashape
-#    shape = ifunc_a._get_datashape()
-#    shape2 = ifunc_b._get_datashape()
-#    if shape != shape2:
-#        raise Exception("datashape mismatch: %s vs. %s" % (str(shape), str(shape2)))
-#    
-#    def mult_atomic(vn1, vn2, vn_sum):
-#        _eval('%s = %s * %s;' % (vn_sum, vn1, vn2), nargout=0)
-#    
-#    retobj = IFunc(shape)
-#    if shape not in (None, tuple(),):
-#        vnargs = (ifunc_a.varname, ifunc_b.varname, retobj.varname, )
-#        args = ()
-#        ndaargs = ()
-#        _vectorized(shape, mult_atomic, vnargs, args, ndaargs)
-#    else:
-#        mult_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
-#    return retobj
+def mult_models(ifunc_a: IFunc, ifunc_b: IFunc) -> IFunc:
+    ''' Outputs the multiplication of two IFunc model objects '''
+    # check datashape
+    shape = ifunc_a._get_datashape()
+    shape2 = ifunc_b._get_datashape()
+    if shape != shape2:
+        raise Exception("datashape mismatch: %s vs. %s" % (str(shape), str(shape2)))
+    
+    def mult_atomic(vn1, vn2, vn_sum):
+        _eval('%s = %s * %s;' % (vn_sum, vn1, vn2), nargout=0)
+    
+    retobj = IFunc(shape)
+    if shape not in (None, tuple(),):
+        vnargs = (ifunc_a.varname, ifunc_b.varname, retobj.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, mult_atomic, vnargs, args, ndaargs)
+    else:
+        mult_atomic(ifunc_a.varname, ifunc_b.varname, retobj.varname)
+    return retobj
 
 
 
@@ -1065,7 +1065,7 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     return retobj
 
 
-def combine(filenames:list) -> IData:
+def combine_data(filenames:list) -> IData:
     ''' Combines and outputs multiple data files into a single IData object '''
     logging.debug("combine")
 
@@ -1174,7 +1174,7 @@ def _create_empty_idata_array(shape):
     return retvar
 
 
-def subtract(sample: IData, background: IData) -> IData:
+def subtract_data(sample: IData, background: IData) -> IData:
     ''' Subtract a calibration set, e.g. background from data. '''
     logging.debug("subtract")
 
@@ -1201,63 +1201,33 @@ def subtract(sample: IData, background: IData) -> IData:
     return retobj
 
 
-def map(data: IData, map: IFunc) -> IData:
-    ''' Maps data using an ifunc. '''
-    logging.debug("map")
-
-    def map_atomic(vn_out, vn_f, vn_d):
-        raise Exception("TODO: implement e.g.: %s = %s(%s);" % (vn_out, vn_d, vn_f))
-        #_eval("%s = %s(%s);" % (vn_out, vn_d, vn_f), nargout=0)
-
-    ds1 = data._get_datashape()
-    ds2 = map._get_datashape()
-    if ds1 != ds2:
-        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
-
-    shape = ds1
-    retobj = None
-    if shape in (None, tuple(),):
-        retobj = _create_empty_idata()
-        map_atomic(retobj.varname, map.varname, data.varname)
+def Log(data: IData, axis: int=0) -> IData:
+    ''' A log dataset operator. "axis": 0 is signal, 1 first axis, etc.'''
+    retobj = _create_empty_idata()
+    vn_dest = retobj.varname
+    vn_source = data.varname
+    if axis==0:
+        _eval("%s = log(%s);" % (vn_dest, vn_source), nargout=0)
     else:
-        retobj = _create_empty_idata_array(shape)
-        vnargs = (retobj.varname, map.varname, data.varname, )
-        args = ()
-        ndaargs = ()
-        _vectorized(shape, map_atomic, vnargs, args, ndaargs)
-
+        _eval("%s = setaxis(%s, %d, log(getaxis(%s, %d)));" % (vn_dest, vn_source, axis, vn_source, axis), nargout=0)
     return retobj
 
 
-def map_ax1(data: IData, map: IFunc) -> IData:
-    ''' Maps the first axis of data using an ifunc. '''
-    logging.debug("map_ax1")
-
-    def map_atomic(vn_out, vn_f, vn_d):
-        # TODO: impl
-        raise Exception("TODO: implement")
-        #_eval("%s = %s(%s);" % (vn_out, vn_f, vn_d), nargout=0)
-
-    ds1 = data._get_datashape()
-    ds2 = map._get_datashape()
-    if ds1 != ds2:
-        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
-
-    shape = ds1
-    retobj = None
-    if shape in (None, tuple(),):
-        retobj = _create_empty_idata()
-        map_atomic(retobj.varname, map.varname, data.varname)
+def Power(data: IData, axis: int=0, power: int=2) -> IData:
+    ''' A power dataset operator (square, cube, ...). "axis": 0 is signal, 1 first axis, etc. '''
+    retobj = _create_empty_idata()
+    vn_dest = retobj.varname
+    vn_source = data.varname
+    if axis==0:
+        _eval("%s = power(%s,%d);" % (vn_dest, vn_source, power), nargout=0)
     else:
-        retobj = _create_empty_idata_array(shape)
-        vnargs = (retobj.varname, map.varname, data.varname, )
-        args = ()
-        ndaargs = ()
-        _vectorized(shape, map_atomic, vnargs, args, ndaargs)
-
+        _eval("%s = setaxis(%s, %d, power(getaxis(%s, %d), %d));" % (vn_dest, vn_source, axis, vn_source, axis, power), nargout=0)
     return retobj
 
 
+def From_model(data: IData, model: IFunc) -> IData:
+    ''' Defines a dataset operator from an iFunc model. '''
+    raise Exception("To be implemented.")
 
 
 '''
