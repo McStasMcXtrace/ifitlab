@@ -96,6 +96,9 @@ class Command(BaseCommand):
                             gd["nodes"][id][5] = fixes[address]
                         else:
                             del gd["nodes"][id]
+                            # also remove any data assignment to this node
+                            gd["datas"].pop(id, None)
+
                         print("'%s' --> '%s'" % (address, fixes[address]))
 
                         # bust all links to and from this node
