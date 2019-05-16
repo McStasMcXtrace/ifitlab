@@ -38,7 +38,7 @@ class SoftGraphSession:
         self.graph = None
 
         tree = enginterface.TreeJsonAddr(json.loads(self._loadNodeTypesJsFile()))
-        pmod = json.loads(open('pmodule.json').read())
+        pmod = json.loads(open('pmodule.js').read())
         mdl = importlib.import_module(pmod["module"], pmod["package"]) # rewrite fom package = dot ! 
         self.graph = enginterface.FlatGraph(tree, mdl)
 

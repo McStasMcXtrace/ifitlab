@@ -47,3 +47,10 @@ class GraphSession(models.Model):
 
     def __str__(self):
        return 'session %s, idx %s, %s' % (self.id, self.listidx, self.title)
+    def reset(self):
+        self.stashed_pickle = "reset"
+        self.quicksave_pickle = "reset"
+        self.loglines = ""
+        self.logheader = ""
+        self.stashed_matfile = ""
+        self.quicksave_matfile = ""

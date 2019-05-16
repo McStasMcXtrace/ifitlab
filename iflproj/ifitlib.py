@@ -145,6 +145,8 @@ class _VarnameMiddleware(enginterface.MiddleWare):
 def _load_middleware():
     return _VarnameMiddleware()
 
+
+''' middleware dict specifying where node types are stored in a resultnig data structure '''
 namecategories = collections.OrderedDict({
     'IData' : 'tools',
     'IData.mask' : 'tools',

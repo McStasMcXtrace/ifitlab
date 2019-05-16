@@ -491,7 +491,7 @@ def save_nodetypes_js(mypath, tree, addrss, categories):
 def save_modulename_json(module_name, package_name):
     text = '{ "module" : "%s", "package" : "%s" }\n' % (module_name, package_name)
 
-    fle = open("pmodule.json", 'w')
+    fle = open("pmodule.js", 'w')
     fle.write(text)
     fle.close()
 
@@ -622,8 +622,7 @@ def ctypeconf_tree_ifit(classes, functions, namecategories={}):
     # object
     obj = NodeConfig()
     obj.make_object('handles')
-    # jg-20190514: unused node omitted for now
-    #tree.put('handles', obj.get_repr(), get_key)
+    tree.put('handles', obj.get_repr(), get_key)
     addrss.append((obj.address, 3))
 
     categories['handles'] = ""
