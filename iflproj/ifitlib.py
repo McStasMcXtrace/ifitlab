@@ -318,6 +318,15 @@ class IData(enginterface.ObjReprJson):
 
 
 def _get_iData_repr(idata_symb):
+    
+    def trysquash(vals):
+        if len(vals)==1:
+            try:
+                vals = vals[0]
+            except:
+                pass
+        return vals
+    
     ndims = int(_eval('ndims(%s);' % idata_symb))
     axes_names = _eval('%s.Axes;' % idata_symb, nargout=1) # NOTE: len(axes_names) == ndims
     if not ndims == len(axes_names):
@@ -337,18 +346,16 @@ def _get_iData_repr(idata_symb):
     elif ndims == 1:
 
         xvals = _eval('%s.%s;' % (idata_symb, axes_names[0]))
-        if len(xvals)==1:
-            try:
-                xvals = xvals[0]
-            except:
-                pass
+        xvals = trysquash(xvals)
         xvals = np.reshape(xvals, (1, len(xvals)))[0]
 
         signal = np.array(_eval('%s.Signal./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
+        signal = trysquash(signal)
         signal = np.reshape(signal, (1, len(signal)))[0]
 
         try:
             error = np.array(_eval('%s.Error./%s.Monitor;' % (idata_symb, idata_symb), nargout=1)).astype(np.float)
+            error = trysquash(error)
             error = np.reshape(error, (1, len(error)))[0]
         except:
             error = np.sqrt(signal)
