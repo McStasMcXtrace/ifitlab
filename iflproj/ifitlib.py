@@ -1192,31 +1192,33 @@ IData based.
 '''
 
 
-def IData_1d(axis: list, signal: list) -> IData:
+def IData_1d(axis: list, signal: list, error: list) -> IData:
     ''' Creates an (x, y) IData object from two lists. '''
     logging.debug("IData_1D")
 
-    def set_x_y_atomic(vn_out, ax, sig):
+    def set_x_y_atomic(vn_out, ax, sig, err):
         _eval("setaxis(%s, 1, %s);" % (vn_out, str(ax)), nargout=0)
         _eval("%s.Signal = %s;" % (vn_out, str(sig)), nargout=0)
+        _eval("%s.Error = %s;" % (vn_out, str(err)), nargout=0)
 
     ds1 = np.shape(axis)
     ds2 = np.shape(signal)
-    if ds1 != ds2:
+    ds3 = np.shape(error)
+    if ds1 != ds2 or ds1 != ds3:
         raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
-    if type(axis) != list or type(signal) != list:
+    if type(axis) != list or type(signal) != list or type(error) != list:
         raise Exception("axis and signal must be lists")
 
     shape = ds1
     retobj = None
     if len(shape) <= 1:
         retobj = _create_empty_idata()
-        set_x_y_atomic(retobj.varname, axis, signal)
+        set_x_y_atomic(retobj.varname, axis, signal, error)
     else:
         retobj = _create_empty_idata_array(shape)
         vnargs = (retobj.varname, )
         args = ()
-        ndaargs = (axis, signal, )
+        ndaargs = (axis, signal, error, )
         _vectorized(shape, set_x_y_atomic, vnargs, args, ndaargs)
 
     return retobj
