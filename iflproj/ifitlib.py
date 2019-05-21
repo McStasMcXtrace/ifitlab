@@ -342,6 +342,12 @@ def _get_iData_repr(idata_symb):
     xlabel = _eval('xlabel(%s);' % idata_symb, nargout=1)
     ylabel = _eval('ylabel(%s);' % idata_symb, nargout=1)
     
+    # fallback labels
+    if xlabel == "":
+        xlabel = "x"
+    if ylabel == "Data Signal":
+        ylabel = "y"
+    
     # get signal
     if ndims == 0:
         ' the trivial case, no data is present '
@@ -559,7 +565,6 @@ class IFunc(enginterface.ObjReprJson):
                                      "log", "square")
             def canbe_ifit_expression(expr):
                 ''' p(1)... notation, see ifit docs '''
-                m = re.match('[0-9a-zA-Z\.\-\+\*\/\(\)\^]+', expr)
                 if m and len(m.group()) == len(expr):
                     return True
             
