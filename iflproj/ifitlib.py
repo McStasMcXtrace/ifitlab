@@ -1033,6 +1033,8 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
             _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\');' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
             _eval('[p, c, m, o_%s] = fits(%s, copyobj(%s), \'\', \'%s\');' % (vn_outfunc, vn_data, vn_func, optim), nargout=0)
             _eval('%s = o_%s.model;' % (vn_outfunc, vn_outfunc), nargout=0)
+        except:
+            _eval('%s = copyobj(%s);' % (vn_outfunc, vn_func), nargout=0)
         finally:
             _eval('clear o_%s;' % vn_outfunc, nargout=0)
 
