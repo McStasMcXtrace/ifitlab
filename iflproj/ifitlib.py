@@ -294,27 +294,30 @@ class IData(enginterface.ObjReprJson):
         else:
             rmint_atomic(self.varname, min, max)
 
-    def rebin(self, nbins: int):
-        ''' Rebins, using interpolation. '''
+    def rebin(self, nbins: int, axis: int=1):
+        ''' Rebins using interpolate. '''
         logging.debug("IData.rebin")
 
-        def rebin_atomic(vn, nbins):
-            raise Exception("TODO: implement")
-            #_eval("%s = xlim(%s, [%f %f], 'exclude');" % (vn, vn, start, end), nargout=0)
+        def rebin_atomic(vn, ax, nb):
+            
+            # b = interp(a, new_axis) where new_axis=linspace(min(getaxis(a,axis)),max(getaxis(a,axis)),newbins) for axis=1, 2, ...
+            _eval("%s = interp(%s, linspace(min(getaxis(%s, %d)), max(getaxis(%s, %d)), %d));" % (vn, vn, vn, ax, vn, ax, nb), nargout=0)
 
         nbins = _ifregular_squeeze_cast(nbins)
 
         shape = self._get_datashape()
         if np.shape(nbins) != shape:
             raise Exception("shape mismatch, shape of nbins must match %s" % str(shape))
+        if (type(axis) != int) and (axis > 0):
+            raise Exception("axis must be a positive integer")
 
         if len(shape) > 0:
             vnargs = (self.varname, )
-            args = ()
+            args = (axis, )
             ndaargs = (nbins, )
             _vectorized(shape, rebin_atomic, vnargs, args, ndaargs)
         else:
-            rebin_atomic(self.varname, nbins)
+            rebin_atomic(self.varname, axis, nbins)
 
 
 def _get_iData_repr(idata_symb):
