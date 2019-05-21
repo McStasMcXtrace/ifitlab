@@ -56,7 +56,7 @@ def _eval(cmd, nargout=1, dontlog=False):
             _cmdlog.info("")
             _cmdlog.info("%%  starting ifit cmd log session at %s  %%" % '{0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()))
         if not _eng:
-            _eng = matlab.engine.start_matlab('-nojvm -nodesktop -nosplash')
+            _eng = matlab.engine.start_matlab(' -nodesktop -nosplash')
             _eng.eval("addpath(genpath('%s'))" % IFIT_DIR)
         if not dontlog:
             _cmdlog.info(cmd)
