@@ -565,6 +565,7 @@ class IFunc(enginterface.ObjReprJson):
                                      "log", "square")
             def canbe_ifit_expression(expr):
                 ''' p(1)... notation, see ifit docs '''
+                m = re.match('[0-9a-zA-Z\.\-\+\*\/\(\)\^]+', expr)
                 if m and len(m.group()) == len(expr):
                     return True
             
