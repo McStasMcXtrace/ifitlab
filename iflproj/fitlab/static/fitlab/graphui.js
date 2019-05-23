@@ -76,7 +76,7 @@ class GraphDraw {
 
     this.svg
       .on("click", function() {
-        console.log(d3.event); // enables debugging of click event in various browsers
+        //console.log(d3.event); // enables debugging of click event in various browsers
 
         self.graphData.setSelectedNode(null);
         self.selectNodeCB( null );
