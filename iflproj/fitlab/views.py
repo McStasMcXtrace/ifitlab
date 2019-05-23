@@ -23,7 +23,7 @@ def index(req):
         return redirect("/ifl/login")
 
     objs = GraphSession.objects.filter(username=username).order_by('listidx')
-    examples = GraphSession.objects.filter(username="admin", example=True).order_by('listidx')
+    examples = GraphSession.objects.filter(example=True).order_by('listidx')
 
     session_ids_titles = [[obj.id, obj.title] for obj in objs]
     example_ids_titles_comments_owner = [[obj.id, obj.title, obj.excomment, obj.username] for obj in examples]
