@@ -19,6 +19,7 @@ class IdxEditWindow {
 
     // IdxEdtWindow
     this.node_dataCB = node_dataCB;
+    this._editor = false;
 
     // shared
     this.titleadd = titleadd;
@@ -183,7 +184,6 @@ class IdxEditWindow {
       let ans = this.model.try_add_plt_node(n);
       if (ans == true) {
         this._update_ui();
-        this._toggleEditor(true);
       }
       return ans;
     }
@@ -224,13 +224,17 @@ class IdxEditWindow {
     let pos = $("#"+this.body_container[1]).position();
     if (pos) return pos.top;
   }
-  _toggleEditor(hide=false) {
-    if (hide==true) {
+  _toggleEditor(){
+    this._editor = !this._editor;
+    this._renderEditor();
+  }
+  _renderEditor(){
+    if (this._editor==true) {
+      $("#" + this.wname + "_tarea").show();
+      $("#" + this.wname + "_buttons").show();
+    } else {
       $("#" + this.wname + "_tarea").hide();
       $("#" + this.wname + "_buttons").hide();
-    } else {
-      $("#" + this.wname + "_tarea").toggle();
-      $("#" + this.wname + "_buttons").toggle();
     }
   }
   _createSubWindow(xpos, ypos, width) {
@@ -304,10 +308,11 @@ class IdxEditWindow {
       .click(this._next.bind(this))
       .appendTo(brws_div);
 
-    // add elements
+    // add editor elements
     addElementToSubWindow(this.wname, brws_container);
     addElementToSubWindow(this.wname, tarea);
     addElementToSubWindow(this.wname, buttons_div);
+    this._renderEditor();
 
     // update title
     setSubWindowTitle(this.wname, "Index Editor - add iterator obj and literal");
