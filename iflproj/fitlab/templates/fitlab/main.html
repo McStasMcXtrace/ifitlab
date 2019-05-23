@@ -102,7 +102,7 @@ setUserData = function(node) {
       })
       .change( () => {
         let tarea = $("#"+rowid +" textarea");
-        let val = tarea.val();
+        let val = tarea.val().trim();
 
         // empty || all whitespace : set to null
         if (val == "" || val.replace(/\s/g, '').length == 0) {
@@ -113,14 +113,14 @@ setUserData = function(node) {
           tarea.val('"'+val+'"');
         }
         // remove dict trailing comma (list trailing comma is handled by js or JSON)
-        val = tarea.val();
+        val = tarea.val().trim();
         let re = /\,[\s\n\r]*\}/
         if (val.match(re) != null) {
           tarea.val(val.replace(re, "\n}"));
         }
 
         // update viewmodel
-        intface.node_data(node.id, tarea.val());
+        intface.node_data(node.id, tarea.val().trim());
       });
   }
   else {
