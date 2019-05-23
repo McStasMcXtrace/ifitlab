@@ -377,7 +377,6 @@ class Workers:
         # python structure
         obj = GraphSession.objects.filter(id=session.gs_id)[0]
         obj.stashed_pickle = to_djangodb_str(session.graph)
-        obj.graphdef = json.dumps( session.graph.extract_graphdef() )
 
         # mat file
         if not os.path.exists(settings.MATFILES_DIRNAME):
@@ -448,10 +447,10 @@ class Workers:
                         task.cmd = "revert"
                         self.taskqueue.put(task)
 
-                # revert AKA "manual" load
+                # revert - to last active save
                 elif task.cmd == "revert":
                     # cleanup & remove any active session
-                    self.shutdown_session(task.gs_id)
+                    self.shutdown_session(task.gs_id, nosave=True)
                     # quickload the session AKA revert
                     session = self.revert_session(task)
 
@@ -609,7 +608,6 @@ class Workers:
                     newobj.description = obj.description
                     newobj.username = task.username
                     newobj.stashed = timezone.now()
-                    newobj.quicksaved = timezone.now()
                     newobj.save()
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id )
