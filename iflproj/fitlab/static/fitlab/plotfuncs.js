@@ -70,7 +70,7 @@ class Plot1D {
     this.yErrData_lst = _makeErrorBarsData([p['x']], [p['y']], [p['yerr']]);
     this.colours = [params.colour];
 
-    this.pointGroup = null;
+    this.pointGroups = null;
     this.last_xScale = null;
     this.last_yScale = null;
 
@@ -99,13 +99,13 @@ class Plot1D {
     // TODO: do something about his so we don't have to replot everything every time...
   }
   _drawPoints(xScl, yScl, data_line_style=false) {
-    //const colors = d3.scaleOrdinal().range(d3.schemeCategory20);
-    this.pointGroup.selectAll("*").remove();
+    this.pointGroups.selectAll("*").remove();
 
     // draw each data set
     for (var j=0;j<this.x_lst.length;j++) {
       let x = this.x_lst[j];
 
+      // log plotting
       let y = null;
       let ymin = Math.min.apply(null, this.y_lst[j].filter((y0)=>{return y0>0}));
       if (this.logscale==true) {
@@ -119,10 +119,14 @@ class Plot1D {
       }
       let yErrData = this.yErrData_lst[j];
 
+      // create a custom point group for this set
+      let pg = this.pointGroups.append("g");
+
+      // plot
       let style_as_data = (this.params_lst[j]["style_as_data"] == true);
       if (style_as_data) {
         // data as point annotations / symbols
-        this.pointGroup.selectAll("path")
+        pg.selectAll("path")
           .data(x)
           .enter()
           .append('path')
@@ -135,7 +139,7 @@ class Plot1D {
       }
       else {
         // data as lines
-        this.pointGroup.append("path")
+        pg.append("path")
           .attr("d", d3.line()
             .x( function(d, i) { return xScl(x[i]); })
             .y( function(d, i) { return yScl(y[i]); })
@@ -147,7 +151,7 @@ class Plot1D {
       }
 
       // error bars
-      this.pointGroup.selectAll("line")
+      pg.selectAll("line")
         .data(yErrData)
         .enter()
         .append("line")
@@ -231,7 +235,7 @@ class Plot1D {
 
     this.last_xScale = xScale;
     this.last_yScale = yScale;
-    this.pointGroup = axisGroup.append("g")
+    this.pointGroups = axisGroup.append("g")
       .attr("clip-path", "url(#viewClip_"+this.wname+")");
 
     // when clicked, print x axis value to console
