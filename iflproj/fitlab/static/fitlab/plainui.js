@@ -643,6 +643,8 @@ class IdxEdtData {
   }
   try_add_plt_node(n) {
     if (n == null) return; // ignore duds
+    if (this.plt_nodes.map(m=>m.id).includes(n.id)) return; // ignore duplicates
+
     let valid_plt_node =
       (n.type == "idata" || n.type == "ifunc")
       && n.info != null;
