@@ -26,8 +26,13 @@ def index(req):
     examples = GraphSession.objects.filter(username="admin", example=True).order_by('listidx')
 
     session_ids_titles = [[obj.id, obj.title] for obj in objs]
-    example_ids_titles_comments = [[obj.id, obj.title, obj.excomment] for obj in examples]
-    ctx = { "username" : username, "session_ids_titles" : session_ids_titles, "example_ids_titles_comments" : example_ids_titles_comments, 'admin' : req.user.is_superuser }
+    example_ids_titles_comments_owner = [[obj.id, obj.title, obj.excomment, obj.username] for obj in examples]
+    ctx = {
+        "username" : username,
+        "session_ids_titles" : session_ids_titles,
+        "example_ids_titles_comments_owner" : example_ids_titles_comments_owner,
+        'admin' : req.user.is_superuser
+    }
 
     return render(req, "fitlab/dashboard.html", context=ctx)
 
