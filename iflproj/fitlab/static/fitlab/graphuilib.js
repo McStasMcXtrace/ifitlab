@@ -1029,6 +1029,14 @@ class NodeObjectLiteral extends Node {
   }
 }
 
+/*
+* Connection Rules
+*/
+class ConnectionRulesBase {
+  // defines the interface of ConnectionRules derivations
+  static canConnect(a1, a2) {}
+  static couldConnect(a1, a2) {}
+}
 
 /*
 * GraphTree types
@@ -1037,7 +1045,6 @@ class NodeObjectLiteral extends Node {
 * the specific node types and graphics implementations to a large extent,
 * exposing an abstract, id-based, interface to the nodes and their links.
 */
-
 class NodeTypeHelper {
   // node construction helper functions
   constructor() {
@@ -1318,8 +1325,8 @@ class GraphTree {
     lks[id2][id1].push(l);
 
     // update
-    this._updateNodeState(n1);
-    this._updateNodeState(n2);
+    this.updateNodeState(n1);
+    this.updateNodeState(n2);
     n1.gNode.onConnect(l, false);
     let isinput = true;
     if (idx1 == -1 && idx2 == -1) isinput = false; // center-link targets
@@ -1364,8 +1371,8 @@ class GraphTree {
     l.detatch();
 
     // update
-    this._updateNodeState(n1);
-    this._updateNodeState(n2);
+    this.updateNodeState(n1);
+    this.updateNodeState(n2);
     n1.gNode.onDisconnect(l, false);
     n2.gNode.onDisconnect(l, true);
     return true;
@@ -1379,7 +1386,7 @@ class GraphTree {
   nodeData(id, data_str) {
     let n = this._current.nodes[id];
     n.userdata = JSON.parse(data_str);
-    this._updateNodeState(n);
+    this.updateNodeState(n);
     return true;
   }
 
@@ -1396,7 +1403,7 @@ class GraphTree {
     }
     return connectivity;
   }
-  _updateNodeState(n) {
+  updateNodeState(n) {
     let conn = this._connectivity(n);
     if (n.isActive()) {
       n.gNode.state = NodeState.ACTIVE;

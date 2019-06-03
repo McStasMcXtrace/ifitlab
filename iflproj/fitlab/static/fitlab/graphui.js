@@ -542,65 +542,24 @@ function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail
   return isalive;
 }
 
-class ConnectionRulesIfl {
-  // bare-bones rules determining whether and how nodes can be connected
-  static canConnect(a1, a2) {
-    if (a1.idx==-1 && a2.idx==-1) {
-      let tpe1 = a1.owner.owner.basetype;
-      let tpe2 = a2.owner.owner.basetype;
-      let t1 = ["object_idata", "object_ifunc", "obj"].indexOf(tpe1) != -1 && tpe2 == "method";
-      let t2 = tpe1 == "method" && ["object_idata", "object_ifunc", "obj"].indexOf(tpe2) != -1;
-      let t3 = a1.numconnections == 0;
-      let t4 = a2.numconnections == 0;
-      return t1 && t4 || t2 && t3;
-    }
-
-    //  a2 input anchor, a1 output
-    let t1 = a2.i_o;
-    let t2 = !a1.i_o;
-    // inputs can only have one connection
-    let t5 = a2.numconnections == 0;
-    // both anchors must be of the same type
-    let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == '';
-    let t8 = a1.type == 'obj' || a2.type == 'obj';
-
-    let ans = ( t1 && t2 ) && t5 && (t6 || t7 || t8);
-    return ans;
-  }
-  static couldConnect(a1, a2) {
-    // could a1 and a2 be connected if a2 was unoccupied?
-    //  a2 input anchor, a1 output
-    let t1 = a2.i_o;
-    let t2 = !a1.i_o;
-    // both anchors must be of the same type
-    let t6 = a1.type == a2.type;
-    let t7 = a1.type == '' || a2.type == '';
-    let t8 = a1.type == 'obj' || a2.type == 'obj';
-
-    let ans = ( t1 && t2 ) && (t6 || t7 || t8);
-    return ans;
-  }
-}
-
 class GraphInterface {
   /*
   *  High-level graph data and drawing interface. Use to manipulate the graph,
   *  and to save and load it. If used appropriately, this enables undo/redo.
   */
-  constructor(gs_id, tab_id) {
+  constructor(gs_id, tab_id, conn_rules) {
     this.gs_id = gs_id;
     this.tab_id = tab_id;
     this.isalive = true;
 
-    this.graphData = new GraphTree(ConnectionRulesIfl);
+    this.graphData = new GraphTree(conn_rules);
     let linkCB = this._tryCreateLink.bind(this);
     let delNodeCB = this._delNodeAndLinks.bind(this);
     let selNodeCB = this._selNodeCB.bind(this);
-    let exeNodeCB = this._exeNodeCB.bind(this);
+    let dblclickNodeCB = this._dblclickNodeCB.bind(this);
     let createNodeCB = this._createNodeCB.bind(this);
     let nodeMouseDownCB = this._nodeMouseDownCB.bind(this);
-    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, exeNodeCB, createNodeCB, nodeMouseDownCB);
+    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, dblclickNodeCB, createNodeCB, nodeMouseDownCB);
     this.truth = ConnectionRulesIfl;
 
     // id, node dict,for high-level nodes
@@ -613,11 +572,10 @@ class GraphInterface {
 
     // event listeners
     this._updateUiListn = [];
-
     this._nodeSelectionListn = [];
     this._nodeCreateListn = [];
     this._nodeDeletedListn = [];
-    this._nodeRunReturnListn = [];
+    this._nodeDataUpdateListn = [];
     this._nodeMouseDownListn = [];
 
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
@@ -638,8 +596,8 @@ class GraphInterface {
   addNodeDeletedListener(listener, rmfunc=null) {
     if (listener) this._nodeDeletedListn.push([listener, rmfunc]);
   }
-  addNodeRunReturnListener(listener, rmfunc=null) {
-    if (listener) this._nodeRunReturnListn.push([listener, rmfunc]);
+  addNodeDataUpdateListener(listener, rmfunc=null) {
+    if (listener) this._nodeDataUpdateListn.push([listener, rmfunc]);
   }
   addUiUpdateListener(listener, rmfunc=null) {
     if (listener) this._updateUiListn.push([listener, rmfunc]);
@@ -669,7 +627,7 @@ class GraphInterface {
     this._fireEvents(this._nodeCreateListn, [id]);
     this.updateUi();
   }
-  _exeNodeCB(gNode) {
+  _dblclickNodeCB(gNode) {
     this.run(gNode.owner.id);
   }
   _delNodeAndLinks(n) {
@@ -740,8 +698,8 @@ class GraphInterface {
       clearThenCreateLink(d, s);
     }
   }
-  // used by high-level node constructors, those taking only a node conf
   _getId(prefix) {
+    // used by high-level node constructors, who take only a node conf
     let id = null;
     if (prefix in this.idxs)
       id = prefix + (this.idxs[prefix] += 1);
@@ -755,8 +713,18 @@ class GraphInterface {
     }
     return id;
   }
-
-  // UTILITY INTERFACE SECTION
+  //
+  // server communication stubs
+  //
+  ajaxcall(url, data, success_cb, fail_cb=null) {
+    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, fail_cb, true);
+  }
+  ajaxcall_noerror(url, data, success_cb) {
+    // call with showfail=false, which turns off django and offline fails
+    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, null, false);
+  }
+  //
+  // utility interface
   //
   setCreateNodeConf(conf) {
     this._createConf = cloneConf(conf);
@@ -769,15 +737,6 @@ class GraphInterface {
   }
   pushSelectedNodeData(json_txt) {
     this.node_data(this.graphData.getSelectedNode().id, json_txt);
-  }
-  runSelectedNode() {
-    if (this.graphData.getSelectedNode()) {
-      this.run(this.graphData.getSelectedNode().id);
-    }
-    else {
-      console.log("GraphInterface.runSelectedNode: selected node is null");
-      return;
-    }
   }
   reset() {
     let lst = this.graphData.getGraphicsNodeObjs();
@@ -832,126 +791,8 @@ class GraphInterface {
     //console.log(JSON.stringify(lst, null, 2));
     console.log(JSON.stringify(lst));
   }
-  ajaxcall(url, data, success_cb, fail_cb=null) {
-    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, fail_cb, true);
-  }
-  ajaxcall_noerror(url, data, success_cb) {
-    // call with showfail=false, which turns off django and offline fails
-    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, null, false);
-  }
-  loadSession() {
-    $("body").css("cursor", "wait");
-
-    this.ajaxcall("/ifl/ajax_load_session/", null, function(obj) {
-      this.reset();
-      this.injectGraphDefinition(obj["graphdef"]);
-      this._update(obj["dataupdate"]);
-      $("body").css("cursor", "default");
-    }.bind(this));
-  }
-  revertSession() {
-    $("body").css("cursor", "wait");
-
-    this.ajaxcall("/ifl/ajax_revert_session/", null, function(obj) {
-      this.reset();
-      this.injectGraphDefinition(obj["graphdef"]);
-      this._update(obj["dataupdate"]);
-      $("body").css("cursor", "default");
-    }.bind(this));
-  }
-  saveSession() {
-    $("body").css("cursor", "wait");
-
-    let post_data = {};
-    post_data["sync"] = this.undoredo.getSyncSet();
-    post_data["coords"] =  this.graphData.getCoords();
-
-    this.ajaxcall("/ifl/ajax_save_session/", post_data, function(obj) {
-      $("body").css("cursor", "default");
-    }.bind(this));
-  }
-  clearSessionData() {
-    $("body").css("cursor", "wait");
-
-    this.ajaxcall("/ifl/ajax_clear_data/", null, function(obj) {
-      this._update(obj["dataupdate"]);
-      $("body").css("cursor", "default");
-    }.bind(this));
-  }
-  updateSession() {
-    if (!this.isalive) return;
-
-    let post_data = {};
-    post_data["sync"] = this.undoredo.getSyncSet();
-    post_data["coords"] =  this.graphData.getCoords();
-
-    this.ajaxcall_noerror("/ifl/ajax_update/", post_data, function(obj) {
-      //
-    }.bind(this));
-  }
-
-  // FORMAL INTERFACE SECTION
-  //
-  run(id) {
-    // safeties
-    if (id == null) throw "run arg must be a valid id"
-    if (this.lock == true) { console.log("GraphInterface.run call during lock (id: " + id + ")" ); return; }
-    let n = this.graphData.getNode(id);
-    if (n.executable == false) { console.log("GraphInterface.run call on non-executable node (id: " + id + ")"); return; }
-
-    // clear the state of any error node, we can hope users have now fixed the problem and we do not want any hangover error nodes
-    if (this._errorNode)
-    {
-      this.graphData._updateNodeState(this._errorNode);
-      this._errorNode = null;
-    }
-
-    // lock the ui and set running node state
-    this.lock = true;
-    n.gNode.state = NodeState.RUNNING;
-    this.updateUi();
-
-    let post_data = {};
-    post_data["sync"] = this.undoredo.getSyncSet();
-    post_data["run_id"] = id;
-
-    this.ajaxcall("/ifl/ajax_run_node/", post_data,
-      function(obj) {
-        this.lock = false;
-
-        // fail section
-        let failmsg = obj['error'];
-        if (failmsg != null) {
-          this.graphData._updateNodeState(n);
-          let sourceid = obj['errorid'];
-          if (sourceid) {
-            let m = this.graphData.getNode(sourceid);
-            this._errorNode = m;
-            m.gNode.state = NodeState.FAIL;
-            m.info = failmsg;
-            this.updateUi();
-            alert(m.label + " " + sourceid + " " + failmsg);
-          }
-          else {
-            console.log("fallback alert used")
-            alert(failmsg);
-          }
-        }
-
-        // success section
-        let datasets = obj['dataupdate'];
-        this._update(datasets);
-      }.bind(this),
-      function() {
-        // unhandled server exception section
-        this.lock = false;
-        this.graphData._updateNodeState(n);
-        this.updateUi();
-      }.bind(this)
-    );
-  }
-  _update(update) {
-    // server node representation update
+  graph_update(update) {
+    // should be called using an update set to adjust the graph
     for (let key in update) {
       let obj = update[key];
       let m = this.graphData.getNode(key);
@@ -963,12 +804,71 @@ class GraphInterface {
       }
       m.obj = obj; // (re)set all data
       this.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
-      this.graphData._updateNodeState(m);
-      this._fireEvents(this._nodeRunReturnListn, [m]);
+      this.graphData.updateNodeState(m);
+      this._fireEvents(this._nodeDataUpdateListn, [m]);
     }
     this.updateUi();
   }
+  //
+  // graph manipulation interface
+  //
+  undo() {
+    if (this.lock == true) { console.log("undo call during lock"); return -1; }
+    let cmd = this.undoredo.undo();
+    if (cmd) {
+      this._command(cmd);
+      this.updateUi();
+    }
+  }
+  redo() {
+    if (this.lock == true) { console.log("redo call during lock"); return -1; }
+    let cmd = this.undoredo.redo();
+    if (cmd) {
+      this._command(cmd);
+      this.updateUi();
+    }
+  }
+  node_add(x, y, id, name, label, addr) {
+    // int, int, str, str, str, str
+    if (this.lock == true) { console.log("node_add call during lock"); return -1; }
+    let cmd_rev = this._command(["node_add", x, y, id, name, label, addr]);
+    if (cmd_rev) {
+      this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+      return cmd_rev[0][2];
+    }
+  }
+  node_rm(id) {
+    // str
+    if (this.lock == true) { console.log("node_rm call during lock"); return -1; }
+    let cmd_rev = this._command(["node_rm", id]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+  }
+  node_label(id, label) {
+    // str, str
+    if (this.lock == true) { console.log("node_label call during lock"); return -1; }
+    let cmd_rev = this._command(["node_label", id, label]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+  }
+  node_data(id, data) {
+    // str, str
+    if (this.lock == true) { console.log("node_data call during lock"); return -1; }
+    let cmd_rev = this._command(["node_data", id, data]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+  }
+  link_add(id1, idx1, id2, idx2) {
+    // str, int, str, int, int
+    if (this.lock == true) { console.log("link_add call during lock"); return -1; }
+    let cmd_rev = this._command(["link_add", id1, idx1, id2, idx2]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+  }
+  link_rm(id1, idx1, id2, idx2) {
+    // str, int, str, int, int
+    if (this.lock == true) { console.log("link_rm call during lock"); return -1; }
+    let cmd_rev = this._command(["link_rm", id1, idx1, id2, idx2]);
+    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
+  }
   _command(cmd) {
+    // impl. graph manipulation commands
     let args = cmd.slice(1);
     let command = cmd[0];
     if (command=="node_add") {
@@ -1049,62 +949,8 @@ class GraphInterface {
     }
     else throw "unknown command value";
   }
-  undo() {
-    if (this.lock == true) { console.log("undo call during lock"); return -1; }
-    let cmd = this.undoredo.undo();
-    if (cmd) {
-      this._command(cmd);
-      this.updateUi();
-    }
-  }
-  redo() {
-    if (this.lock == true) { console.log("redo call during lock"); return -1; }
-    let cmd = this.undoredo.redo();
-    if (cmd) {
-      this._command(cmd);
-      this.updateUi();
-    }
-  }
-  node_add(x, y, id, name, label, addr) {
-    // int, int, str, str, str, str
-    if (this.lock == true) { console.log("node_add call during lock"); return -1; }
-    let cmd_rev = this._command(["node_add", x, y, id, name, label, addr]);
-    if (cmd_rev) {
-      this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-      return cmd_rev[0][2];
-    }
-  }
-  node_rm(id) {
-    // str
-    if (this.lock == true) { console.log("node_rm call during lock"); return -1; }
-    let cmd_rev = this._command(["node_rm", id]);
-    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-  }
-  node_label(id, label) {
-    // str, str
-    if (this.lock == true) { console.log("node_label call during lock"); return -1; }
-    let cmd_rev = this._command(["node_label", id, label]);
-    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-  }
-  node_data(id, data) {
-    // str, str
-    if (this.lock == true) { console.log("node_data call during lock"); return -1; }
-    let cmd_rev = this._command(["node_data", id, data]);
-    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-  }
-  link_add(id1, idx1, id2, idx2) {
-    // str, int, str, int, int
-    if (this.lock == true) { console.log("link_add call during lock"); return -1; }
-    let cmd_rev = this._command(["link_add", id1, idx1, id2, idx2]);
-    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-  }
-  link_rm(id1, idx1, id2, idx2) {
-    // str, int, str, int, int
-    if (this.lock == true) { console.log("link_rm call during lock"); return -1; }
-    let cmd_rev = this._command(["link_rm", id1, idx1, id2, idx2]);
-    if (cmd_rev) this.undoredo.newdo(cmd_rev[0], cmd_rev[1]);
-  }
 }
+
 
 class UndoRedoCommandStack {
   constructor(maxSize=5000) {

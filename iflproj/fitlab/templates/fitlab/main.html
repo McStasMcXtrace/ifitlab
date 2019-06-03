@@ -65,6 +65,7 @@
 <script src="/ifl/ifl-static/fitlab/jquery-ui.js"></script>
 <script src="/ifl/ifl-static/fitlab/graphuilib.js"></script>
 <script src="/ifl/ifl-static/fitlab/graphui.js"></script>
+<script src="/ifl/ifl-static/fitlab/ifl.js"></script>
 <script src="/ifl/ifl-static/fitlab/plainui.js"></script>
 <script src="/ifl/ifl-static/fitlab/nodetypes.js"></script>
 <script src="/ifl/ifl-static/fitlab/plotfuncs.js"></script>
@@ -260,8 +261,8 @@ $(document).ready(() => {
   // construct graph engine and add listeners
   let gs_id = $("body > #gs_id")[0].value;
   let tab_id = $("body > #tab_id")[0].value;
-  intface = new GraphInterface(gs_id, tab_id);
-  intface.addNodeRunReturnListener( (node) => {
+  intface = new GraphInterfaceIFL(gs_id, tab_id);
+  intface.addNodeDataUpdateListener( (node) => {
     // clear previous subwindow elements with this id
     let x_y = subwhandler.removePlots(node.id);
 
