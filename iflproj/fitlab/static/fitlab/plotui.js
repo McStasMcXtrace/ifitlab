@@ -177,9 +177,6 @@ class IdxEditWindow {
     this._closeOuterCB(this);
   }
   dropNode(n) {
-    // TODO: fix a but that makes this function be called @ every mouseup on the window
-    if (n==null) return false;
-
     if (n.type == "idata" || n.type == "ifunc") {
       let ans = this.model.try_add_plt_node(n);
       if (ans == true) {
@@ -795,7 +792,8 @@ class SubWindowHandler {
     // just returns all plots with data in them, as they are
   }
   rePlot(node) {
-    this.subwindowlines.removeLinesByNid(id);
+    if (node == null) return false;
+    this.subwindowlines.removeLinesByNid(node.id);
     for (let i=0;i<this.plotWindows.length;i++) {
       let pltw = this.plotWindows[i];
       let didremove = pltw.extractNode(node.id);
@@ -821,7 +819,7 @@ class SubWindowHandler {
     this.subwindowlines.update();
   }
   _pwMouseUpCB(pltw) {
-    if (pltw.dropNode(this.tmpNode)) {
+    if (this.tmpNode != null && pltw.dropNode(this.tmpNode)) {
       this.subwindowlines.setLineToAndCloseData(pltw.wname, pltw);
     }
     this.tmpNode = null;
