@@ -336,13 +336,9 @@ class IdxEditWindow {
     setSubWindowTitle(this.wname, "Right-drag nodes to plot");
   }
   _hide_tarea() {
-    //$("#" + this.wname + "_tarea").hide();
-    //$("#" + this.wname + "_buttons").hide();
     $("#" + this.wname + "_edtcontainer").hide();
   }
   _show_tarea() {
-    //$("#" + this.wname + "_tarea").show();
-    //$("#" + this.wname + "_buttons").show();
     $("#" + this.wname + "_edtcontainer").show();
   }
   _hide_browser() {
