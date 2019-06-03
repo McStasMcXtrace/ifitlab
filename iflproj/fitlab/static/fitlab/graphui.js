@@ -308,7 +308,6 @@ class GraphDraw {
   }
   static drawNodes(branch) {
     // draw anchor nodes
-    // TODO:
     branch.each( function(d, i) {
       let sbranch = d3.select(this)
         .append("g")
@@ -364,7 +363,7 @@ class GraphDraw {
       .classed("noselect", true)
       .lower();
 
-    // draw nodes (by delegation & strategy)
+    // draw nodes (delegation & strategy)
     return branch
       .append("g")
       .lower()
@@ -585,7 +584,10 @@ class ConnectionRulesIfl {
 }
 
 class GraphInterface {
-  // high/user-level interface to graph data and drawing
+  /*
+  *  High-level graph data and drawing interface. Use to manipulate the graph,
+  *  and to save and load it. If used appropriately, this enables undo/redo.
+  */
   constructor(gs_id, tab_id) {
     this.gs_id = gs_id;
     this.tab_id = tab_id;

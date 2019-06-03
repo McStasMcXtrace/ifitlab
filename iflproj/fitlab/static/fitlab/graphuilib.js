@@ -641,6 +641,7 @@ class Link {
 }
 
 class LinkSingle extends Link {
+  // becomes a single line
   constructor(d1, d2) {
     super(d1, d2);
   }
@@ -670,6 +671,7 @@ class LinkSingle extends Link {
 }
 
 class LinkDouble extends Link {
+  // becoes a double line
   constructor(d1, d2) {
     super(d1, d2);
   }
@@ -719,6 +721,7 @@ class LinkDouble extends Link {
 }
 
 class LinkCenter extends Link {
+  // becomes a straight double line
   constructor(d1, d2) {
     super(d1, d2);
   }
@@ -1030,9 +1033,9 @@ class NodeObjectLiteral extends Node {
 /*
 * GraphTree types
 *
-* The GraphTree is the basic data structure of the nodes, which incapsulates
-* the specific node types to a large extent, exposing a mainly id-based
-* interface for graph manipulation.
+* The GraphTree is a data structure for storing nodes, which incapsulates
+* the specific node types and graphics implementations to a large extent,
+* exposing an abstract, id-based, interface to the nodes and their links.
 */
 
 class NodeTypeHelper {
