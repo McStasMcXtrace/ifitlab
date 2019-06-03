@@ -1,7 +1,7 @@
-//
-//  A plain jquery ui lib to accompany graphui
-//
-
+/*
+*  A jquery based ui lib for graphui.
+*  Plot windows, drag windows, helper lines and associated housekeeping classes.
+*/
 
 class IdxEditWindow {
   // This class is a multi-purpose window containing a plotter, a browser, and an index editor all in one.
