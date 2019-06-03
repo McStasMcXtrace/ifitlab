@@ -34,8 +34,8 @@ class IdxEditWindow {
 
     removeSubWindow(this.wname);
     this._createSubWindow(xpos, ypos, this.w);
+    this.reDraw();
   }
-
   // PlotWindow section
   _toggleSizeCB() {
     let prev_w = this.w;
@@ -94,13 +94,29 @@ class IdxEditWindow {
   }
   reDraw() {
     let state = this.model.get_state();
-    if (state == 0 || state == 3) return false;
+    // nothing to draw - set body size as a window filler / reset body size
+    if (state == 0 || state == 3) {
+      $("#" + this.body_container[0])
+        .css({
+          "height" : this.h,
+        })
+      this._hide_browser();
+      return false;
+    } else {
+      $("#" + this.body_container[0])
+        .css({
+          "height" : "",
+        });
+      // reset browser visibility to default
+      this._show_browser();
+    }
 
     // init - have to reset or make sure to not plot the same stuff twice
     this.plotbranch = d3.select('#'+this.body_container[0])
       .selectAll("svg")
       .remove();
-    this.plotbranch = d3.select('#'+this.body_container[0]).insert("svg", "#"+this.wname+"_tarea");
+    this.plotbranch = d3.select('#'+this.body_container[0])
+      .insert("svg", "#"+this.wname+"_edtcontainer");
     this.plot = null;
 
     // get
@@ -227,34 +243,40 @@ class IdxEditWindow {
   }
   _renderEditor(){
     if (this._editor==true) {
-      $("#" + this.wname + "_tarea").show();
-      $("#" + this.wname + "_buttons").show();
+      $("#" + this.wname + "_edtcontainer").show();
     } else {
-      $("#" + this.wname + "_tarea").hide();
-      $("#" + this.wname + "_buttons").hide();
+      $("#" + this.wname + "_edtcontainer").hide();
     }
   }
-  _createSubWindow(xpos, ypos, width) {
+  _removeEmptySpace() {
+    $("#" + this.wname + "_empty").remove();
+  }
+  _createSubWindow(xpos, ypos, width, height) {
     // standard window
     this.body_container = createSubWindow(
-      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width);
+      this.wname, this.mouseupCB, this.dragCB, this.closeCB, xpos, ypos, width, height);
     addHeaderButtonToSubwindow(this.wname, "log", 1, this.logscaleCB, "lightgray");
     addHeaderButtonToSubwindow(this.wname, "size", 2, this.sizeCB, "gray");
     this.btnedt_id = addHeaderButtonToSubwindow(this.wname, "editor", 3, this._toggleEditor.bind(this), "dimgray");
 
     // header buttons size and log
+    let edt_container =
+      $("<div id=ID></div>".replace("ID", this.wname + "_edtcontainer"))
+      .css({
+      });
     let tarea = $('<textarea rows=5 id=ID></textarea>'.replace("ID", this.wname + "_tarea"))
       .css({
         resize: "none",
         width: "99%",
-        //border: "none",
       })
+      .appendTo(edt_container)
       .change(this._pull_tarea_value.bind(this));
     let buttons_div = $("<div id=ID></div>".replace("ID", this.wname + "_buttons"))
       .css({
         "margin" : "auto",
         "text-align" : "right",
-      });
+      })
+      .appendTo(edt_container);
     let btn1 = $('<button id="'+ this.wname + '_btn2"' +'>To All</button>')
       .click(this.model.do_copy_to_all.bind(this.model))
       .appendTo(buttons_div);
@@ -307,20 +329,21 @@ class IdxEditWindow {
 
     // add editor elements
     addElementToSubWindow(this.wname, brws_container);
-    addElementToSubWindow(this.wname, tarea);
-    addElementToSubWindow(this.wname, buttons_div);
+    addElementToSubWindow(this.wname, edt_container);
     this._renderEditor();
 
     // update title
-    setSubWindowTitle(this.wname, "Index Editor - add iterator obj and literal");
+    setSubWindowTitle(this.wname, "Right-drag nodes to plot");
   }
   _hide_tarea() {
-    $("#" + this.wname + "_tarea").hide();
-    $("#" + this.wname + "_buttons").hide();
+    //$("#" + this.wname + "_tarea").hide();
+    //$("#" + this.wname + "_buttons").hide();
+    $("#" + this.wname + "_edtcontainer").hide();
   }
   _show_tarea() {
-    $("#" + this.wname + "_tarea").show();
-    $("#" + this.wname + "_buttons").show();
+    //$("#" + this.wname + "_tarea").show();
+    //$("#" + this.wname + "_buttons").show();
+    $("#" + this.wname + "_edtcontainer").show();
   }
   _hide_browser() {
     $("#" + this.wname + "_browsecontainer").hide();
@@ -1075,8 +1098,8 @@ function createSubWindow(wname, mouseUpCB, mouseMoveCB, beforeCloseCB, xpos, ypo
   let winbody_id = wname + "_body";
   let winbody = $('<div id="ID">'.replace("ID", winbody_id))
     .css({
-      position:"relative",
-      width:width+"px",
+      "position" : "relative",
+      "width" : width + "px",
       "background-color":"white",
       "border-style":"solid",
       "border-width":"1px",
