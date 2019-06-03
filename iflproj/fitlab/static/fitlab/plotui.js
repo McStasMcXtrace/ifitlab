@@ -550,6 +550,7 @@ class IdxEdtData {
   try_remove_plt_node(nodeid) {
     let lst = this.plt_nodes;
     for (var i=0;i<lst.length;i++) {
+      // note that this function returns at the first match
       let e = lst[i];
       if (e.id == nodeid) {
         remove(lst, e);
@@ -704,7 +705,10 @@ class SubWindowLines {
   }
   removeLine(node_id, window_id) {
     // allows to control more precisely when lines are removed
-    for (let i=0; i<this.ids.length; i++) {
+    //for (let i=0; i<this.ids.length; i++) {
+    console.log("ids:", this.ids);
+    console.log("nid, wid:", node_id, window_id);
+    for (let i=this.ids.length-1;i>=0;i--) {
       let entry = this.ids[i];
       if (entry[0] == node_id && entry[1] == window_id) {
         this.ids.splice(i, 1);
@@ -771,29 +775,19 @@ class SubWindowHandler {
       }
     }
   }
-  removePlots(id, force=false) {
-    // Remove subwindows and lines by node id. At e.g. node deletion, use force==true to ensure removal.
+  removePlots(id) {
+    // remove all lines associated with this id
+    this.subwindowlines.removeLinesByNid(id);
+    // remove all subwindows associated by this id.
     let x_y = null;
     let closeUs = [];
-    for (let i=0;i<this.plotWindows.length;i++) {
+    for (let i=this.plotWindows.length-1;i>=0;i--) {
       let pltw = this.plotWindows[i];
-      let didremove = pltw.extractNode(id, force);
-
-      if (didremove && pltw.numClients() == 0) {
+      if (pltw.extractNode(id) && pltw.numClients() == 0) {
         x_y = [pltw.left, pltw.top];
-        closeUs.push(pltw);
-        this.subwindowlines.removeLine(id, pltw.wname);
-      } else if (force == true) {
-        this.subwindowlines.removeLine(id, pltw.wname);
-        if (pltw.numClients() == 0) closeUs.push(pltw);
+        pltw.close();
       }
     }
-    // warning: the close CB will remove items from this.plotWindows
-    let len = closeUs.length;
-    for (let i=0;i<len;i++) {
-      closeUs[i].close();
-    }
-
     return x_y;
   }
   getAllPlots() {
