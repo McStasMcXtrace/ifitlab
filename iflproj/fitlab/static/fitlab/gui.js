@@ -54,7 +54,7 @@ class LinkHelper {
 
 // responsible for drawing, and acts as an interface
 class GraphDraw {
-  constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB, nodeMouseDownCB) {
+  constructor(graphData, mouseAddLinkCB, delNodeCB, selectNodeCB, executeNodeCB, createNodeCB, nodeMouseDownCB, recenterCB) {
     self = this;
 
     this.graphData = graphData; // this is needed for accessing anchors and nodes for drawing and simulations
@@ -64,6 +64,7 @@ class GraphDraw {
     this.executeNodeCB = executeNodeCB;
     this.createNodeCB = createNodeCB;
     this.nodeMouseDownCB = nodeMouseDownCB; // this is used for PlotLines implementation, and can implicitly influence plotlines drawing
+    this.recenterCB = recenterCB;
 
     this.svg = d3.select('body')
       .append('svg')
@@ -172,13 +173,7 @@ class GraphDraw {
     for (let i=0;i<this._drawListn.length;i++) this._drawListn[i]();
   }
   recenter() {
-    // TODO: the UI element related code should be called via a proxy callback to generalize this interface
-
-    // unwanted, test-only explicit reference to #buttons
-    let btnsmenu = d3.select("#buttons");
-    btnsmenu.style("left", window.innerWidth/2-btnsmenu.node().clientWidth/2 + "px");
-    let btnsmenu_2 = d3.select("#buttons_2");
-    btnsmenu_2.style("left", window.innerWidth/2-btnsmenu_2.node().clientWidth/2 + "px");
+    this.recenterCB();
 
     self.centeringSim.stop();
     self.centeringSim.force("centering").x(window.innerWidth/2);
@@ -559,8 +554,9 @@ class GraphInterface {
     let dblclickNodeCB = this._dblclickNodeCB.bind(this);
     let createNodeCB = this._createNodeCB.bind(this);
     let nodeMouseDownCB = this._nodeMouseDownCB.bind(this);
-    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, dblclickNodeCB, createNodeCB, nodeMouseDownCB);
-    this.truth = ConnectionRulesIfl;
+    let recenterCB = this._recenterCB.bind(this);
+    this.draw = new GraphDraw(this.graphData, linkCB, delNodeCB, selNodeCB, dblclickNodeCB, createNodeCB, nodeMouseDownCB, recenterCB);
+    this.truth = conn_rules;
 
     // id, node dict,for high-level nodes
     this.nodes = {};
@@ -607,6 +603,9 @@ class GraphInterface {
   }
   addNodeMouseDownListn(listener, rmfunc=null) {
     if (listener) this._nodeMouseDownListn.push([listener, rmfunc]);
+  }
+  _recenterCB() {
+    console.log("implement _recenterCB in descendant to reposition app-specific elements");
   }
   _selNodeCB(node) {
     let n = null;
