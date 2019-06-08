@@ -227,6 +227,33 @@ class GraphicsNodeSquare extends GraphicsNode {
   }
 }
 
+class GraphicsNodeDiamond extends GraphicsNode {
+  constructor(owner, label, x, y) {
+    super(owner, label, x, y);
+    this.r = 0.85 * nodeRadius; // this is now the half height/width of the square
+  }
+  draw(branch, i) {
+    let r = 1.2 * this.r;
+    let alpha;
+    let points = [];
+    for (i=0; i<4; i++) {
+      alpha = i*Math.PI*2/4;
+      points.push( {x : r*Math.cos(alpha), y : - r*Math.sin(alpha) } );
+    }
+    // return path to starting point
+    points.push(points[0]);
+
+    branch = super.draw(branch, i);
+    return branch
+      .append('path')
+      .datum(points)
+      .attr('d', d3.line()
+        .x( function(p) { return p.x; } )
+        .y( function(p) { return p.y; } )
+      );
+  }
+}
+
 class GraphicsNodeHexagonal extends GraphicsNode {
   constructor(owner, label, x, y) {
     super(owner, label, x, y);
@@ -245,6 +272,7 @@ class GraphicsNodeHexagonal extends GraphicsNode {
       alpha = i*Math.PI*2/6;
       points.push( {x : r*Math.cos(alpha), y : - r*Math.sin(alpha) } );
     }
+    // return path to starting point
     points.push(points[0]);
 
     branch = super.draw(branch, i);
@@ -777,6 +805,12 @@ class LinkCenter extends Link {
 * Base/Abstract Node types
 */
 
+// node registration mechanism
+var g_nodeclasses = [];
+function register_node_class(cls) {
+  g_nodeclasses.push(cls);
+}
+
 class Node {
   static get basetype() { throw "Node: basetype property must be overridden"; }
   static get prefix() { throw "Node: prefix property must be overridden"; }
@@ -1029,6 +1063,15 @@ class NodeObjectLiteral extends Node {
   }
 }
 
+// register node types
+register_node_class(NodeObject);
+register_node_class(NodeObjectLiteral);
+register_node_class(NodeFunction);
+register_node_class(NodeFunctionNamed);
+register_node_class(NodeMethodAsFunction);
+register_node_class(NodeMethod);
+
+
 /*
 * Connection Rules
 */
@@ -1050,25 +1093,12 @@ class NodeTypeHelper {
   constructor() {
     this.idxs = {};
   }
-  static _nodeClasses() {
-    return [
-      NodeObject,
-      NodeObjectLiteral,
-      NodeFunction,
-      NodeFunctionNamed,
-      NodeMethodAsFunction,
-      NodeMethod,
-      NodeIData,
-      NodeIFunc
-    ];
-  }
   getId(basetype, existingids) {
     let prefix = null;
     let id = null;
 
-    let classes = NodeTypeHelper._nodeClasses();
-    let prefixes = classes.map(name => name.prefix);
-    let basetypes = classes.map(name => name.basetype);
+    let prefixes = g_nodeclasses.map(name => name.prefix);
+    let basetypes = g_nodeclasses.map(name => name.basetype);
     let i = basetypes.indexOf(basetype);
     if (i >= 0) prefix = prefixes[i]; else throw "NodeTypeHelper.getId: unknown basetype";
 
@@ -1087,10 +1117,9 @@ class NodeTypeHelper {
   static createNode(x, y, id, typeconf) {
     // get node class
     let cls = null
-    let nodeclasses = NodeTypeHelper._nodeClasses();
-    let basetypes = nodeclasses.map(cn => cn.basetype);
+    let basetypes = g_nodeclasses.map(cn => cn.basetype);
     let i = basetypes.indexOf(typeconf.basetype);
-    if (i >= 0) cls = nodeclasses[i]; else throw "unknown typeconf.basetype: " + typeconf.basetype;
+    if (i >= 0) cls = g_nodeclasses[i]; else throw "unknown typeconf.basetype: " + typeconf.basetype;
 
     // create the node
     // TODO: simplify this constructor

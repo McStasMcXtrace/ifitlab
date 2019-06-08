@@ -449,43 +449,6 @@ class GraphDraw {
   }
 }
 
-/*
-* Custom Node types (IFL specific)
-*/
-class NodeIData extends NodeObject {
-  static get basetype() { return "object_idata"; }
-  get basetype() { return NodeIData.basetype; }
-  static get prefix() { return "id"; }
-
-  constructor(x, y, id, name, label, typeconf) {
-    super(x, y, id, name, label, typeconf, 'IData');
-  }
-  _getGNType() {
-    return GraphicsNodeFluffyPad;
-  }
-  isActive() {
-    // assumed to be associated with an underlying function object
-    let b1 = this.plotdata && true;
-    let b2 = this.obj != null;
-    return b1 || b2
-  }
-}
-
-class NodeIFunc extends NodeObject {
-  static get basetype() { return "object_ifunc"; }
-  get basetype() { return NodeIFunc.basetype; }
-  static get prefix() { return "if"; }
-  constructor(x, y, id, name, label, typeconf) {
-    super(x, y, id, name, label, typeconf, 'IFunc');
-  }
-  _getGNType() {
-    return GraphicsNodeCircularPad;
-  }
-  isActive()  {
-    return this.userdata != null
-  }
-}
-
 function wrap_ajax_validation_ids(gs_id, tab_id) {
   // GraphInterface utility function
   return { "gs_id" : gs_id, "tab_id" : tab_id };
