@@ -81,15 +81,15 @@ class GraphDraw {
   rgstrDblClickNode(f) { this._dblClickNodeListeners.push(f); }
   deregDblClickNode(f) { remove(this._dblClickNodeListeners, f); }
   fireDblClickNode(...args) { fireEvents(this._dblClickNodeListeners, "dblClickNode", ...args); }
-  rgstrCreateNode(f) { this._createNodeListeners.push(f); }
-  deregCreateNode(f) { remove(this._createNodeListeners, f); }
-  fireCreateNode(...args) { fireEvents(this._createNodeListeners, "createNode", ...args); }
-  rgstrSelectNode(f) { this._selectNodeListeners.push(f); }
-  deregSelectNode(f) { remove(this._selectNodeListeners, f); }
-  fireSelectNode(...args) { fireEvents(this._selectNodeListeners, "selectNode", ...args); }
-  rgstrDeleteNode(f) { this._deleteNodeListeners.push(f); }
-  deregDeleteNode(f) { remove(this._deleteNodeListeners, f); }
-  fireDeleteNode(...args) { fireEvents(this._deleteNodeListeners, "deleteNode", ...args); }
+  rgstrClickSVG(f) { this._clickSVGListeners.push(f); }
+  deregClickSVG(f) { remove(this._clickSVGListeners, f); }
+  fireClickSVG(...args) { fireEvents(this._clickSVGListeners, "clickSVG", ...args); }
+  rgstrClickNode(f) { this._clickNodeListeners.push(f); }
+  deregClickNode(f) { remove(this._clickNodeListeners, f); }
+  fireClickNode(...args) { fireEvents(this._clickNodeListeners, "selectNode", ...args); }
+  rgstrCtrlClickNode(f) { this._ctrlClickNodeListeners.push(f); }
+  deregCtrlClickNode(f) { remove(this._ctrlClickNodeListeners, f); }
+  fireCtrlClickNode(...args) { fireEvents(this._ctrlClickNodeListeners, "deleteNode", ...args); }
   rgstrMouseDownNode(f) { this._mouseDownNodeListeners.push(f); }
   deregMouseDownNode(f) { remove(this._mouseDownNodeListeners, f); }
   fireMouseDownNode(...args) { fireEvents(this._mouseDownNodeListeners, "mouseDownNode", ...args); }
@@ -108,9 +108,9 @@ class GraphDraw {
     // listener interface
     this._mouseAddLinkListeners = [];
     this._dblClickNodeListeners = [];
-    this._createNodeListeners = [];
-    this._selectNodeListeners = [];
-    this._deleteNodeListeners = [];
+    this._clickSVGListeners = [];
+    this._clickNodeListeners = [];
+    this._ctrlClickNodeListeners = [];
     this._mouseDownNodeListeners = [];
     this._recenterListeners = [];
     this._updateListn = [];
@@ -135,12 +135,12 @@ class GraphDraw {
         //console.log(d3.event); // enables debugging of click event in various browsers
 
         self.graphData.setSelectedNode(null);
-        self.fireSelectNode(null);
+        self.fireClickNode(null);
         self.update();
         let m = d3.mouse(this)
         let svg_x = m[0];
         let svg_y = m[1];
-        self.fireCreateNode(svg_x, svg_y);
+        self.fireClickSVG(svg_x, svg_y);
       } );
 
     // force layout simulations
@@ -428,7 +428,7 @@ class GraphDraw {
         }
         else {
           self.graphData.setSelectedNode(node.owner.id);
-          self.fireSelectNode( node );
+          self.fireClickNode( node );
           self.update();
         }
       })
@@ -543,7 +543,22 @@ class GraphInterface {
   *  High-level graph data and drawing interface. Use to manipulate the graph,
   *  and to save and load it. If used appropriately, this enables undo/redo.
   */
+  // listener interface - native
+  addNodeDataUpdateListener(l) { this._nodeDataUpdateListn.push(l); }
+  addNodeCreateListener(l) { this._nodeCreateListn.push(l); }
+  addNodeDeletedListener(l) { this._nodeDeletedListn.push(l); }
+  // listener interface - delegate
+  addUiDrawAllListener(l) { this.draw.rgstrDraw(l); }
+  addNodeSelectionListener(l) { this.draw.rgstrClickNode(l); }
+  addNodeMouseDownListn(l) { this.draw.rgstrMouseDownNode(gNode => { l(gNode.owner); }); }
+
   constructor(gs_id, tab_id, conn_rules) {
+    // listener interface
+    this._nodeCreateListn = [];
+    this._nodeDeletedListn = [];
+    this._nodeDataUpdateListn = [];
+
+    // setup
     this.gs_id = gs_id;
     this.tab_id = tab_id;
     this.isalive = true;
@@ -551,11 +566,10 @@ class GraphInterface {
     this.graphData = new GraphTree(conn_rules);
     this.draw = new GraphDraw(this.graphData);
     this.draw.rgstrMouseAddLink(this._tryCreateLink.bind(this));
-    this.draw.rgstrDeleteNode(this._delNodeAndLinks.bind(this));
-    this.draw.rgstrSelectNode(this._selNodeCB.bind(this));
+    this.draw.rgstrCtrlClickNode(this._delNodeAndLinks.bind(this));
+    this.draw.rgstrClickNode(this._selNodeCB.bind(this));
     this.draw.rgstrDblClickNode(this._dblclickNodeCB.bind(this));
-    this.draw.rgstrCreateNode(this._createNodeCB.bind(this));
-    this.draw.rgstrMouseDownNode(this._nodeMouseDownCB.bind(this));
+    this.draw.rgstrClickSVG(this._createNodeCB.bind(this));
     this.draw.rgstrRecenter(this._recenterCB.bind(this));
 
     // node connection logics
@@ -569,14 +583,6 @@ class GraphInterface {
     // undo-redo stack
     this.undoredo = new UndoRedoCommandStack();
 
-    // event listeners
-    this._updateUiListn = [];
-    this._nodeSelectionListn = [];
-    this._nodeCreateListn = [];
-    this._nodeDeletedListn = [];
-    this._nodeDataUpdateListn = [];
-    this._nodeMouseDownListn = [];
-
     // locks all undoable commands, and also a few others (js is single-threaded in most cases)
     this.locked = false;
 
@@ -589,31 +595,12 @@ class GraphInterface {
   //
   // listener & event interface
   //
-  addNodeCreateListener(listener, rmfunc=null) {
-    if (listener) this._nodeCreateListn.push([listener, rmfunc]);
-  }
-  addNodeDeletedListener(listener, rmfunc=null) {
-    if (listener) this._nodeDeletedListn.push([listener, rmfunc]);
-  }
-  addNodeDataUpdateListener(listener, rmfunc=null) {
-    if (listener) this._nodeDataUpdateListn.push([listener, rmfunc]);
-  }
-  addUiUpdateListener(listener, rmfunc=null) {
-    if (listener) this._updateUiListn.push([listener, rmfunc]);
-  }
-  addNodeSelectionListener(listener, rmfunc=null) {
-    if (listener) this._nodeSelectionListn.push([listener, rmfunc]);
-  }
-  addNodeMouseDownListn(listener, rmfunc=null) {
-    if (listener) this._nodeMouseDownListn.push([listener, rmfunc]);
-  }
   _recenterCB() {
     console.log("implement _recenterCB in descendant to reposition app-specific elements");
   }
   _selNodeCB(node) {
     let n = null;
     if (node) n = node.owner;
-    this._fireEvents(this._nodeSelectionListn, [n]);
   }
   _createNodeCB(x, y) {
     let conf = this._createConf;
@@ -626,7 +613,7 @@ class GraphInterface {
     this._createConf = null;
 
     // update
-    this._fireEvents(this._nodeCreateListn, [id]);
+    fireEvents(this._nodeCreateListn, "createNode", id);
     this.updateUi();
   }
   _dblclickNodeCB(gNode) {
@@ -645,25 +632,10 @@ class GraphInterface {
     this.node_rm(id);
 
     // update
-    this._fireEvents(this._nodeDeletedListn, [id]);
+    fireEvents(this._nodeDeletedListn, "deleteNode", id);
+    // TODO: this call should probably be intrinsic to GraphDraw?
     this.draw.restartCollideSim();
     this.updateUi();
-  }
-  _nodeMouseDownCB(gNode) {
-    let n = gNode.owner;
-    this._fireEvents(this._nodeMouseDownListn, [n]);
-  }
-  _fireEvents(lst, args=[]) {
-    for (var i=0; i<lst.length; i++) {
-      let l = lst[i];
-      if (args.length==0) l[0](args[0]);
-      if (args.length==1) l[0](args[0], args[1]);
-      if (args.length==2) l[0](args[0], args[1], args[2]);
-      if (args.length==3) l[0](args[0], args[1], args[2], args[3]);
-      if (args.length==4) l[0](args[0], args[1], args[2], args[3], args[4]);
-      // remove this element if rmfunc returns true (optional)
-      if (l[1]) if (l[1]()) remove(lst, l);
-    }
   }
   _tryCreateLink(s, d) {
     let createLink = function(a1, a2) {
@@ -749,7 +721,6 @@ class GraphInterface {
   }
   updateUi() {
     this.draw.drawAll();
-    this._fireEvents(this._updateUiListn, [this.graphData.getSelectedNode()]);
   }
   injectGraphDefinition(def) {
     let args = null;
@@ -807,7 +778,7 @@ class GraphInterface {
       m.obj = obj; // (re)set all data
       this.undoredo.incSyncByOne(); // this to avoid re-setting already existing server state
       this.graphData.updateNodeState(m);
-      this._fireEvents(this._nodeDataUpdateListn, [m]);
+      fireEvents(this._nodeDataUpdateListn, "dataUpdate", m);
     }
     this.updateUi();
   }

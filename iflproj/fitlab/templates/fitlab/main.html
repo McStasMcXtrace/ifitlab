@@ -295,7 +295,7 @@ $(document).ready(() => {
       setUserData(node);
     }
 
-  }, null);
+  });
 
   // update server, before window close
   $(window).bind('beforeunload', () => {
@@ -321,12 +321,12 @@ $(document).ready(() => {
   intface.addNodeSelectionListener( (node) => {
     if (node) { setUserData(node); }
     else clearUserDataPanel();
-  }, null);
-  intface.addUiUpdateListener( () => {
+  });
+  intface.addUiDrawAllListener( () => {
     if (intface.graphData.selectedNode) {
       setUserData(intface.getSelectedNode());
     }
-  }, null);
+  });
   $("#tbxNodeLabel").change( () => {
     intface.pushSelectedNodeLabel($("#tbxNodeLabel").val());
   });
