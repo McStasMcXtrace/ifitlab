@@ -74,6 +74,7 @@ function fireEvents(lst, sCaller, ...args) {
 // responsible for drawing, and acts as an interface
 class GraphDraw {
   // listener interface
+  // mouse and node events
   rgstrMouseAddLink(f) { this._mouseAddLinkListeners.push(f); }
   deregMouseAddLink(f) { remove(this._mouseAddLinkListeners, f); }
   fireMouseAddLink(...args) { fireEvents(this._mouseAddLinkListeners, "mouseAddLink", ...args); }
@@ -95,6 +96,13 @@ class GraphDraw {
   rgstrRecenter(f) { this._recenterListeners.push(f); }
   deregRecenter(f) { remove(this._recenterListeners, f); }
   fireRecenter(...args) { fireEvents(this._recenterListeners, "recenter", ...args); }
+  // graphics events (re)draw and update
+  rgstrDrawUpdate(f) { this._updateListn.push(f); }
+  deregDrawUpdate(f) { remove(this._updateListn, f); }
+  fireDrawUpdate(...args) { fireEvents(this._updateListn, "drawUpdate", ...args); }
+  rgstrDraw(f) { this._drawListn.push(f); }
+  deregDraw(f) { remove(this._drawListn, f); }
+  fireDraw(...args) { fireEvents(this._drawListn, "draw", ...args); }
 
   constructor(graphData) {
     // listener interface
@@ -105,8 +113,6 @@ class GraphDraw {
     this._deleteNodeListeners = [];
     this._mouseDownNodeListeners = [];
     this._recenterListeners = [];
-
-    // some more listeners (should be upgraded to the above interface)
     this._updateListn = [];
     this._drawListn = [];
 
@@ -205,18 +211,6 @@ class GraphDraw {
     this.linkHelperBranch = this.svg.append("g");
     this.h = null;
   }
-  addUpdateListener(listener) {
-    this._updateListn.push(listener);
-  }
-  addDrawListener(listener) {
-    this._drawListn.push(listener);
-  }
-  _callUpdateListeners() {
-    for (let i=0;i<this._updateListn.length;i++) this._updateListn[i]();
-  }
-  _callDrawListeners() {
-    for (let i=0;i<this._drawListn.length;i++) this._drawListn[i]();
-  }
   recenter() {
     this.fireRecenter();
 
@@ -284,7 +278,7 @@ class GraphDraw {
     d.x += d3.event.dx;
     d.y += d3.event.dy;
 
-    self._callUpdateListeners();
+    self.fireDrawUpdate();
   }
   dragstarted(d) {
     self.restartCollideSim();
@@ -343,7 +337,7 @@ class GraphDraw {
       .attr("cy", function(d) { return d.y; });
     */
 
-    self._callUpdateListeners();
+    self.fireDrawUpdate();
   }
   static drawNodes(branch) {
     // draw anchor nodes
@@ -484,7 +478,7 @@ class GraphDraw {
     */
 
     // call draw callbacks
-    self._callDrawListeners();
+    self.fireDraw();
 
     // recenter everything
     self.recenter();

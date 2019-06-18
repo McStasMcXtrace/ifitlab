@@ -306,8 +306,8 @@ $(document).ready(() => {
 
   // lines from nodes to plotwindows handler
   subwindowlines = new SubWindowLines(intface.draw.svg);
-  intface.draw.addDrawListener(subwindowlines.draw.bind(subwindowlines));
-  intface.draw.addUpdateListener(subwindowlines.update.bind(subwindowlines));
+  intface.draw.rgstrDraw(subwindowlines.draw.bind(subwindowlines));
+  intface.draw.rgstrDrawUpdate(subwindowlines.update.bind(subwindowlines));
 
   // plot window handler
   subwhandler = new SubWindowHandler(subwindowlines);
