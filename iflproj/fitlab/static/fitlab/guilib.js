@@ -69,7 +69,7 @@ NodeState = {
   RUNNING : 3,
   FAIL : 4,
 }
-function getNodeStateClass(state) {
+function getNodeStateCSSClass(state) {
   if (state==NodeState.DISCONNECTED) return "disconnected";
   else if (state==NodeState.PASSIVE) return "passive";
   else if (state==NodeState.ACTIVE) return "active";
@@ -162,7 +162,7 @@ class GraphicsNode {
   draw(branch, i) {
     return branch
       .attr('stroke', ()=>{ return this.colour; })
-      .classed(getNodeStateClass(this.state), true)
+      .classed(getNodeStateCSSClass(this.state), true)
   }
   // hooks for higher level nodes
   onConnect(link, isInput) {}
@@ -804,13 +804,6 @@ class LinkCenter extends Link {
 /*
 * Base/Abstract Node types
 */
-
-// node registration mechanism
-var g_nodeclasses = [];
-function register_node_class(cls) {
-  g_nodeclasses.push(cls);
-}
-
 class Node {
   static get basetype() { throw "Node: basetype property must be overridden"; }
   static get prefix() { throw "Node: prefix property must be overridden"; }
@@ -1063,15 +1056,6 @@ class NodeObjectLiteral extends Node {
   }
 }
 
-// register node types
-register_node_class(NodeObject);
-register_node_class(NodeObjectLiteral);
-register_node_class(NodeFunction);
-register_node_class(NodeFunctionNamed);
-register_node_class(NodeMethodAsFunction);
-register_node_class(NodeMethod);
-
-
 /*
 * Connection Rules
 */
@@ -1081,45 +1065,40 @@ class ConnectionRulesBase {
   static couldConnect(a1, a2) {}
 }
 
-/*
-* GraphTree types
-*
-* The GraphTree is a data structure for storing nodes, which incapsulates
-* the specific node types and graphics implementations to a large extent,
-* exposing an abstract, id-based, interface to the nodes and their links.
-*/
-class NodeTypeHelper {
-  // node construction helper functions
-  constructor() {
-    this.idxs = {};
-  }
-  getId(basetype, existingids) {
+class NodeLinkConstrucionHelper {
+  // Node and Link construction helper functions.
+  // Registers object types and pairs the types with their aliases.
+  static getId(basetype, existingids) {
     let prefix = null;
     let id = null;
+    let nclss = NodeLinkConstrucionHelper._nodeclasses;
+    let idxs = NodeLinkConstrucionHelper._idxs;
 
-    let prefixes = g_nodeclasses.map(name => name.prefix);
-    let basetypes = g_nodeclasses.map(name => name.basetype);
+    let prefixes = nclss.map(name => name.prefix);
+    let basetypes = nclss.map(name => name.basetype);
     let i = basetypes.indexOf(basetype);
-    if (i >= 0) prefix = prefixes[i]; else throw "NodeTypeHelper.getId: unknown basetype";
+    if (i >= 0) prefix = prefixes[i]; else throw "NodeLinkConstrucionHelper.getId: unknown basetype";
 
-    if (prefix in this.idxs)
-      id = prefix + (this.idxs[prefix] += 1);
+    if (prefix in idxs)
+      id = prefix + (idxs[prefix] += 1);
     else
-      id = prefix + (this.idxs[prefix] = 0);
+      id = prefix + (idxs[prefix] = 0);
     while (existingids.indexOf(id)!=-1) {
-      if (prefix in this.idxs)
-        id = prefix + (this.idxs[prefix] += 1);
+      if (prefix in idxs)
+        id = prefix + (idxs[prefix] += 1);
       else
-        id = prefix + (this.idxs[prefix] = 0);
+        id = prefix + (idxs[prefix] = 0);
     }
     return id;
   }
   static createNode(x, y, id, typeconf) {
     // get node class
     let cls = null
-    let basetypes = g_nodeclasses.map(cn => cn.basetype);
+    let nclss = NodeLinkConstrucionHelper._nodeclasses;
+    let basetypes = nclss.map(cn => cn.basetype);
     let i = basetypes.indexOf(typeconf.basetype);
-    if (i >= 0) cls = g_nodeclasses[i]; else throw "unknown typeconf.basetype: " + typeconf.basetype;
+    if (i >= 0) cls = nclss[i];
+    else throw "unknown typeconf.basetype: " + typeconf.basetype;
 
     // create the node
     // TODO: simplify this constructor
@@ -1135,14 +1114,42 @@ class NodeTypeHelper {
     }
     return n;
   }
+  static createLink() {
+    // TODO: implement
+  }
+  // node registration mechanism
+  static register_node_class(cls) {
+    NodeLinkConstrucionHelper._nodeclasses.push(cls);
+  }
+  static register_link_class(cls) {
+    NodeLinkConstrucionHelper._nodeclasses.push(cls);
+  }
 }
+// static members - this class is a singleton after all
+NodeLinkConstrucionHelper._idxs = {};
+NodeLinkConstrucionHelper._nodeclasses = [];
+NodeLinkConstrucionHelper._linkclasses = [];
 
+
+// register node types
+NodeLinkConstrucionHelper.register_node_class(NodeObject);
+NodeLinkConstrucionHelper.register_node_class(NodeObjectLiteral);
+NodeLinkConstrucionHelper.register_node_class(NodeFunction);
+NodeLinkConstrucionHelper.register_node_class(NodeFunctionNamed);
+NodeLinkConstrucionHelper.register_node_class(NodeMethodAsFunction);
+NodeLinkConstrucionHelper.register_node_class(NodeMethod);
+
+
+//
+// GraphTree is a data structure for storing nodes, which incapsulates
+// the specific node types and graphics implementations to a large extent,
+// exposing an abstract, id-based, interface to the nodes and their links.
+//
 class GraphTreeBranch {
-  // unit level of the graph tree
   constructor(parent=null) {
     // tree
     this.parent = parent
-    this.children = {} // corresponding rootnode instances are stored in .nodes
+    this.children = {} // node instances are stored in .nodes
     // graph
     this.nodes = {}
     this.links = {}
@@ -1150,10 +1157,8 @@ class GraphTreeBranch {
 }
 
 class GraphTree {
-  // a node graph with vertical/tree potential
   constructor(connrules) {
     this._connrules = connrules;
-    this._helper = new NodeTypeHelper();
     this._current = new GraphTreeBranch();
     this._viewLinks = [];
     this._viewNodes = [];
@@ -1303,8 +1308,8 @@ class GraphTree {
   nodeAdd(x, y, conf, id=null) {
     // will throw an error if the requested id already exists, as this should not happen
     if ((id == '') || !id || (id in this._current.nodes))
-      id = this._helper.getId(conf.basetype, Object.keys(this._current.nodes));
-    let n = NodeTypeHelper.createNode(x, y, id, conf);
+      id = NodeLinkConstrucionHelper.getId(conf.basetype, Object.keys(this._current.nodes));
+    let n = NodeLinkConstrucionHelper.createNode(x, y, id, conf);
     if (n) {
       this._viewNodes.push(n);
       this._current.nodes[id] = n;

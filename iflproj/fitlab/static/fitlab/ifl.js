@@ -192,9 +192,7 @@ class GraphInterfaceIFL extends GraphInterface {
 }
 
 
-//
-//  IFL specific node types.
-//
+// IFL-specific node basetypes
 class NodeIData extends NodeObject {
   static get basetype() { return "object_idata"; }
   get basetype() { return NodeIData.basetype; }
@@ -230,5 +228,6 @@ class NodeIFunc extends NodeObject {
 }
 
 
-register_node_class(NodeIData);
-register_node_class(NodeIFunc);
+// register node types
+NodeLinkConstrucionHelper.register_node_class(NodeIData);
+NodeLinkConstrucionHelper.register_node_class(NodeIFunc);

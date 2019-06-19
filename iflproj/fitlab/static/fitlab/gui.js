@@ -424,7 +424,7 @@ class GraphDraw {
         let node = d3.select(this).datum();
         d3.event.stopPropagation();
         if (d3.event.ctrlKey) {
-          self.fireDeleteNode(node);
+          self.fireCtrlClickNode(node);
         }
         else {
           self.graphData.setSelectedNode(node.owner.id);
@@ -444,7 +444,8 @@ class GraphDraw {
       .on("mouseup", function(d) {
         let n = self.dragNode;
         if (n == null || n == d) return;
-        self.fireMouseAddLink(s, d);
+        // d and n are here nodes, handlers connect anchors
+        self.fireMouseAddLink(n.centerAnchor, d.centerAnchor);
       });
 
     self.nodes = GraphDraw.drawNodes(self.draggable);
@@ -1027,7 +1028,7 @@ class NodeTypeMenu {
     // the lbl set-reset hack here is to get the right labels everywhere in a convoluted way...
     let lbl = conf.label;
     conf.label = conf.type;
-    let n = NodeTypeHelper.createNode(50, 50, "", conf);
+    let n = NodeLinkConstrucionHelper.createNode(50, 50, "", conf);
     conf.label = lbl;
 
     let branch = this.root
