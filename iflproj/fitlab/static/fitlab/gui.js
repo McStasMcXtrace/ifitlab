@@ -4,14 +4,10 @@
 * Written by Jakob Garde 2017-2018.
 */
 
-// various drawing settings
-const width = 790;
-const height = 700;
-const anchorRadius = 6;
-const pathChargeStrength = -10;
-const distanceChargeStrength = -10;
-const pathLinkStrength = 1;
-const distance = 20;
+
+// global settings
+const anchorRadius = 6; // required by the copy-pasta of nodetypemenu
+
 
 class LinkHelper {
   // helper line draw / register & deregister events
@@ -116,13 +112,22 @@ class GraphDraw {
     this._updateListn = [];
     this._drawListn = [];
 
+    // draw settings
+    const svgwidth = 790;
+    const svgheight = 700;
+    // layout settings
+    this._pathChargeStrength = -10;
+    this._distanceChargeStrength = -10;
+    this._pathLinkStrength = 1;
+    this._distance = 20;
+
     // setup
     self = this;
     this.graphData = graphData; // access anchors and nodes for drawing and simulations
     this.svg = d3.select('body')
       .append('svg')
-      .attr('width', width)
-      .attr('height', height);
+      .attr('width', svgwidth)
+      .attr('height', svgheight);
 
     // TODO: upgrade this failed global zoom attampt
       //.append("g")
@@ -152,20 +157,20 @@ class GraphDraw {
       .on("tick", this.update);
     this.centeringSim = d3.forceSimulation()
       .force("centering",
-        d3.forceCenter(width/2, height/2)
+        d3.forceCenter(svgwidth/2, svgheight/2)
       )
       .stop()
       .on("tick", this.update);
     this.pathSim = d3.forceSimulation()
       .force("link",
         d3.forceLink()
-          .strength(pathLinkStrength)
-          .distance( function(d) { return distance; } )
+          .strength(this._pathLinkStrength)
+          .distance( function(d) { return this._distance; }.bind(this) )
       )
       // force to keep links out of node centers and anchors
       .force("pathcharge",
         d3.forceManyBody()
-          .strength(pathChargeStrength)
+          .strength(this._pathChargeStrength)
       )
       .stop()
       .on("tick", this.update);
@@ -227,7 +232,7 @@ class GraphDraw {
     self.distanceSim = d3.forceSimulation(self.graphData.getGraphicsNodeObjs())
       .force("noderepulsion",
         d3.forceManyBody()
-          .strength( distanceChargeStrength )
+          .strength(this._distanceChargeStrength)
           .distanceMin(0)
           .distanceMax(75))
       .stop()
@@ -992,10 +997,16 @@ class UndoRedoCommandStack {
 
 class NodeTypeMenu {
   // a single-column node creation menu ui
-  constructor(selectConfCB, rootelementid, branchname) {
+
+  // selection listeners
+  rgstrClickConf(l) { this._clickConfListn.push(l); }
+  fireClickConf(...args) { fireEvents(this._clickConfListn, "clickConf", ...args); }
+
+  constructor(rootelementid, branchname) {
+    this._clickConfListn = [];
+
     this.menus = [];
     this.root = d3.select("#"+rootelementid);
-    this.selectConfCB = selectConfCB;
 
     this.root
       .append("div")
@@ -1041,7 +1052,7 @@ class NodeTypeMenu {
       .attr("width", 100)
       .attr("height", 100)
       .datum(conf)
-      .on("click", function(d) { this.selectConfCB(d); }.bind(this) )
+      .on("click", function(d) { this.fireClickConf(d); }.bind(this) )
       .append("g")
       .datum(n.gNode)
       .attr("transform", "translate(50, 60)");

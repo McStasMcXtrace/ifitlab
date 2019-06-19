@@ -192,7 +192,6 @@ setUserData = function(node) {
 }
 
 let intface = null;
-let menu = null;
 let subwhandler = null;
 let subwindowlines = null;
 let noteWindow = null;
@@ -343,10 +342,14 @@ $(document).ready(() => {
 
   // create node menu
   let menuCB = intface.setCreateNodeConf.bind(intface)
-  menu = new NodeTypeMenu(menuCB, 'graph_menu_1', 'handles');
-  menu = new NodeTypeMenu(menuCB, 'graph_menu_2', 'tools');
-  menu = new NodeTypeMenu(menuCB, 'graph_menu_3', 'operators');
-  menu = new NodeTypeMenu(menuCB, 'graph_menu_4', 'models');
+  let menu1 = new NodeTypeMenu('graph_menu_1', 'handles');
+  menu1.rgstrClickConf(menuCB);
+  let menu2 = new NodeTypeMenu('graph_menu_2', 'tools');
+  menu2.rgstrClickConf(menuCB);
+  let menu3 = new NodeTypeMenu('graph_menu_3', 'operators');
+  menu3.rgstrClickConf(menuCB);
+  let menu4 = new NodeTypeMenu('graph_menu_4', 'models');
+  menu4.rgstrClickConf(menuCB);
 
   // notes window
   let ndiv = $("#divNotes");
