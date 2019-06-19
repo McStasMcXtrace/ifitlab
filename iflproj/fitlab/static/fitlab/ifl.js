@@ -42,6 +42,9 @@ class ConnectionRulesIfl extends ConnectionRulesBase {
     let ans = ( t1 && t2 ) && (t6 || t7 || t8);
     return ans;
   }
+  static getLinkBasetype(a1, a2) {
+    if (a1.idx==-1 && a2.idx==-1) return "link_double_center"; else return "link_single";
+  }
 }
 
 
