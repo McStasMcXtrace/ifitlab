@@ -1002,24 +1002,25 @@ class NodeTypeMenu {
   rgstrClickConf(l) { this._clickConfListn.push(l); }
   fireClickConf(...args) { fireEvents(this._clickConfListn, "clickConf", ...args); }
 
-  constructor(rootelementid, branchname) {
+  constructor(rootelementid, branchname, typeobj) {
     this._clickConfListn = [];
 
     this.menus = [];
     this.root = d3.select("#"+rootelementid);
-
     this.root
       .append("div")
       .attr("style","background-color:white;font-size:small;text-align:center;")
       .html(branchname.toUpperCase());
 
     let address = null;
+    let addresses = typeobj["addresses"];
+    let tree = typeobj["tree"];
     let conf = null;
     let c = null;
-    for (var i=0; i<nodeAddresses.length; i++) {
-      address = nodeAddresses[i];
+    for (var i=0; i<addresses.length; i++) {
+      address = addresses[i];
       if (address.split('.')[0] == branchname) {
-        conf = nodeTypeRead(address);
+        conf = nodeTypeReadTree(address, tree);
         c = cloneConf(conf);
         this.createMenuItem(c);
       }

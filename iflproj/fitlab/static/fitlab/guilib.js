@@ -44,6 +44,26 @@ function cloneConf(conf) {
   return Object.assign({}, conf);
 }
 
+function nodeTypeReadTree(address, tree) {
+  // reads and returns an item from a TreeJsonAddr, given a dot-address
+  let branch = tree;
+  let splt = address.split('.');
+  let key = splt[splt.length-1];
+  try {
+    for (let i=0;i<splt.length-1;i++) {
+      branch = branch[splt[i]]['branch'];
+    }
+    let item = branch[key]["leaf"];
+    return item;
+  }
+  catch(err) {
+    throw "no item found at address: " + key;
+  }
+}
+function cloneConf(conf) {
+  return Object.assign({}, conf);
+}
+
 
 /*
 * Graphics Node, Anchor and Link types

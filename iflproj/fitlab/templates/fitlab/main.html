@@ -341,14 +341,15 @@ $(document).ready(() => {
   usrdiv.css({ top : 0, left : $(window)-usrdiv.width()});
 
   // create node menu
+  let typeobj = { "addresses" : nodeAddresses, 'tree' : nodeTypes };
   let menuCB = intface.setCreateNodeConf.bind(intface)
-  let menu1 = new NodeTypeMenu('graph_menu_1', 'handles');
+  let menu1 = new NodeTypeMenu('graph_menu_1', 'handles', typeobj);
   menu1.rgstrClickConf(menuCB);
-  let menu2 = new NodeTypeMenu('graph_menu_2', 'tools');
+  let menu2 = new NodeTypeMenu('graph_menu_2', 'tools', typeobj);
   menu2.rgstrClickConf(menuCB);
-  let menu3 = new NodeTypeMenu('graph_menu_3', 'operators');
+  let menu3 = new NodeTypeMenu('graph_menu_3', 'operators', typeobj);
   menu3.rgstrClickConf(menuCB);
-  let menu4 = new NodeTypeMenu('graph_menu_4', 'models');
+  let menu4 = new NodeTypeMenu('graph_menu_4', 'models', typeobj);
   menu4.rgstrClickConf(menuCB);
 
   // notes window
