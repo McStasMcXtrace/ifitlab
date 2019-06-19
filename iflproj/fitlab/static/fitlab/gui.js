@@ -10,9 +10,9 @@ const anchorRadius = 6; // required by the copy-pasta of nodetypemenu
 
 
 class LinkHelper {
-  // helper line draw / register & deregister events
+  // Helper line shown while users drag to connect.
   // TODO: FIX LinkHelper to check for self-destruction at every mouse move, use
-  // mouse state as a determinant
+  // mouse state as a determinant.
   constructor(svgroot, svgbranch, p0, destructor) {
     svgroot
       .on("mousemove", function() {
@@ -48,14 +48,10 @@ class LinkHelper {
   }
 }
 
+
 function fireEvents(lst, sCaller, ...args) {
-  // Utility function to help listener interfaces. It goes
-  // through the list and calls functions with args.
-  //
-  //    lst: a list containing functions
-  //    sCaller: context hint string printed to console if the call fails
-  //    args: args passed to functions in the list.
-  let f;
+  // Utility function to help listener interfaces.
+  let f = null;
   for (i=0;i<lst.length;i++) {
     f = lst[i];
     try {
@@ -67,8 +63,10 @@ function fireEvents(lst, sCaller, ...args) {
   }
 }
 
-// responsible for drawing, and acts as an interface
+
 class GraphDraw {
+  // The main drawing class.
+
   // listener interface
   // mouse and node events
   rgstrMouseAddLink(f) { this._mouseAddLinkListeners.push(f); }
@@ -493,67 +491,18 @@ class GraphDraw {
   }
 }
 
-function wrap_ajax_validation_ids(gs_id, tab_id) {
-  // GraphInterface utility function
-  return { "gs_id" : gs_id, "tab_id" : tab_id };
-}
-function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail=true) {
-  // GraphInterface utility function
-  let isalive = true;
-  $.ajax({
-    type: "POST",
-    url: url,
-    data: { "gs_id": gs_id, "tab_id": tab_id, "data_str" : JSON.stringify(data) },
-  })
-  .fail(function(xhr, statusText, errorThrown) {
-    if (!showfail) return
-    if (fail_cb) fail_cb();
-    $("body").css("cursor", "default");
-    $(window.open().document.body).html(errorThrown + xhr.status + xhr.responseText);
-  })
-  .success(function(msg) {
-    // parse & json errors
-    let obj = null;
-    try {
-      obj = JSON.parse(msg);
-    }
-    catch(error) {
-      console.log("JSON.parse error on string: ", msg);
-      alert("uncomprehensible server response: ", msg);
-      throw error;
-    }
-
-    // fatal errors
-    let fatalerror = obj["fatalerror"];
-    if (fatalerror) {
-      isalive = false;
-      alert("Please restart the session. Fatal error: " + fatalerror);
-      //location.reload();
-      close();
-    }
-
-    // timeouts
-    let timeout = obj["timeout"];
-    if (timeout) {
-      alert("timeout: " + timeout);
-    }
-
-    // pass it on
-    success_cb(obj)
-  });
-  return isalive;
-}
 
 class GraphInterface {
-  /*
-  *  High-level graph data and drawing interface. Use to manipulate the graph,
-  *  and to save and load it. If used appropriately, this enables undo/redo.
-  */
-  // listener interface - native
+  // High-level interface.
+  //
+  // Implements an undo-redo enabled interface to the graph data and drawing
+  // classes. Use as the base class for graph manipulation and communication.
+
+  // listener interface, native
   addNodeDataUpdateListener(l) { this._nodeDataUpdateListn.push(l); }
   addNodeCreateListener(l) { this._nodeCreateListn.push(l); }
   addNodeDeletedListener(l) { this._nodeDeletedListn.push(l); }
-  // listener interface - delegate
+  // listener interface, delegate
   addUiDrawAllListener(l) { this.draw.rgstrDraw(l); }
   addNodeSelectionListener(l) { this.draw.rgstrClickNode(l); }
   addNodeMouseDownListn(l) { this.draw.rgstrMouseDownNode(gNode => { l(gNode.owner); }); }
@@ -598,9 +547,8 @@ class GraphInterface {
     // error node
     this._errorNode = null;
   }
-  //
-  // listener & event interface
-  //
+
+  // event handlers
   _recenterCB() {
     console.log("implement _recenterCB in descendant to reposition app-specific elements");
   }
@@ -693,19 +641,8 @@ class GraphInterface {
     }
     return id;
   }
-  //
-  // server communication stubs
-  //
-  ajaxcall(url, data, success_cb, fail_cb=null) {
-    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, fail_cb, true);
-  }
-  ajaxcall_noerror(url, data, success_cb) {
-    // call with showfail=false, which turns off django and offline fails
-    this.isalive = simpleajax(url, data, this.gs_id, this.tab_id, success_cb, null, false);
-  }
-  //
+
   // utility interface
-  //
   setCreateNodeConf(conf) {
     this._createConf = cloneConf(conf);
   }
@@ -788,9 +725,8 @@ class GraphInterface {
     }
     this.updateUi();
   }
-  //
-  // graph manipulation interface
-  //
+
+  // graph manipulation and serialization interface
   undo() {
     if (this.lock == true) { console.log("undo call during lock"); return -1; }
     let cmd = this.undoredo.undo();

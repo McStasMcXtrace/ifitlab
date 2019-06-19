@@ -1,28 +1,24 @@
-/*
-* A nodespeak compatible graph ui using d3.js for drawing and force layouts.
-*
-* Written by Jakob Garde 2018.
-*/
+//
+// Graph-based user interface. Uses d3.js for svg manipulation.
+//
+// Written by Jakob Garde 2017-2019.
+//
 
-/*
-* Generic Utility functions and types
-*/
+
+// utility
 
 function remove(lst, element) {
+  // removes an element from a list
   let index = lst.indexOf(element);
   if (index > -1) {
     lst.splice(index, 1);
   }
 }
 function isString(value) {
+  // checks if value is a string
   let b1 = (typeof value === 'string' || value instanceof String);
   return b1;
 }
-
-
-/*
-* Node types json utility
-*/
 
 function nodeTypeRead(address) {
   // reads and returns an item from a TreeJsonAddr, given a dot-address
@@ -40,10 +36,6 @@ function nodeTypeRead(address) {
     throw "no item found at address: " + address;
   }
 }
-function cloneConf(conf) {
-  return Object.assign({}, conf);
-}
-
 function nodeTypeReadTree(address, tree) {
   // reads and returns an item from a TreeJsonAddr, given a dot-address
   let branch = tree;
@@ -65,14 +57,9 @@ function cloneConf(conf) {
 }
 
 
-/*
-* Graphics Node, Anchor and Link types
-*/
-const nodeRadius = 30;
-const extensionLength = 40;
-const anchSpace = 40;
-const arrowHeadLength = 12;
-const arrowHeadAngle = 25;
+//
+// Graphics Nodes, Anchor and Link types
+//
 
 NodeIconType = {
   CIRCE : 0,
@@ -97,7 +84,6 @@ function getNodeStateCSSClass(state) {
   else if (state==NodeState.FAIL) return "fail";
   else throw "invalid value"
 }
-
 function getInputAngles(num) {
   // .reverse()'d into left-to-right ordering in the return list
   if (num == 0) {
@@ -129,6 +115,12 @@ function getOutputAngles(num) {
     return [230, 250, 270, 290, 310];
   } else throw "give a number from 0 to 5";
 }
+
+const nodeRadius = 30;
+const extensionLength = 40;
+const anchSpace = 40;
+const arrowHeadLength = 12;
+const arrowHeadAngle = 25;
 
 class GraphicsNode {
   // graphical base type - this will not draw, but should be subclassed
@@ -639,8 +631,7 @@ class CenterAnchor {
   set y(value) { /* empty:)) */ }
 }
 
-
-// link types are always "graphics links" although they are registered equivalently
+// Link types are always "graphics links" although they are registered equivalently
 // to the "base" or conceptual type nodes, not the graphics classes.
 class Link {
   constructor(d1, d2) {
@@ -831,9 +822,9 @@ class LinkDoubleCenter extends Link {
 }
 
 
-/*
-* Base/Abstract Node types
-*/
+//
+// Base/Abstract Node types.
+//
 class Node {
   static get basetype() { throw "Node: basetype property must be overridden"; }
   static get prefix() { throw "Node: prefix property must be overridden"; }
@@ -1086,9 +1077,12 @@ class NodeObjectLiteral extends Node {
   }
 }
 
-/*
-* Connection Rules
-*/
+
+//
+// Connection Rules determine how and if nodes can be connected.
+// Keep free of node and link class names, use aliases known as
+// "basetype" instead.
+//
 class ConnectionRulesBase {
   // can anchors be directly connected?
   static canConnect(a1, a2) {}
@@ -1211,12 +1205,9 @@ class GraphTree {
     this._selectedNode = null;
   }
 
-  // **********************************************
-  // get interface - returns high-level information
-  // **********************************************
-
-  // returns a list of id's
+  // get interface, returns high-level information
   getNeighbours(id) {
+    // returns a list of id's
     if (!this._current.links[id]) {
       return [];
     }
@@ -1226,8 +1217,8 @@ class GraphTree {
     }
     return nbs;
   }
-  // returns a list of [id1, idx1, id2, idx2] sequences
   getLinks(id) {
+    // returns a list of [id1, idx1, id2, idx2] sequences
     if (!this._current.links[id]) {
       return [];
     }
@@ -1247,13 +1238,14 @@ class GraphTree {
   getExitLinks(id) {
     return this.getLinks(id).filter(cmd=>cmd[0]==id);
   }
-  // returns a node object or null
   getNode(id) {
+    // returns a node object or null
     let n = this._current.nodes[id]
     if (!n) return null;
     return n;
   }
-  // graphdraw interface (low-level) - return lists of graphics-level objects
+
+  // graphdraw interface (low-level), return lists of graphics-level objects
   getLinkObjs() {
     return this._viewLinks;
   }
@@ -1317,10 +1309,7 @@ class GraphTree {
     return [anchors, forcelinks];
   }
 
-  // **************************
   // ui and graphdraw interface
-  // **************************
-
   recalcPathAnchorsAroundNodeObj(g) {
     // called before anchors are used, triggers link.recalcPathAnchors
     let id = g.owner.id;
@@ -1334,7 +1323,7 @@ class GraphTree {
   }
   getSelectedNode() {
     return this._selectedNode;
-  } // perhaps: return a NodeRepr, not an Node obj?
+  }
   setSelectedNode(id) {
     let prev = this._selectedNode;
     if (prev) prev.gNode.active = false;
@@ -1347,8 +1336,7 @@ class GraphTree {
     this._selectedNode = n;
   }
 
-  // set interface / _command impls
-  // safe calls that return true on success
+  // set interface / _command impls, safe calls that return non-null on success
   nodeAdd(x, y, conf, id=null) {
     // will throw an error if the requested id already exists, as this should not happen
     if ((id == '') || !id || (id in this._current.nodes))
