@@ -19,6 +19,7 @@ Module level:
 - A function "_load_middleware" may be implemented, and must return an object subclassed from enginterface.MiddeWare.
 '''
 from builtins import str
+from importlib.abc import _register
 __author__ = "Jakob Garde"
 
 import enginterface
@@ -62,11 +63,20 @@ def _eval(cmd, nargout=1, dontlog=False):
             _cmdlog.info(cmd)
         return _eng.eval(cmd, nargout=nargout)
 
+# since all ML variables should be created using these proxy methods, we can register all ML symbols easily
+_all_exe_lock_symbols = set();
+def _register_tmp_symb(symb):
+    global _all_exe_lock_symbols
+    _all_exe_lock_symbols.add(symb)
+    return symb
 def _get_ifunc_uuid():
-    return 'ifunc_%s' % uuid.uuid4().hex
+    return _register_tmp_symb('ifunc_%s' % uuid.uuid4().hex)
 def _get_idata_uuid():
-    return 'idata_%s' % uuid.uuid4().hex
+    return _register_tmp_symb('idata_%s' % uuid.uuid4().hex)
+def _get_anonymous_uuid():
+    return _register_tmp_symb('_%s' % uuid.uuid4().hex)
 
+# log lines are registered on-demand
 _loglock = threading.Lock()
 def _extract_loglines(tag, varnames):
     ''' extracts and returns lines with any string in varnames, from logs/cmds.log, deleting these lines in the source '''
@@ -102,23 +112,26 @@ def _extract_loglines(tag, varnames):
 
         return cmds_ret
 
+# middlware keeps session-management out of this module, although locks must be used instead, with a modest multi-user performance hit 
+_hl_exe_lock = threading.Lock()
 class _VarnameMiddleware(enginterface.MiddleWare):
     ''' implements registration and deregistration of varnames, clears matlab variables on deregister and exit '''
     def __init__(self):
-        self.varnames = []
+        self.varnames = set()
+        self.varnames_tmp = set()
     def totalwho(self):
         ''' returns all variables in the (global) matlab session '''
         return _eval("who;", nargout=1, dontlog=True)
     def register(self, obj):
-        '''  '''
+        ''' remembers the varname for logging and session shutdown purposes '''
         if type(obj) in (IData, IFunc, ):
-            if not obj.varname in self.varnames:
-                self.varnames.append(obj.varname)
+            self.varnames.add(obj.varname)
     def deregister(self, obj):
         ''' deregister must also matlab-delete for this operation to be general '''
         if type(obj) in (IData, IFunc, ) and obj.varname in self.varnames:
             self.varnames.remove(obj.varname)
-            _eval("clear %s;" % obj.varname, nargout=0)
+            self.varnames_tmp.add(obj.varname)
+            _eval("clear %s;" % obj.varname, nargout=0) # we need to log this clear, which represents a permanent departure for this object
     def load(self, filepath):
         _eval("load('%s');" % filepath, nargout=0, dontlog=True)
     def save(self, filepath):
@@ -128,19 +141,39 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         save_str = "'" + "', '".join(self.varnames) + "'"
         _eval("save('%s', %s);" % (filepath, save_str), nargout=0, dontlog=True)
     def clear(self):
-        for varname in self.varnames:
+        for vn in self.varnames:
+            # some varnames may have been cleared previously, for ex. if their anchor was not on the graph
             try:
-                _eval("clear %s;" % varname, nargout=0, dontlog=True)
+                # do not log varname clears, since symbols can be used again after a session load
+                _eval("clear %s;" % vn, nargout=0, dontlog=True)
             except:
                 pass
-        self.varnames = []
+        self.varnames = set()
     def finalise(self):
         self.clear()
     def extract_loglines(self, tag):
-        return _extract_loglines(tag, self.varnames)
+        return _extract_loglines(tag, self.varnames | self.varnames_tmp)
     def get_logheader(self):
         text = "%%\n" + '%%  log generated on {0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()) + "\n%%\n%%  required:\n%%    addpath(genpath(YOUR_IFIT_LOCATION))\n%%\n%%  varnames:\n%%    " + "\n%%    ".join(self.varnames) + "\n%%\n"
         return text
+    def execute_through_proxy(self, func):
+        ''' executing in this way allows for limiting the use of the "high level execution lock" to this method only '''
+        with _hl_exe_lock:
+            ans = func()
+            self.register(ans)
+
+            # house cleaning
+            global _all_exe_lock_symbols
+            to_be_cleared = _all_exe_lock_symbols - self.varnames # set between used and known symbols
+            self.varnames_tmp = self.varnames_tmp | to_be_cleared # remember what was cleared for log extraction later on
+            for vn in to_be_cleared:
+                # some tmp varnames may have already been cleared locally
+                try:
+                    _eval("clear %s;" % vn, nargout=0)
+                except:
+                    pass
+            _all_exe_lock_symbols = set()
+            return ans
 
 def _load_middleware():
     return _VarnameMiddleware()

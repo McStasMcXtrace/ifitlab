@@ -333,18 +333,17 @@ class FlatGraph:
         try:
             n = self.root.subnodes[id]
 
-            # deregister and clear the previous object
+            # deregister and clear any previous object
             old = n.get_object()
             if old != None:
                 self.middleware.deregister(old)
 
             # execute (assigns a new object or None), log and register
-            obj = execute_node(n)
+            obj = self.middleware.execute_through_proxy( lambda _n=n: execute_node(_n) )
+            # NOTE: deregistration is handled through the execute proxy call
 
             _log("exe yields: %s" % str(obj))
             _log("returning json representation...")
-            
-            self.middleware.register(obj)
 
             retobj = {'dataupdate': {} }
             update_lst = [id]
@@ -383,7 +382,7 @@ class FlatGraph:
         for key in self.root.subnodes.keys():
             n = self.root.subnodes[key]
             obj = n.get_object()
-            
+
             if obj != None and type(n) in (ObjNode, ):
                 self.middleware.deregister(obj)
                 n.assign(None)
