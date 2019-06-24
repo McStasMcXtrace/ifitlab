@@ -120,7 +120,7 @@ class GraphInterfaceIFL extends GraphInterface {
     post_data["coords"] =  this.graphData.getCoords();
 
     this.ajaxcall_noerror("/ifl/ajax_update/", post_data, function(obj) {
-      //
+      // empty
     }.bind(this));
   }
   runSelectedNode() {
