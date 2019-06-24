@@ -52,7 +52,7 @@ function binsearch(lst, target) {
 }
 
 class Plot1D {
-  constructor(params, wname, clickPlotCB, svg_branch=null, logscale=false) {
+  constructor(params, wname, clickPlotCB, svg_branch, logscale=false) {
     let p = params;
     this.params_lst = [params];
     this.wname = wname;
@@ -68,7 +68,10 @@ class Plot1D {
     this.x_lst = [p['x']];
     this.y_lst = [p['y']];
     this.yErrData_lst = _makeErrorBarsData([p['x']], [p['y']], [p['yerr']]);
-    this.colours = [params.colour];
+    if (params.colour != null)
+      this.colours = [params.colour];
+    else
+      this.colours = ["black"];
 
     this.pointGroups = null;
     this.last_xScale = null;
@@ -263,7 +266,7 @@ class Plot1D {
 }
 
 // plot 2d
-function plot_2d(params, svg_branch=null, log=false) {
+function plot_2d(params, svg_branch, log=false) {
   var p = params
   let hdl = _draw_labels(p['w'], p['h'], p['xlabel'], p['ylabel'], p['title'], svg_branch);
 
@@ -294,7 +297,7 @@ function plot_2d(params, svg_branch=null, log=false) {
 
 // private
 function _draw_labels(w, h, xlabel, ylabel, title, svg_branch, plotfunc_inner) {
-  if (!svg_branch) throw "proper svg_branch required";
+  if (!svg_branch) throw "svg branch required";
 
   // positioning
   var margin = 5;
