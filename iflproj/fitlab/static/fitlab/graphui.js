@@ -1621,7 +1621,7 @@ function fireEvents(lst, sCaller, ...args) {
 
 class GraphLayout {
   // layout simulation delegate
-  constructor(updateCB, getNodes, getAnchors, getForceLinks) {
+  constructor(updateCB, getNodes, getAnchors, getForceLinks, getAnchorsAndForceLinks) {
     // layout settings
     this._pathChargeStrength = -10;
     this._distanceChargeStrength = -10;
@@ -1633,6 +1633,7 @@ class GraphLayout {
     this.getNodes = getNodes;
     this.getAnchors = getAnchors;
     this.getForceLinks = getForceLinks;
+    this.getAnchorsAndForceLinks = getAnchorsAndForceLinks;
 
     // force layout simulations
     this.collideSim = d3.forceSimulation()
@@ -1674,10 +1675,19 @@ class GraphLayout {
     this.centeringSim.alpha(1).restart();
 
   }
-  afterChangeDone() {
+  afterChangeDone(gNode=null) {
     let nodes = this.getNodes();
-    let anchors = this.getAnchors();
-    let forceLinks = this.getForceLinks();
+    let anchors = null;
+    let forceLinks = null;
+    if (gNode == null) {
+      anchors = this.getAnchors();
+      forceLinks = this.getForceLinks();
+    }
+    else {
+      let tmp = this.getAnchorsAndForceLinks(gNode);
+      anchors = tmp[0];
+      forceLinks = tmp[1];
+    }
 
     // the charge force seems to have to reset like this for some reason
     this.distanceSim = d3.forceSimulation(nodes)
@@ -1694,9 +1704,8 @@ class GraphLayout {
     this.pathSim.stop();
     this.pathSim.nodes(anchors);
     this.pathSim.force("link").links(forceLinks);
-
     this.pathSim.alpha(1);
-    for (var i=0; i < 300; i++) {
+    for (var i=0; i < 30; i++) {
       this.pathSim.tick();
     }
   }
@@ -1841,11 +1850,10 @@ class GraphDraw {
     d.y += d3.event.dy;
   }
   dragstarted(d) {
-    self.fireDragStarted();
+    self.fireDragStarted(d);
   }
   dragended(d) {
-    self.graphData.recalcPathAnchorsAroundNodeObj(d);
-    self.fireDragEnded();
+    self.fireDragEnded(d);
   }
   anchorMouseDown(d) {
     self.dragAnchor = d;
@@ -2084,7 +2092,11 @@ class GraphInterface {
       this.draw.update.bind(this.draw), // updateCB
       this.draw.graphData.getGraphicsNodeObjs.bind(this.graphData), // getNodes
       this.draw.graphData.getAnchors.bind(this.graphData), // getAnchors
-      this.draw.graphData.getForceLinks.bind(this.graphData) // getForceLinks
+      this.draw.graphData.getForceLinks.bind(this.graphData), // getForceLinks
+      ((gNode) => { // getAnchorsAndForceLinks
+        this.graphData.recalcPathAnchorsAroundNodeObj(gNode);
+        return this.graphData.getAnchorsAndForceLinks(gNode.owner.id);
+      }).bind(this)
     );
     this.draw.rgstrResize(this.layout.resize.bind(this.layout)); // must be called @ recenter
     this.draw.rgstrDragStarted(this.layout.beforeChange.bind(this.layout));
@@ -2129,7 +2141,7 @@ class GraphInterface {
 
     let id = this.node_add(x, y, "", "", conf.label, conf.address);
 
-    this.layout.afterChangeDone();
+    this.layout.afterChangeDone(id);
 
     this._createConf = null;
 
@@ -2159,7 +2171,7 @@ class GraphInterface {
     let createLink = function(a1, a2) {
       this.link_add(a1.owner.owner.id, a1.idx, a2.owner.owner.id, a2.idx);
 
-      this.layout.afterChangeDone();
+      this.layout.afterChangeDone(a1.owner.owner.id);
       this.updateUi();
     }.bind(this);
 
