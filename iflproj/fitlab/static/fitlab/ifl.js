@@ -65,7 +65,7 @@ class GraphInterfaceIFL extends GraphInterface {
     this.run(gNode.owner.id);
   }
   // overloaded _recenterCB
-  _recenterCB() {
+  _resizeCB() {
     let btnsmenu = d3.select("#buttons");
     btnsmenu.style("left", window.innerWidth/2-btnsmenu.node().clientWidth/2 + "px");
     let btnsmenu_2 = d3.select("#buttons_2");
