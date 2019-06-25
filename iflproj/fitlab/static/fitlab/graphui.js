@@ -2126,7 +2126,6 @@ class GraphInterface {
     // error node
     this._errorNode = null;
   }
-
   // event handlers
   _resizeCB() {
     // implement _resizeCB in descendant to reposition app-specific elements
@@ -2141,7 +2140,7 @@ class GraphInterface {
 
     let id = this.node_add(x, y, "", "", conf.label, conf.address);
 
-    this.layout.afterChangeDone(id);
+    this.layout.afterChangeDone(this.graphData.getNode(id));
 
     this._createConf = null;
 
@@ -2171,7 +2170,7 @@ class GraphInterface {
     let createLink = function(a1, a2) {
       this.link_add(a1.owner.owner.id, a1.idx, a2.owner.owner.id, a2.idx);
 
-      this.layout.afterChangeDone(a1.owner.owner.id);
+      this.layout.afterChangeDone(a1.owner);
       this.updateUi();
     }.bind(this);
 
