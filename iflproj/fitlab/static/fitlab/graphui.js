@@ -1946,7 +1946,7 @@ class GraphDraw {
         .on("drag", self.dragged)
         .on("end", self.dragended)
       )
-      .on("contextmenu", function () { /*console.log("contextmenu");*/ d3.event.preventDefault(); })
+      .on("contextmenu", function () {  d3.event.preventDefault(); })
       .on("click", function () {
         let node = d3.select(this).datum();
         d3.event.stopPropagation();
@@ -2028,8 +2028,8 @@ class GraphInterface {
   addNodeDeletedListener(l) { this._nodeDeletedListn.push(l); }
   // listener interface, delegate
   addUiDrawAllListener(l) { this.draw.rgstrDraw(l); }
-  addNodeSelectionListener(l) { this.draw.rgstrClickNode(l); }
-  addNodeMouseDownListn(l) { this.draw.rgstrMouseDownNode(gNode => { l(gNode.owner); }); }
+  addNodeSelectionListener(l) { this.draw.rgstrClickNode(gNode => { l(gNode==null ? null : gNode.owner); }); }
+  addNodeMouseDownListn(l) { this.draw.rgstrMouseDownNode(gNode => { l(gNode==null ? null : gNode.owner); }); }
 
   constructor(gs_id, tab_id, conn_rules) {
     // listener interface
