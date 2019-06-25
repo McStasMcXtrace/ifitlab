@@ -135,8 +135,13 @@ class IdxEditWindow {
       plotdata.h = this.h;
 
       if (this.plot == null) {
-        if (ndims == 1) this.plot = new Plot1D(plotdata, this.wname, this.clickPlotCB, this.plotbranch, this.logscale);
-        if (ndims == 2) plot_2d(plotdata, this.plotbranch, this.logscale);
+        if (ndims == 1) {
+          this.plot = new Plot1D(plotdata, this.plotbranch, this.logscale, this.wname);
+          this.plot.rgstrMouseClickPlot(this.clickPlotCB);
+        }
+        if (ndims == 2) {
+          this.plot = new Plot2D(plotdata, this.plotbranch, this.logscale);
+        }
       } else {
         if (ndims == 1) this.plot.plotOneMore(plotdata);
         if (ndims == 2) throw "2D multiplot is not supported";
