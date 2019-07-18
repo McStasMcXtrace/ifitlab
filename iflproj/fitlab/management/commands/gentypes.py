@@ -1,11 +1,11 @@
 '''
 Generates node type configurations from a python module.
 '''
-from django.core.management.base import BaseCommand
-
+from os.path import basename, splitext, dirname, isfile
 import importlib
 import json
 
+from django.core.management.base import BaseCommand
 import enginterface
 from fitlab.models import GraphSession
 
@@ -57,17 +57,31 @@ def insert_typeconf_ifl(tree, addrss):
 class Command(BaseCommand):
     help = 'Generates node type configurations from a python module.'
 
+
+    def add_arguments(self, parser):
+        # adduser(dn, admin_password, cn, sn, uid, email, pw)
+        parser.add_argument('py_module_file', nargs=1, type=str, help='Python module file to apply type extraction to')
+
+
     def handle(self, *args, **options):
         try:
             print("WARNING: make sure the worker isn't running, gentypes may change graph defs and reset instances.")
 
-            # step 0 - enter python package and module
-            userpkg = input("package:")
-            usermdl = input("module:")
-
             # step 1 - extract node types from the given module
+
+            # check inputs
+            file = options["py_module_file"][0]
+            if not isfile(file) or not splitext(file)[1] != 'py':
+                print("invalid file")
+                return
+
+            # extract module/package info
+            usermdl = splitext(basename(file))[0]
+            userpkg = dirname(file)
             print('extracting types from module "%s"...' % usermdl)
             mdl = importlib.import_module(usermdl, userpkg)
+
+            # run the typegen
             namecategories = getattr(mdl, "namecategories")
             clss, fcts = enginterface.get_nodetype_candidates(mdl)
             typetree, addresses, categories = enginterface.ctypeconf_tree_ifit(clss, fcts, namecategories)
@@ -75,6 +89,7 @@ class Command(BaseCommand):
 
             # step 2 - look through existing graph defs to check for node addresses that aren't 
             #          in the new gen and prompt the user if required.
+
             fixes = dict()
             issues = 0
             sessions = GraphSession.objects.all()
@@ -123,7 +138,7 @@ class Command(BaseCommand):
             if issues > 0:
                 input("about to save %d fixed graphs (ctrl-C to exit)..." % issues)
             else:
-                print("no graph def issues found")
+                print("no graph def / module compatibility issues found")
             for s in sessions:
                 s.save()
 
