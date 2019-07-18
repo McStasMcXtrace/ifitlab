@@ -265,14 +265,14 @@ class Workers:
         _log("retiring session %s" % gs_id)
 
         with self.shutdownlock:
-            session = self.sessions.get("%d" % gs_id, None)
+            session = self.sessions.get(gs_id, None)
             if session:
                 try:
                     if not nosave:
                         self.autosave(session)
                     self.extract_log(session)
                     session.graph.shutdown()
-                    del self.sessions["%d" % gs_id]
+                    del self.sessions[gs_id]
                 except Exception as e:
                     _log("error: " + str(e))
 
@@ -473,7 +473,7 @@ class Workers:
                     numreset = 0
                     for obj in sesionobjs:
                         # TODO: create a plural shutdown_sessions to improve lock acquisition performance
-                        self.shutdown_session(obj.id, nosave=False)
+                        self.shutdown_session(str(obj.id), nosave=False)
 
                         if obj.stashed_pickle != "reset":
                             numreset = numreset + 1
