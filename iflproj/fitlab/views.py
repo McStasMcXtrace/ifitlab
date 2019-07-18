@@ -14,6 +14,7 @@ import enginterface
 from .models import GraphSession, GraphUiRequest, GraphReply, TabId
 from iflproj.settings import UI_COORDS_UPDATE_INTERVAL_MS, AJAX_REQ_TIMEOUT_S
 
+
 def index(req):
     if not req.user.is_authenticated:
         return redirect("/ifl/login")
@@ -44,11 +45,12 @@ def up(req, gs_id):
     gslst = GraphSession.objects.filter(username=username).order_by('listidx')
     idx = [o.id for o in gslst].index(int(gs_id))
 
-    # set the index of gs sessions in the list to its index
+    # reset all listidx values
     for i in range(len(gslst)):
         gs = gslst[i]
         gs.listidx = i;
         gs.save()
+
     # inc at idx and dec at idx+1
     if idx > 0:
         gsup = gslst[idx]
