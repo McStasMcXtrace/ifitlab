@@ -137,7 +137,7 @@ class _VarnameMiddleware(enginterface.MiddleWare):
     def save(self, filepath):
         # filter possibly outdated varnames using who
         allvars = _eval("who;", nargout=1, dontlog=True)
-        self.varnames = [v for v in allvars if v in self.varnames]
+        self.varnames = set([v for v in allvars if v in self.varnames])
         save_str = "'" + "', '".join(self.varnames) + "'"
         _eval("save('%s', %s);" % (filepath, save_str), nargout=0, dontlog=True)
     def clear(self):
