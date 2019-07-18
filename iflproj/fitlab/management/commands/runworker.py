@@ -265,14 +265,14 @@ class Workers:
         _log("retiring session %s" % gs_id)
 
         with self.shutdownlock:
-            session = self.sessions.get(gs_id, None)
+            session = self.sessions.get("%d" % gs_id, None)
             if session:
                 try:
                     if not nosave:
                         self.autosave(session)
                     self.extract_log(session)
                     session.graph.shutdown()
-                    del self.sessions[gs_id]
+                    del self.sessions["%d" % gs_id]
                 except Exception as e:
                     _log("error: " + str(e))
 
@@ -465,6 +465,27 @@ class Workers:
                             raise Exception("session could not be reverted: %s" % task.gs_id)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
+                    graphreply.save()
+                
+                # reset all (admin power command)
+                elif task.cmd == "admin_resetall":
+                    sesionobjs = GraphSession.objects.all()
+                    numreset = 0
+                    for obj in sesionobjs:
+                        # TODO: create a plural shutdown_sessions to improve lock acquisition performance
+                        self.shutdown_session(obj.id, nosave=False)
+
+                        if obj.stashed_pickle != "reset":
+                            numreset = numreset + 1
+
+                        obj.stashed_pickle = "reset"
+                        obj.quicksave_pickle = "reset"
+                        obj.loglines = ""
+                        obj.logheader = ""
+                        obj.stashed_matfile = ""
+                        obj.quicksave_matfile = ""
+                        obj.save()
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "msg" : "sessions activaly reset: %d" % numreset }))
                     graphreply.save()
 
                 # reset
