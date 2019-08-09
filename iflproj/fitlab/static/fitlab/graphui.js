@@ -778,7 +778,9 @@ class LinkStraight extends Link {
     return branch
       .append('path')
       .datum(anchors)
-      .attr("class", "arrow")
+      .classed("comboLine", true)
+      .attr("stroke", "blue")
+      .attr("opacity", "0.5")
       .attr('d', d3.line()
         .x( function(p) { return p.x; } )
         .y( function(p) { return p.y; } )
@@ -1119,6 +1121,10 @@ class ConnectionRulesBase {
   static couldConnect(a1, a2) {}
   // get appropriate base type of link between anchors
   static getLinkBasetype(a1, a2) {}
+  // flow merge downstream rule
+  static canConverge(basetype) {}
+  // flow merge upstream rule
+  static canDiverge(basetype) {}
 }
 
 class NodeLinkConstrucionHelper {
@@ -1249,6 +1255,7 @@ class GraphTree {
   }
   getLinks(id) {
     // returns a list of [id1, idx1, id2, idx2] sequences
+    // this is upstream-downstream agnostic
     if (!this._current.links[id]) {
       return [];
     }
@@ -1486,6 +1493,7 @@ class GraphTree {
     return [l.d1.owner.id, l.d1.idx, l.d2.owner.id, l.d2.idx];
   }
   _connectivity(n) {
+    // returns boolean array with connected/not connected state of all anchors
     let connectivity = [];
     let anchors = n.gNode.anchors;
     let a = null;
@@ -1496,8 +1504,9 @@ class GraphTree {
     return connectivity;
   }
   updateNodeState(n) {
+    // send connectivity array to node, ask about its state and update accordingly
     let conn = this._connectivity(n);
-    if (n.isActive()) {
+    if (n.isActive(conn)) {
       n.gNode.state = NodeState.ACTIVE;
     }
     else if (!n.isConnected(conn)){
@@ -2088,24 +2097,7 @@ class GraphInterface {
     this.draw.rgstrDblClickNode(this._dblclickNodeCB.bind(this));
     this.draw.rgstrClickSVG(this._createNodeCB.bind(this));
     this.draw.rgstrResize(this._resizeCB.bind(this));
-    this.layout = new GraphLayout(
-      this.draw.update.bind(this.draw), // updateCB
-      this.draw.graphData.getGraphicsNodeObjs.bind(this.graphData), // getNodes
-      this.draw.graphData.getAnchors.bind(this.graphData), // getAnchors
-      this.draw.graphData.getForceLinks.bind(this.graphData), // getForceLinks
-      ((gNode) => { // getAnchorsAndForceLinks
-        this.graphData.recalcPathAnchorsAroundNodeObj(gNode);
-        return this.graphData.getAnchorsAndForceLinks(gNode.owner.id);
-      }).bind(this)
-    );
-    this.draw.rgstrResize(this.layout.resize.bind(this.layout)); // must be called @ recenter
-    this.draw.rgstrDragStarted(this.layout.beforeChange.bind(this.layout));
-    this.draw.rgstrDragEnded(this.layout.afterChangeDone.bind(this.layout));
-    // TODO: reintroduce this functionality somehow:
-    // reheat check - collision protection can expire during long drags
-    // (code was in draw.dragged)
-    //if (self.layout.collideSim.alpha() < 0.1) { self.layout.restartCollideSim(self.graphData); }
-
+    this.layout = this._getStandardLayout();
     // node connection logics
     this.truth = conn_rules;
 
@@ -2125,6 +2117,26 @@ class GraphInterface {
 
     // error node
     this._errorNode = null;
+  }
+  _getStandardLayout() {
+    let layout = new GraphLayout(
+      this.draw.update.bind(this.draw), // updateCB
+      this.draw.graphData.getGraphicsNodeObjs.bind(this.graphData), // getNodes
+      this.draw.graphData.getAnchors.bind(this.graphData), // getAnchors
+      this.draw.graphData.getForceLinks.bind(this.graphData), // getForceLinks
+      ((gNode) => { // getAnchorsAndForceLinks
+        this.graphData.recalcPathAnchorsAroundNodeObj(gNode);
+        return this.graphData.getAnchorsAndForceLinks(gNode.owner.id);
+      }).bind(this)
+    );
+    this.draw.rgstrResize(layout.resize.bind(layout)); // must be called @ recenter
+    this.draw.rgstrDragStarted(layout.beforeChange.bind(layout));
+    this.draw.rgstrDragEnded(layout.afterChangeDone.bind(layout));
+    // TODO: reintroduce this functionality somehow:
+    // reheat check - collision protection can expire during long drags
+    // (code was in draw.dragged)
+    //if (self.layout.collideSim.alpha() < 0.1) { self.layout.restartCollideSim(self.graphData); }
+    return layout;
   }
   // event handlers
   _resizeCB() {
@@ -2174,15 +2186,22 @@ class GraphInterface {
       this.updateUi();
     }.bind(this);
 
-    let clearThenCreateLink = function(a1, a2) {
-      let id = a2.owner.owner.id;
+    let clearAnchor = function(a) {
+      let id = a.owner.owner.id;
       let lks = this.graphData.getLinks(id);
       let entry = null;
       for (let i=0;i<lks.length;i++) {
         entry = lks[i];
-        if (entry[2] == id && entry[1] == a1.idx && entry[3] == a2.idx) {
+        // NOTE: the second condition was most likely superfluous and this only worked
+        // because "from" link indices wer always zero (single output nodes)
+        //if (entry[2] == id && entry[1] == a1.idx && entry[3] == a2.idx) {
+        if (entry[2] == id && entry[3] == a.idx) {
+          // clear all links hitting a2
           this.link_rm(entry[0], entry[1], entry[2], entry[3])
-          createLink(a1, a2);
+        }
+        if (entry[0] == id && entry[1] == a.idx) {
+          // clear all links hitting a2
+          this.link_rm(entry[0], entry[1], entry[2], entry[3])
         }
       }
     }.bind(this);
@@ -2193,12 +2212,18 @@ class GraphInterface {
     else if (this.truth.canConnect(d, s)) {
       createLink(d, s);
     }
-    // override existing link IF it could be connected
-    else if (this.truth.couldConnect(s, d)) {
-      clearThenCreateLink(s, d);
-    }
-    else if (this.truth.couldConnect(d, s)) {
-      clearThenCreateLink(d, s);
+    else {
+      let upstream = null;
+      let downstream = null;
+      // could the nodes be connected if the correct anchor(s) were cleared?
+      if (this.truth.couldConnect(s, d)) { upstream = s; downstream = d; }
+      else if (this.truth.couldConnect(d, s)) { upstream = d; downstream = s; }
+      // return it not
+      else return false;
+
+      if (!this.truth.canConverge(upstream.owner.owner.basetype, downstream.owner.owner.basetype)) clearAnchor(downstream);
+      if (!this.truth.canDiverge(upstream.owner.owner.basetype, downstream.owner.owner.basetype)) clearAnchor(upstream);
+      createLink(upstream, downstream);
     }
   }
   _getId(prefix) {
