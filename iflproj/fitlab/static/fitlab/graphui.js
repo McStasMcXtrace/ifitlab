@@ -2166,14 +2166,12 @@ class GraphInterface {
   _delNodeAndLinks(n) {
     // link rm's (cleanup before node rm)
     let id = n.owner.id;
-    let lnk_cmds = this.graphData.getLinks(id);
-    let cmd = null;
-    for (var i=0; i<lnk_cmds.length; i++) {
-      cmd = lnk_cmds[i];
-      this.link_rm(cmd[0], cmd[1], cmd[2], cmd[3]);
-    }
-    // node rm
-    this.node_rm(id);
+    let cmds = this.graphData.getLinks(id);
+    // insert "node_rm" command keys into the link descriptors
+    cmds.map(x => x.splice(0, 0, "link_rm"));
+    // add the "node_rm" command
+    cmds.push(["node_rm", id]);
+    this.molecular_action(cmds);
 
     fireEvents(this._nodeDeletedListn, "deleteNode", id);
     this.updateUi();
@@ -2332,19 +2330,40 @@ class GraphInterface {
   // graph manipulation and serialization interface
   undo() {
     if (this.lock == true) { console.log("undo call during lock"); return -1; }
-    let cmd = this.undoredo.undo();
-    if (cmd) {
-      this._command(cmd);
-      this.updateUi();
-    }
+    let cmds = this.undoredo.undo();
+    this._molecular_commands(cmds);
+    this.updateUi();
   }
   redo() {
     if (this.lock == true) { console.log("redo call during lock"); return -1; }
-    let cmd = this.undoredo.redo();
-    if (cmd) {
-      this._command(cmd);
-      this.updateUi();
+    let cmds = this.undoredo.redo();
+    this._molecular_commands(cmds);
+    this.updateUi();
+  }
+  _molecular_commands(cmds) {
+    // cmds: a list of positive actions
+    let i=0;
+    let cmd;
+    let cmd_rev;
+    let cmd_rev_lst = [];
+    for (i=0;i<cmds.length;i++) {
+      cmd = cmds[i];
+      cmd_rev = this._command(cmd);
+      if (cmd_rev != null) {
+        cmd_rev_lst.push(cmd_rev);
+      }
+      else {
+        // A command failed - what now? Might save revert our data structure
+        // using the atomic inverse commands gathered so far...
+        return null;
+      }
     }
+    return cmd_rev_lst;
+  }
+  molecular_action(cmds) {
+    let cmd_rev_lst = this._molecular_commands(cmds);
+    // update undo-redo stack
+    this.undoredo.newdo_molecular(cmd_rev_lst);
   }
   node_add(x, y, id, name, label, addr) {
     // int, int, str, str, str, str
@@ -2470,6 +2489,7 @@ class GraphInterface {
 
 
 class UndoRedoCommandStack {
+  // updated 20190809: now works with lists of do-undo pairs
   constructor(maxSize=5000) {
     this.synced = null; // last synced idx
     this.idx = -1; // undo stack index
@@ -2479,15 +2499,16 @@ class UndoRedoCommandStack {
   }
   undo() {
     if (this.idx >= 0) {
-      return this.ur[this.idx--][1];
+      // reverse output commands, since commands do not commute
+      return this.ur[this.idx--].map(x => x[1]).reverse();
     }
   }
   redo() {
     if (this.idx < this.ur.length-1) {
-      return this.ur[++this.idx][0];
+      return this.ur[++this.idx].map(x => x[0]);
     }
   }
-  newdo(doCmd, undoCmd) {
+  _prepare_newdo() {
     if (this.ur.length == this.limit) {
       this.ur.splice(0, 1); // delete first entry and re-index
       this.idx -= 1;
@@ -2498,8 +2519,15 @@ class UndoRedoCommandStack {
     }
     this.idx += 1;
     this.ur.splice(this.idx);
-    this.ur.push([doCmd, undoCmd]);
-    return [doCmd, undoCmd];
+  }
+  newdo(doCmd, undoCmd) {
+    // this is an "atomic" do-undo pair
+    this.newdo_molecular([[doCmd, undoCmd]]);
+  }
+  newdo_molecular(do_undo_lst) {
+    // do_undo_lst must be a list of [do, undo] command pairs
+    this._prepare_newdo();
+    this.ur.push(do_undo_lst);
   }
   getSyncSet() {
     let ss = this.buffer.concat(this._getSyncSetNoBuffer());
