@@ -203,6 +203,8 @@ namecategories = collections.OrderedDict({
     'From_model' : 'operators',
     'combine_data' : 'operators',
     'subtract_data' : 'operators',
+    'Catenate' : 'operators',
+    'Transpose' : 'operators',
 })
 
 
@@ -483,7 +485,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
         for j in range(dims[1]):
             img[i,j,:] = lookup(cm, signal[i][j]/maxval)
     # encode png as base64 string
-    image = scipy.misc.toimage(img)
+    image = scipy.misc.toimage(np.flipud(img))
     output = io.BytesIO()
     image.save(output, format="png")
     encoded_2d_data = str(base64.b64encode(output.getvalue())).lstrip('b').strip("\'")
@@ -506,7 +508,7 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
             except Exception as e:
                 print(e)
     # encode png as base64 string
-    image_log= scipy.misc.toimage(img_log)
+    image_log= scipy.misc.toimage(np.flipud(img_log))
     output = io.BytesIO()
     image_log.save(output, format="png")
     encoded_2d_data_log = str(base64.b64encode(output.getvalue())).lstrip('b').strip("\'")
@@ -1216,6 +1218,36 @@ def Power(data: IData, axis: int=0, power: int=2) -> IData:
     return retobj
 
 
+def Transpose(data: IData) -> IData:
+    ''' Transpose dataset '''
+    def transpose_atomic(vn_dest, vn_source):
+            _eval("%s = %s';" % (vn_dest, vn_source), nargout=0)
+
+    shape = data._get_datashape()
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        transpose_atomic(retobj.varname, data.varname)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, data.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, transpose_atomic, vnargs, args, ndaargs)
+         
+    return retobj
+
+def Catenate(data: IData) -> IData:
+    ''' Concatenate dataset (k x R^n -> R^n+1)'''
+    def catenate_atomic(vn_dest, vn_source):
+            _eval("%s = cat(0,%s)';" % (vn_dest, vn_source), nargout=0)
+
+    retobj = _create_empty_idata()
+    catenate_atomic(retobj.varname, data.varname)
+            
+    return retobj
+
+
+ 
 def From_model(data: IData, model: IFunc) -> IData:
     ''' Defines a dataset operator from an iFunc model. '''
     raise Exception("To be implemented.")
