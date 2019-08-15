@@ -1226,7 +1226,7 @@ def Power(data: IData, axis: int=0, power: int=2) -> IData:
 def Transpose(data: IData) -> IData:
     ''' Transpose dataset '''
     def transpose_atomic(vn_dest, vn_source):
-            _eval("%s = %s';" % (vn_dest, vn_source), nargout=0)
+        _eval("%s = %s';" % (vn_dest, vn_source), nargout=0)
 
     shape = data._get_datashape()
     if shape in (None, tuple(),):
@@ -1238,19 +1238,19 @@ def Transpose(data: IData) -> IData:
         args = ()
         ndaargs = ()
         _vectorized(shape, transpose_atomic, vnargs, args, ndaargs)
-         
+
     return retobj
+
 
 def Catenate(data: IData) -> IData:
     ''' Concatenate dataset (k x R^n -> R^n+1)'''
     def catenate_atomic(vn_dest, vn_source):
-            _eval("%s = cat(0,%s)';" % (vn_dest, vn_source), nargout=0)
+        _eval("%s = cat(0,%s)';" % (vn_dest, vn_source), nargout=0)
 
     retobj = _create_empty_idata()
     catenate_atomic(retobj.varname, data.varname)
-            
-    return retobj
 
+    return retobj
 
  
 def From_model(data: IData, model: IFunc) -> IData:
