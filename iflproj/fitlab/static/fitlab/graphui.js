@@ -2550,13 +2550,15 @@ class UndoRedoCommandStack {
     if (this.synced > this.idx) {
       let ss = this.ur.slice(this.idx+1, this.synced);
       this.synced = this.idx+1;
-      return ss.map(x => x[1]).reverse();
+      // syncset of molecules of pairs [redo,undo] into syncset of (temporal reverse ordered) moluecules of undo
+      return ss.map(m => m.map(x => x[1]).reverse());
     }
     // positive sync set
     else {
       let ss = this.ur.slice(this.synced, this.idx+1);
       this.synced = this.idx+1;
-      return ss.map(x => x[0]);
+      // syncset of molecules of pairs [redo,undo] into syncset of moluecules of redo
+      return ss.map(m => m.map(x =>x[0]));
     }
   }
 }

@@ -301,19 +301,21 @@ class FlatGraph:
         _log('graph update: %d commands' % len(redo_lsts))
         error = None
         def erracc(msg, s):
+            ''' message accumulation '''
             if s == None:
                 s = msg
             else:
                 s = s + ", " + msg
 
-        for redo in redo_lsts:
-            cmd = redo[0]
-            args = redo[1:]
-            try:
-                getattr(self, cmd)(*args)
-            except Exception as e:
-                _log('graph update failed, cmd "%s" with: %s' % (redo, str(e)))
-                erracc(str(e), error)
+        for redo_molecule in redo_lsts:
+            for redo in redo_molecule:
+                cmd = redo[0]
+                args = redo[1:]
+                try:
+                    getattr(self, cmd)(*args)
+                except Exception as e:
+                    _log('graph update failed, cmd "%s" with: %s' % (redo, str(e)))
+                    erracc(str(e), error)
 
         if error != None:
             return {'error' : error}
