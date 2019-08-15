@@ -234,6 +234,9 @@ class IData(enginterface.ObjReprJson):
         
         def create_idata(vn, url):
             _eval("%s = iData('%s');" % (vn, url), nargout=0)
+            if os.path.splitext(url)[1] in ('.png', '.jpg'):
+                # handles the case of color channels in common image files (collapse to grayscale to load as 2D data)
+                _eval("%s = iData(rgb2gray(%s.Signal));" % (vn, vn), nargout=0)
 
         def create_idata_array(vn, shape):
             if len(shape) == 1:
@@ -251,7 +254,7 @@ class IData(enginterface.ObjReprJson):
             _vectorized(datashape, create_idata, vnargs, args, ndaargs)
         else:
             create_idata(self.varname, url)
-    
+
     def __del__(self):
         _eval("clear %s;" % self.varname, nargout=0)
 
@@ -366,8 +369,10 @@ def _get_iData_repr(idata_symb):
     ndims = int(_eval('ndims(%s);' % idata_symb))
     axes_names = _eval('%s.Axes;' % idata_symb, nargout=1) # NOTE: len(axes_names) == ndims
     if not ndims == len(axes_names):
-        # TODO: handle this case in which ifit has not found any axes in the data
-        raise Exception("could not find axes")
+        # handles the case of non-existing axis names, i.e. from loading an image file
+        for i in range(ndims):
+            _eval('%s = %s.setaxis(%d,%s{%d});' % (idata_symb,idata_symb,i+1,idata_symb,i+1), nargout=0)
+        axes_names = _eval('%s.Axes;' % idata_symb, nargout=1) # Ensure we use the auto-generated axis names
     axesvals = []
     pltdct = {}
 
