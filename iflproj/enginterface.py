@@ -14,6 +14,7 @@ import os
 import sys
 import base64
 from collections import OrderedDict
+import traceback
 
 from nodespeak import RootNode, FuncNode, ObjNode, MethodNode, MethodAsFunctionNode, add_subnode, remove_subnode
 from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, InternalExecutionException, ObjLiteralNode
@@ -362,22 +363,22 @@ class FlatGraph:
                         if objm:
                             retobj['dataupdate'][key] = objm.get_repr()
                 except Exception as e:
-                    raise ObjectRepresentationException(str(e))
+                    s = traceback.format_exc()
+                    raise ObjectRepresentationException(s)
             return retobj
 
         except InternalExecutionException as e:
             _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
-            return {'error' : "Run exc.: %s" % str(e), 'errorid' : e.name}
+            return {'error' : "InternalExecutionException:\n%s" % str(e), 'errorid' : e.name}
         except NodeNotExecutableException as e:
             _log("exe %s yields: Node is not executable" % id)
-            return {'error' : "Not executable: %s, %s" % (str(e), id)}
+            return {'error' : "NodeNotExecutableException:\n%s, %s" % (str(e), id)}
+        except ObjectRepresentationException as e:
+            _log("object representation error... %s" % str(e))
+            return {'error' : "ObjectRepresentationException:\n%s" % str(e)}
         except Exception as e:
             _log("exe %s engine error: %s" % (id, str(e)))
-            return {'error' : "Engine exc.: %s %s" % (type(e).__name__, str(e))}
-        except ObjectRepresentationException as e:
-            # TODO: implement this branch
-            _log("object representation error...")
-            return {'error' : "Repr. exc.: %s" % str(e)}
+            return {'error' : "%s: %s" % (type(e).__name__, str(e))}
 
     def reset_all_objs(self):
         ''' assigns None to all object handle nodes '''
