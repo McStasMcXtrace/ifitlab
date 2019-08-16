@@ -237,8 +237,11 @@ class IData(enginterface.ObjReprJson):
         def create_idata(vn, url):
             _eval("%s = iData('%s');" % (vn, url), nargout=0)
             if os.path.splitext(url)[1] in ('.png', '.jpg'):
-                # handles the case of color channels in common image files (collapse to grayscale to load as 2D data)
-                _eval("%s = iData(rgb2gray(%s.Signal));" % (vn, vn), nargout=0)
+                # Check if this is a color or monochrome image
+                ndims = int(_eval('ndims(%s);' % vn))
+                if ndims>2:
+                    # handles the case of color channels in common image files (collapse to grayscale to load as 2D data)
+                    _eval("%s = iData(rgb2gray(%s.Signal));" % (vn, vn), nargout=0)
 
         def create_idata_array(vn, shape):
             if len(shape) == 1:
