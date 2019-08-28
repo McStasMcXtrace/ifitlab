@@ -203,6 +203,7 @@ namecategories = collections.OrderedDict({
     'From_model' : 'operators',
     'combine_data' : 'operators',
     'subtract_data' : 'operators',
+    'divide_data' : 'operators',
     'Catenate' : 'operators',
     'Transpose' : 'operators',
 })
@@ -479,7 +480,10 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
         a2 = c - xp
         # the below should be better, but there are still some strange artefacts in the generated image
         #return np.add(cm[f], (xp-f)*(np.subtract(cm[c], cm[f])) ).astype(np.ubyte)
-        idx = np.int(np.round(xp))
+        if np.isnan(xp):
+            idx=np.int(len(cm)-1)
+        else:
+            idx = np.int(np.round(xp))
         if idx<0:
             idx = 0
         if idx>len(cm)-1:
@@ -1389,3 +1393,33 @@ def subtract_data(sample: IData, background: IData) -> IData:
         _vectorized(shape, subtract_atomic, vnargs, args, ndaargs)
 
     return retobj
+
+
+def divide_data(sample: IData, background: IData) -> IData:
+    ''' Divide a calibration set, e.g. for normalization. '''
+    logging.debug("divide")
+
+    def divide_atomic(vn_out, vn_1, vn_2):
+        _eval("%s = %s ./ %s;" % (vn_out, vn_1, vn_2), nargout=0)
+
+    ds1 = sample._get_datashape()
+    ds2 = background._get_datashape()
+    if ds1 != ds2:
+        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+
+    shape = ds1
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        divide_atomic(retobj.varname, sample.varname, background.varname)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, sample.varname, background.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, divide_atomic, vnargs, args, ndaargs)
+
+    return retobj
+
+
+
