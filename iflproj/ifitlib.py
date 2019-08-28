@@ -479,7 +479,13 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
         a2 = c - xp
         # the below should be better, but there are still some strange artefacts in the generated image
         #return np.add(cm[f], (xp-f)*(np.subtract(cm[c], cm[f])) ).astype(np.ubyte)
-        return cm[np.int(np.round(xp))]
+        idx = np.int(np.round(xp))
+        if idx<0:
+            idx = 0
+        if idx>len(cm)-1:
+            idx = len(cm)-1
+        return cm[idx]
+        
     
     dims = np.shape(signal)
     
