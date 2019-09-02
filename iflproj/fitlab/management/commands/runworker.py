@@ -24,6 +24,7 @@ from iflproj import settings
 from fitlab.models import GraphUiRequest, GraphReply, GraphSession
 import enginterface
 from fitlab.management.commands import purgemessages
+from loggers import log_workers as _log 
 
 NUM_THREADS = 4
 
@@ -274,11 +275,11 @@ class Workers:
                     session.graph.shutdown()
                     del self.sessions[gs_id]
                 except Exception as e:
-                    _log("error: " + str(e))
+                    _log("session shutdown error: " + str(e), error=True)
 
     def load_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
-        _log("autoloading stashed session, gs_id: %s" % task.gs_id)
+        _log("autoloading stashed session (%s)" % task.gs_id)
 
         # load gs from DB
         obj = None
@@ -301,14 +302,14 @@ class Workers:
             self.sessions[task.gs_id] = session
 
         except Exception as e:
-            _log("autoload failed... (%s)" % str(e))
+            _log("autoload failed... (%s)" % str(e), error=True)
             return self.revert_session(task)
 
         return self.sessions.get(task.gs_id, None)
 
     def revert_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
-        _log("reverting quicksaved session, gs_id: %s" % task.gs_id)
+        _log("reverting quicksaved session (%s)" % task.gs_id)
 
         # load gs from DB
         obj = None
@@ -331,7 +332,7 @@ class Workers:
             self.sessions[task.gs_id] = session
 
         except Exception as e:
-            _log("revert failed (%s)" % str(e))
+            _log("revert failed (%s)" % str(e), error=True)
             # fallback: reconstruct
             return self.reconstruct_session(task)
 
@@ -339,7 +340,7 @@ class Workers:
 
     def reconstruct_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
-        _log("reconstructing session from graphdef, gs_id: %s" % task.gs_id)
+        _log("reconstructing session from graphdef (%s)" % task.gs_id)
 
         try:
             obj = GraphSession.objects.filter(id=task.gs_id)[0]
@@ -369,7 +370,7 @@ class Workers:
             obj.save()
             self.sessions[task.gs_id] = session
         except Exception as e:
-            _log("reconstruct failed: %s" % str(e))
+            _log("reconstruct failed: %s" % str(e), error=True)
 
         return session
 
@@ -426,7 +427,7 @@ class Workers:
             if not task:
                 continue
 
-            _log("doing task '%s', session id: %s" % (task.cmd, task.gs_id))
+            _log("doing task '%s' (%s)" % (task.cmd, task.gs_id))
             try:
                 # attach/load-attach
                 if task.cmd == "load":
@@ -443,7 +444,7 @@ class Workers:
                         graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
                         graphreply.save()
                     except:
-                        _log("autoload failed, requesting fallback cmd='revert', session id: %s" % task.gs_id)
+                        _log("autoload failed, requesting fallback cmd='revert' (%s)" % task.gs_id, error=True)
                         task.cmd = "revert"
                         self.taskqueue.put(task)
 
@@ -654,7 +655,7 @@ class Workers:
                 _log("task done")
 
             except Exception as e:
-                _log("fatal error: " + str(e))
+                _log("fatal error: " + str(e), error=True)
 
                 graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps( { "fatalerror" : str(e) } ))
                 graphreply.save()
@@ -662,23 +663,11 @@ class Workers:
         _log("exit")
         self.termination_events[threading.current_thread().getName()].set()
 
-_wrklog = None
-def _log(msg):
-    global _wrklog
-    if not _wrklog:
-        _wrklog = logging.getLogger('workers')
-        hdlr = logging.FileHandler('logs/workers.log')
-        hdlr.level = logging.INFO
-        hdlr.setFormatter(logging.Formatter('%(asctime)s:    %(message)s', '%Y%m%d_%H%M%S'))
-        _wrklog.addHandler(hdlr)
-    _wrklog.info(msg)
 
 class Command(BaseCommand):
     help = 'started in a separate process, required for any work to be done'
 
     def handle(self, *args, **options):
-        logging.basicConfig(level=logging.INFO, format='%(threadName)-3s: %(message)s' )
-
         _log("purging messages...")
 
         c = purgemessages.Command()

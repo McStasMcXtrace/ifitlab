@@ -18,20 +18,8 @@ import traceback
 
 from nodespeak import RootNode, FuncNode, ObjNode, MethodNode, MethodAsFunctionNode, add_subnode, remove_subnode
 from nodespeak import add_connection, remove_connection, execute_node, NodeNotExecutableException, InternalExecutionException, ObjLiteralNode
+from loggers import log_engine as _log
 
-_englog = None
-def _log(msg):
-    global _englog
-    if not _englog:
-        _englog = logging.getLogger('engine')
-        hdlr = logging.FileHandler('logs/engine.log')
-        hdlr.setFormatter(logging.Formatter('%(asctime)s:    %(message)s', '%Y%m%d_%H%M%S'))
-        _englog.addHandler(hdlr)
-
-        _englog.info("")
-        _englog.info("")
-        _englog.info("%%  starting engine log session  %%")
-    _englog.info(msg)
 
 class TreeJsonAddr:
     '''
@@ -290,7 +278,7 @@ class FlatGraph:
                 _log('node_data injected into node "%s"' % n.name)
             except Exception as e:
                 # set_user_data does not have to be implemented
-                _log('node_data failed to set data "%s" on node "%s" (%s)' % (data_str, n.name, str(e)))
+                _log('node_data failed to set data "%s" on node "%s" (%s)' % (data_str, n.name, str(e)), error=True)
                 raise e
 
     def graph_update(self, redo_lsts):
@@ -311,7 +299,7 @@ class FlatGraph:
                 try:
                     getattr(self, cmd)(*args)
                 except Exception as e:
-                    _log('graph update failed, cmd "%s" with: %s' % (redo, str(e)))
+                    _log('graph update failed, cmd "%s" with: %s' % (redo, str(e)), error=True)
                     erracc(str(e), error)
 
         if error != None:
@@ -364,16 +352,16 @@ class FlatGraph:
             return retobj
 
         except InternalExecutionException as e:
-            _log("internal error during exe %s: %s - %s" % (id, e.name, str(e)))
+            _log("internal error during exe (%s): %s - %s" % (id, e.name, str(e)), error=True)
             return {'error' : "InternalExecutionException:\n%s" % str(e), 'errorid' : e.name}
         except NodeNotExecutableException as e:
-            _log("exe %s yields: Node is not executable" % id)
+            _log("node is not executable (%s)" % id, error=True)
             return {'error' : "NodeNotExecutableException:\n%s, %s" % (str(e), id)}
         except ObjectRepresentationException as e:
-            _log("object representation error... %s" % str(e))
+            _log("object representation error... %s" % str(e), error=True)
             return {'error' : "ObjectRepresentationException:\n%s" % str(e)}
         except Exception as e:
-            _log("exe %s engine error: %s" % (id, str(e)))
+            _log("Exotic engine error (%s): %s" % (id, str(e)), error=True)
             return {'error' : "%s: %s" % (type(e).__name__, str(e))}
 
     def reset_all_objs(self):
@@ -409,7 +397,7 @@ class FlatGraph:
                 except:
                     print(obj)
             else:
-                _log("inject: omiting node of type: %s" % str(type(n)))
+                _log("inject: omiting setting data on node of type: %s" % str(type(n)), error=True)
 
     def extract_graphdef(self):
         ''' extract and return a frontend-readable graph definition, using the x_y field to insert these into the gd '''
