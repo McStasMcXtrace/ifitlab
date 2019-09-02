@@ -238,7 +238,7 @@ class Workers:
             raise Exception("extract_logs: null session given")
 
         # get new logtext
-        loglines = session.graph.middleware.extract_loglines(session.gs_id)
+        loglines = session.graph.middleware.extract_loglines()
         logtext = "".join(loglines)
 
         # append and save

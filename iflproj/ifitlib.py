@@ -78,39 +78,28 @@ def _get_anonymous_uuid():
 
 # log lines are registered on-demand
 _loglock = threading.Lock()
-def _extract_loglines(tag, varnames):
-    ''' extracts and returns lines with any string in varnames, from logs/cmds.log, deleting these lines in the source '''
+def _extract_loglines(varnames):
+    ''' extracts lines with any string in varnames from logs/cmds.log, deleting these lines in the source '''
     source = 'logs/cmds.log'
-    tmp_left = 'logs/tmp_cmds.log'
-    tmp_right = 'logs/tmp_%s.m' % tag
-
     with _loglock:
-        # remove any tmp files
-        if os.path.exists(tmp_left):
-            os.remove(tmp_left)
-        if os.path.exists(tmp_right):
-            os.remove(tmp_right)
-
+        # work through the log, extracting lines appropriate for [varnames] to return, hereby reducing its size
         with open(source, 'r') as srcfile:
-            with open(tmp_left, 'a') as left:
-                with open(tmp_right, 'a') as right:
-                    regex_lst = [re.compile(vn) for vn in varnames]
-                    cmds_other = []
-                    cmds_ret = []
-                    for line in srcfile:
-                        if True in [r.search(line)!=None for r in regex_lst]:
-                            right.write(line)
-                            cmds_ret.append(line)
-                        else:
-                            left.write(line)
-                            cmds_other.append(line)
+            regex_lst = [re.compile(vn) for vn in varnames] # compile the regex's of each varname, these are used for every line
+            cmds_left = []
+            cmds_right = []
+            for line in srcfile:
+                if True in [r.search(line)!=None for r in regex_lst]:
+                    cmds_right.append(line)
+                else:
+                    cmds_left.append(line)
 
-        # replace source with filtered remainder (without destroying the file pointer used by logging)
+        # replace source with filtered "left" lines (without ruining the file pointer used by logging)
         with open(source, 'w') as srcfile:
-            srcfile.write("".join(cmds_other))
+            srcfile.write("".join(cmds_left))
             srcfile.close()
 
-        return cmds_ret
+        # return the "right" lines
+        return cmds_right
 
 # middlware keeps session-management out of this module, although locks must be used instead, with a modest multi-user performance hit 
 _hl_exe_lock = threading.Lock()
@@ -151,8 +140,8 @@ class _VarnameMiddleware(enginterface.MiddleWare):
         self.varnames = set()
     def finalise(self):
         self.clear()
-    def extract_loglines(self, tag):
-        return _extract_loglines(tag, self.varnames | self.varnames_tmp)
+    def extract_loglines(self):
+        return _extract_loglines(self.varnames | self.varnames_tmp)
     def get_logheader(self):
         text = "%%\n" + '%%  log generated on {0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()) + "\n%%\n%%  required:\n%%    addpath(genpath(YOUR_IFIT_LOCATION))\n%%\n%%  varnames:\n%%    " + "\n%%    ".join(self.varnames) + "\n%%\n"
         return text
