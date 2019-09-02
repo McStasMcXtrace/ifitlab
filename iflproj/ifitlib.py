@@ -53,6 +53,7 @@ def _eval(cmd, nargout=1, dontlog=False):
             hdlr.level = logging.INFO
             hdlr.setFormatter(logging.Formatter('%(message)s'))
             _cmdlog.addHandler(hdlr) 
+
             _cmdlog.info("")
             _cmdlog.info("")
             _cmdlog.info("%%  starting ifit cmd log session at %s  %%" % '{0:%Y%m%d_%H%M%S}'.format(datetime.datetime.now()))

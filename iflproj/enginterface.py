@@ -26,11 +26,7 @@ def _log(msg):
         _englog = logging.getLogger('engine')
         hdlr = logging.FileHandler('logs/engine.log')
         hdlr.setFormatter(logging.Formatter('%(asctime)s:    %(message)s', '%Y%m%d_%H%M%S'))
-        hdlr2 = logging.StreamHandler(sys.stdout)
-        hdlr2.level = logging.INFO
-        hdlr2.setFormatter(logging.Formatter('     %(message)s'))
         _englog.addHandler(hdlr)
-        _englog.addHandler(hdlr2)
 
         _englog.info("")
         _englog.info("")
