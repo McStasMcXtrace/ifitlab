@@ -15,29 +15,29 @@ import os
 ''' ldap '''
 MCWEB_LDAP_DN = 'dc=fysik,dc=dtu,dc=dk'
 
-import ldap
-from django_auth_ldap.config import LDAPSearch
-AUTH_LDAP_SERVER_URI = "ldap://localhost"
-AUTH_LDAP_BIND_DN = ""
-AUTH_LDAP_BIND_PASSWORD = ""
-AUTH_LDAP_USER_SEARCH = LDAPSearch("ou=users,%s" % MCWEB_LDAP_DN, ldap.SCOPE_SUBTREE, "(uid=%(user)s)")
+#import ldap
+#from django_auth_ldap.config import LDAPSearch
+#AUTH_LDAP_SERVER_URI = "ldap://localhost"
+#AUTH_LDAP_BIND_DN = ""
+#AUTH_LDAP_BIND_PASSWORD = ""
+#AUTH_LDAP_USER_SEARCH = LDAPSearch("ou=users,%s" % MCWEB_LDAP_DN, ldap.SCOPE_SUBTREE, "(uid=%(user)s)")
 AUTHENTICATION_BACKENDS = (
-    'django_auth_ldap.backend.LDAPBackend',
-    #'django.contrib.auth.backends.ModelBackend',
+    #'django_auth_ldap.backend.LDAPBackend',
+    'django.contrib.auth.backends.ModelBackend',
 )
 
 
 ''' home-made settings '''
-IFIT_DIR = "/srv/mcweb/iFit/"
-MATFILES_DIRNAME = "/srv/mcweb/ifitlab/iflproj/matsaves"
+#IFIT_DIR = "/srv/mcweb/iFit/"
+#MATFILES_DIRNAME = "/srv/mcweb/ifitlab/iflproj/matsaves"
+IFIT_DIR = "/home/jaga/source/iFit/"
+MATFILES_DIRNAME = "/home/jaga/source/ifitlab/iflproj/matsaves"
 UI_COORDS_UPDATE_INTERVAL_MS = 30000
 AJAX_REQ_TIMEOUT_S = 60
 
 WRK_CLEANUP_INTERVAL_S = 600
 WRK_SESSION_RETIRE_TIMEOUT_S = 3600
 WRK_MONITOR_INTERVAL_S = 120
-
-SYSMON_LOGFILE = "sysmon.log"
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -133,7 +133,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Copenhagen'
 
 USE_I18N = True
 

@@ -3,7 +3,7 @@ Contains log handlers and a shared error log.
 '''
 import logging
 logging.basicConfig(level=logging.INFO, format='%(threadName)-3s: %(message)s' )
-
+from datetime import datetime
 
 _englog = None
 def log_engine(msg, error=False):
@@ -43,3 +43,23 @@ def _log_error(msg):
         hdlr.setFormatter(logging.Formatter('%(threadName)-3s %(asctime)s : %(message)s', '%Y%m%d_%H%M%S'))
         _errlog.addHandler(hdlr)
     _errlog.info(msg)
+
+_smlog = None
+_yrdate = None
+def _log_sysmon(users, sessions, livesessions, hothandles, middleware_vars, matlab_vars):
+    global _smlog
+    global _yrdate
+    yrdatenow = datetime.strftime(datetime.now(), "%Y%m%d")
+    if not _smlog or not _yrdate == yrdatenow:
+        _yrdate = yrdatenow
+        _smlog = logging.getLogger("sysmon")
+        hdlr = logging.FileHandler("logs/sysmon/%s.log" % yrdatenow)
+        hdlr.level = logging.INFO
+        hdlr.setFormatter(logging.Formatter('%(asctime)s : %(message)s', '%Y%m%d_%H%M%S'))
+        _smlog.addHandler(hdlr)
+        _smlog.info("starting sysmon session, logging:")
+        _smlog.info("users sessions livesessions hothandles middleware_vars matlab_vars")
+
+    msg = "%d %d %d %d %d %d" % (users, sessions, livesessions, hothandles, middleware_vars, matlab_vars)
+    _smlog.info(msg)
+

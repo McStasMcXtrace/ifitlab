@@ -24,7 +24,7 @@ from iflproj import settings
 from fitlab.models import GraphUiRequest, GraphReply, GraphSession
 import enginterface
 from fitlab.management.commands import purgemessages
-from loggers import log_workers as _log 
+from loggers import log_workers as _log, _log_sysmon 
 
 NUM_THREADS = 4
 
@@ -70,22 +70,6 @@ class SoftGraphSession:
 '''
 Utility
 '''
-
-class SysmonLine:
-    def __init__(self, users, dbsessions, livesessions, hothandles, mw_vars, ml_vars):
-        lst = [users, dbsessions, livesessions, hothandles, mw_vars, ml_vars]
-        self.line = " ".join([str(e) for e in lst])
-        self.didwrite = False
-    def write(self, filename):
-        if self.didwrite:
-            raise Exception("SysmonLine: line was already written")
-        try:
-            if not os.path.exists(filename):
-                open(filename, 'w').write("users, db_sessions, live_sessions, tot_active_handles, tot_mdlware_vars, tot_matlab_vars\n")
-            open(filename, 'a').write(self.line + "\n")
-        except Exception as e:
-            _log("SysmonLine: problem writing to disk: %s" % str(e))
-        self.didwrite = True
 
 def to_djangodb_str(obj):
     tosave = base64.b64encode(pickle.dumps(obj))
@@ -153,6 +137,7 @@ class Workers:
             e.wait()
 
     def monitor_wrk(self):
+
         try:
             while not self.terminated:
                 last = timezone.now()
@@ -187,9 +172,9 @@ class Workers:
                     num_matlab_vars = len(who)
                 except Exception as e:
                     pass
-                # save line to file
-                line = SysmonLine(num_users, num_sessions, num_livesessions, num_hothandles, num_middleware_vars, num_matlab_vars)
-                line.write(settings.SYSMON_LOGFILE)
+
+                # log monitored values
+                _log_sysmon(num_users, num_sessions, num_livesessions, num_hothandles, num_middleware_vars, num_matlab_vars)
 
                 while (not self.terminated) and (timezone.now() - last).seconds < settings.WRK_MONITOR_INTERVAL_S:
                     time.sleep(1)
