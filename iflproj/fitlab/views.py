@@ -1,6 +1,8 @@
 import time
 import json
 import base64
+import os
+import re
 
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
@@ -171,6 +173,22 @@ def extractlogfrom_session(req, gs_id):
     _command(req, "extract_log", validate=False, gs_id=gs_id)
     obj = GraphSession.objects.filter(id=gs_id)[0]
     return HttpResponse("<pre>%s%s</pre>" % (obj.logheader, obj.loglines))
+
+def sysmon(req):
+    for (_, _, sysmonfiles) in os.walk("logs/sysmon/"):
+        break
+    # show only "yeardate" files from this folder
+    sysmonfiles = [f for f in sysmonfiles if re.match("[0-9]+.log", f)]
+    sysmonfiles.sort()
+    sysmonfiles.reverse()
+    filenames_urls = [(f, os.path.join("/ifl/sysmon", os.path.splitext(f)[0])) for f in sysmonfiles]
+    return render(req, "fitlab/listfiles.html", context={"filenames_urls" : filenames_urls})
+def sysmonfile(req, yeardate):
+    filepath = "logs/sysmon/%s.log" % yeardate
+    if os.path.exists(filepath):
+        return HttpResponse("<pre>%s</pre>" % open(filepath).read())
+    else:
+        return redirect("sysmon")
 
 @login_required
 def ajax_dashboard_edt_title(req):

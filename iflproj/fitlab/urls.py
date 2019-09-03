@@ -20,6 +20,8 @@ urlpatterns = [
     url(r'^reset/(?P<gs_id>[\w0-9]+)/?$', views.reset_session),
     url(r'^up/(?P<gs_id>[\w0-9]+)/?$', views.up),
     url(r'^cmdlog/(?P<gs_id>[\w0-9]+)/?$', views.extractlogfrom_session),
+    url(r'^sysmon/?$', views.sysmon, name="sysmon"),
+    url(r'^sysmon/(?P<yeardate>[0-9]+)$', views.sysmonfile),
 
     url('^ajax_dashboard_edt_title/?$', views.ajax_dashboard_edt_title),
     url('^ajax_dashboard_edt_excomment/?$', views.ajax_dashboard_edt_excomment),
