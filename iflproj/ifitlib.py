@@ -190,6 +190,8 @@ namecategories = collections.OrderedDict({
 
     'Log': 'operators',
     'Power': 'operators',
+    'Scale' : 'operators',
+    'Add' : 'operators',
     'From_model' : 'operators',
     'combine_data' : 'operators',
     'subtract_data' : 'operators',
@@ -1405,4 +1407,52 @@ def divide_data(sample: IData, background: IData) -> IData:
     return retobj
 
 
+def Scale(dataset: IData, axis: int=0, scale: float=1.0) -> IData:
+    ''' Scale dataset by real number. '''
+    logging.debug("Scale")
 
+    def scale_atomic(vn_dest, vn_source, axis, scale):
+        if axis==0:
+            _eval("%s = %s * %f;" % (vn_dest, vn_source, scale), nargout=0)
+        else:
+            _eval("%s = setaxis(%s, %d, getaxis(%s, %d) * %f);" % (vn_dest, vn_source, axis, vn_source, axis, scale), nargout=0)
+
+    shape = dataset._get_datashape()
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        scale_atomic(retobj.varname, dataset.varname, axis, scale)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, dataset.varname, axis, scale, )
+        args = (axis, scale, )
+        ndaargs = ()
+        _vectorized(shape, scale_atomic, vnargs, args, ndaargs)
+
+    return retobj
+
+
+def Add(dataset: IData, axis: int=0, scalar: float=0) -> IData:
+    ''' Add real number to dataset. '''
+    logging.debug("Add")
+
+    def add_atomic(vn_dest, vn_source, axis, scalar):
+        if axis==0:
+            _eval("%s = %s + %f;" % (vn_dest, vn_source, scalar), nargout=0)
+        else:
+            _eval("%s = setaxis(%s, %d, getaxis(%s, %d) + %f);" % (vn_dest, vn_source, axis, vn_source, axis, scalar), nargout=0)
+
+
+    shape = dataset._get_datashape()
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        add_atomic(retobj.varname, dataset.varname, axis, scalar)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, dataset.varname, axis, scalar, )
+        args = (axis, scalar, )
+        ndaargs = ()
+        _vectorized(shape, add_atomic, vnargs, args, ndaargs)
+
+    return retobj
