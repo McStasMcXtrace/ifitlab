@@ -175,6 +175,7 @@ namecategories = collections.OrderedDict({
     'IData_1d' : 'tools',
     'IData_2d' : 'tools',
     'IData.mask' : 'tools',
+    'IData.keep' : 'tools',   
     'IData.rebin' : 'tools',
     'IFunc' : 'tools',
     'IFunc.guess' : 'tools',
@@ -306,6 +307,37 @@ class IData(enginterface.ObjReprJson):
 
         return retdct
 
+    def keep(self, low: float, high: float, axis: int=0):
+        ''' Keeps data only within specified interval on given axis. (Signal=0, x=1, y=2).'''
+        logging.debug("IData.keep")
+
+        def keep_atomic(vn, axis, low, high):
+            if axis==0:
+                _eval("%s(%s<%g)=%g;" % (vn, vn, low, low), nargout=0)
+                _eval("%s(%s>%g)=%g;" % (vn, vn, high, high), nargout=0)
+            elif axis==1:
+                _eval("%s = xlim(%s, [%g %g], 'include');" % (vn, vn, low, high), nargout=0)
+            elif axis==2:
+                _eval("%s = ylim(%s, [%g %g], 'include');" % (vn, vn, low, high), nargout=0)
+            else:
+                raise Exception("Keep only supported on axes 0,1,2")
+
+        low = _ifregular_squeeze_cast(low)
+        high = _ifregular_squeeze_cast(high)
+
+        shape = self._get_datashape()
+        if np.shape(low) != shape or np.shape(high) != shape:
+            raise Exception("shape mismatch, shape of min and max must match %s" % str(shape))
+
+        if len(shape) > 0:
+            vnargs = (self.varname, )
+            args = (axis,)
+            ndaargs = (low, high, )
+            _vectorized(shape, keep_atomic, vnargs, args, ndaargs)
+        else:
+            keep_atomic(self.varname, axis, low, high)
+
+    
     def mask(self, min: float, max: float):
         ''' Masks data of the specified interval. '''
         logging.debug("IData.mask")
