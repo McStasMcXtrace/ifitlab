@@ -2191,11 +2191,11 @@ class GraphInterface {
       for (let i=0;i<lks.length;i++) {
         entry = lks[i];
         // clear all links hitting a (downstream anchor)
-        if (entry[2] == id && entry[3] == a.idx) {
+        if (a.i_o && entry[2] == id && entry[3] == a.idx) {
           this.link_rm(entry[0], entry[1], entry[2], entry[3])
         }
         // clear all links from a (upstream anchor)
-        if (entry[0] == id && entry[1] == a.idx) {
+        if (!a.i_o && entry[0] == id && entry[1] == a.idx) {
           this.link_rm(entry[0], entry[1], entry[2], entry[3])
         }
       }
