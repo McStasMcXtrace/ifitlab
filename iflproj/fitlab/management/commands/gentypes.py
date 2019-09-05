@@ -94,7 +94,11 @@ class Command(BaseCommand):
             issues = 0
             sessions = GraphSession.objects.all()
             for s in sessions:
+                if s.graphdef == "":
+                    continue
                 gd = json.loads(s.graphdef)
+                if gd == None:
+                    continue
                 hasissues = False
                 print("checking session %s" % s.id)
                 for id in list(gd["nodes"]):
@@ -109,6 +113,10 @@ class Command(BaseCommand):
                             fixes[address] = input("input substitute address for %s (empty = delete): " % address)
                         if fixes[address] != "":
                             gd["nodes"][id][5] = fixes[address]
+                            # update labels to become the new address if the label was a subset of the previous address
+                            label = gd["nodes"][id][4]
+                            if label in address:
+                                gd["nodes"][id][4] = fixes[address]
                         else:
                             del gd["nodes"][id]
                             # also remove any data assignment to this node

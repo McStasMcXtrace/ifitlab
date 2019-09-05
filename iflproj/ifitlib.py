@@ -188,16 +188,16 @@ namecategories = collections.OrderedDict({
     'mult_models' : 'models',
     'separate' : 'models',
 
-    'Log': 'operators',
-    'Power': 'operators',
-    'Scale' : 'operators',
-    'Add' : 'operators',
-    'From_model' : 'operators',
-    'combine_data' : 'operators',
+    'Combine_data' : 'operators',
+    'log' : 'operators',
+    'power': 'operators',
+    'scale' : 'operators',
+    'add' : 'operators',
+    'from_model' : 'operators',
     'subtract_data' : 'operators',
     'divide_data' : 'operators',
-    'Catenate' : 'operators',
-    'Transpose' : 'operators',
+    'catenate' : 'operators',
+    'transpose' : 'operators',
 })
 
 
@@ -1116,6 +1116,11 @@ def fit(idata: IData, ifunc: IFunc, optimizer:str="fminpowell") -> IFunc:
     return retobj
 
 
+'''
+Constructors (capitalized)
+'''
+
+
 def Gauss(datashape:list=None) -> IFunc:
     ''' Creates a Gauss IFunc model. '''
     return IFunc(datashape, 'gauss')
@@ -1127,6 +1132,103 @@ def Lorentz(datashape:list=None) -> IFunc:
 def Lin(datashape:list=None) -> IFunc:
     ''' Creates a Linear IFunc model. '''
     return IFunc(datashape, 'strline')
+
+
+def IData_1d(axis: list, signal: list, error: list) -> IData:
+    ''' Creates an (x, y) IData object from two lists. '''
+    logging.debug("IData_1D")
+
+    def set_x_y_atomic(vn_out, ax, sig, err):
+        _eval("setaxis(%s, 1, %s);" % (vn_out, str(ax)), nargout=0)
+        _eval("%s.Signal = %s;" % (vn_out, str(sig)), nargout=0)
+        _eval("%s.Error = %s;" % (vn_out, str(err)), nargout=0)
+
+    ds1 = np.shape(axis)
+    ds2 = np.shape(signal)
+    ds3 = np.shape(error)
+    if ds1 != ds2 or ds1 != ds3:
+        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+    if type(axis) != list or type(signal) != list or type(error) != list:
+        raise Exception("axis and signal must be lists")
+
+    shape = ds1
+    retobj = None
+    if len(shape) <= 1:
+        retobj = _create_empty_idata()
+        set_x_y_atomic(retobj.varname, axis, signal, error)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, )
+        args = ()
+        ndaargs = (axis, signal, error, )
+        _vectorized(shape, set_x_y_atomic, vnargs, args, ndaargs)
+
+    return retobj
+
+
+def IData_2d(axes: list, signal: list) -> IData:
+    ''' Creates an two dimensional IData object from axes and signal args. The dimensionality of axes must be one higher than that of signal. '''
+    logging.debug("IData_2d")
+
+    raise Exception("not yet implemented")
+    # TODO: impl.: make sure len(ds1) == len(ds2)+1 and use ds2 as the vectorization shape
+
+
+def Combine_data(filenames:list) -> IData:
+    ''' Combines and outputs multiple data files into a single IData object. '''
+    logging.debug("combine")
+
+    def combine_atomic(vn, fns):
+        if type(fns) not in (np.ndarray, list, ):
+            raise Exception("combine: file names input must be an ndarray");
+        _eval("%s = combine(%s);" % (vn, " iData(\'" + "\'), iData(\'".join(fns) + "\') "), nargout=0)
+
+    def create_idata_array(vn, shape):
+        if len(shape) == 1:
+            shape = (shape[0], 1)
+        shape = str(list(shape)).replace("[","").replace("]","")
+        _eval("%s = zeros(iData, %s);" % (vn, shape), nargout=0)
+
+    filenames, rank = _lowest_level_irr_squeezecast(filenames)
+    
+    retobj = None
+    if rank == 0:
+        retobj = IData(url=None)
+        combine_atomic(retobj.varname, filenames)
+    elif rank > 0:
+        shape = np.shape(filenames)[0:rank]
+        retobj = IData(url=None)
+        create_idata_array(retobj.varname, shape)
+        
+        vnargs = (retobj.varname, )
+        args = ()
+        ndaargs = (filenames, )
+        _vectorized(shape, combine_atomic, vnargs, args, ndaargs)
+    else:
+        raise Exception("combine: rank must be in Z_0")
+    
+    return retobj
+
+
+def _create_empty_idata():
+    retvar = IData(url=None)
+    _eval("%s = iData;" % retvar.varname, nargout=0)
+    return retvar
+
+
+def _create_empty_idata_array(shape):
+    retvar = IData(url=None)
+    if len(shape) == 1:
+        shape = (shape[0], 1)
+    shape_str = str(list(shape)).replace("[","").replace("]","")
+    _eval("%s = zeros(iData, %s);" % (retvar.varname, shape_str), nargout=0)
+
+    return retvar
+
+
+'''
+IFunc based
+'''
 
 
 def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
@@ -1187,8 +1289,18 @@ def separate(fitfunc: IFunc, typefunc: IFunc, pidx=-1) -> IFunc:
     return retobj
 
 
-def Log(data: IData, axis: int=0) -> IData:
-    ''' A log dataset operator. "axis": 0 is signal, 1 first axis, etc.'''
+def from_model(data: IData, model: IFunc) -> IData:
+    ''' Defines a dataset operator from an iFunc model. '''
+    raise Exception("To be implemented.")
+
+
+'''
+IData based.
+'''
+
+
+def log(data: IData, axis: int=0) -> IData:
+    ''' A log dataset operator. "axis": 0 is signal, 1 first axis, etc. '''
     retobj = _create_empty_idata()
     vn_dest = retobj.varname
     vn_source = data.varname
@@ -1199,7 +1311,7 @@ def Log(data: IData, axis: int=0) -> IData:
     return retobj
 
 
-def Power(data: IData, axis: int=0, power: int=2) -> IData:
+def power(data: IData, axis: int=0, power: int=2) -> IData:
     ''' A power dataset operator (square, cube, ...). "axis": 0 is signal, 1 first axis, etc. '''
     def power_atomic(vn_dest, vn_source, axis, power):
         if axis==0:
@@ -1221,8 +1333,8 @@ def Power(data: IData, axis: int=0, power: int=2) -> IData:
     return retobj
 
 
-def Transpose(data: IData) -> IData:
-    ''' Transpose dataset '''
+def transpose(data: IData) -> IData:
+    ''' Transpose dataset. '''
     def transpose_atomic(vn_dest, vn_source):
         _eval("%s = %s';" % (vn_dest, vn_source), nargout=0)
 
@@ -1240,8 +1352,8 @@ def Transpose(data: IData) -> IData:
     return retobj
 
 
-def Catenate(data: IData) -> IData:
-    ''' Concatenate dataset (k x R^n -> R^n+1)'''
+def catenate(data: IData) -> IData:
+    ''' Concatenate dataset (k x R^n -> R^n+1). '''
     def catenate_atomic(vn_dest, vn_source):
         _eval("%s = cat(0,%s)';" % (vn_dest, vn_source), nargout=0)
 
@@ -1249,108 +1361,6 @@ def Catenate(data: IData) -> IData:
     catenate_atomic(retobj.varname, data.varname)
 
     return retobj
-
- 
-def From_model(data: IData, model: IFunc) -> IData:
-    ''' Defines a dataset operator from an iFunc model. '''
-    raise Exception("To be implemented.")
-
-
-'''
-IData based.
-'''
-
-
-def IData_1d(axis: list, signal: list, error: list) -> IData:
-    ''' Creates an (x, y) IData object from two lists. '''
-    logging.debug("IData_1D")
-
-    def set_x_y_atomic(vn_out, ax, sig, err):
-        _eval("setaxis(%s, 1, %s);" % (vn_out, str(ax)), nargout=0)
-        _eval("%s.Signal = %s;" % (vn_out, str(sig)), nargout=0)
-        _eval("%s.Error = %s;" % (vn_out, str(err)), nargout=0)
-
-    ds1 = np.shape(axis)
-    ds2 = np.shape(signal)
-    ds3 = np.shape(error)
-    if ds1 != ds2 or ds1 != ds3:
-        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
-    if type(axis) != list or type(signal) != list or type(error) != list:
-        raise Exception("axis and signal must be lists")
-
-    shape = ds1
-    retobj = None
-    if len(shape) <= 1:
-        retobj = _create_empty_idata()
-        set_x_y_atomic(retobj.varname, axis, signal, error)
-    else:
-        retobj = _create_empty_idata_array(shape)
-        vnargs = (retobj.varname, )
-        args = ()
-        ndaargs = (axis, signal, error, )
-        _vectorized(shape, set_x_y_atomic, vnargs, args, ndaargs)
-
-    return retobj
-
-
-def IData_2d(axes: list, signal: list) -> IData:
-    ''' Creates an two dimensional IData object from axes and signal args. The dimensionality of axes must be one higher than that of signal. '''
-    logging.debug("IData_2d")
-
-    raise Exception("not yet implemented")
-    # TODO: impl.: make sure len(ds1) == len(ds2)+1 and use ds2 as the vectorization shape
-
-
-def combine_data(filenames:list) -> IData:
-    ''' Combines and outputs multiple data files into a single IData object '''
-    logging.debug("combine")
-
-    def combine_atomic(vn, fns):
-        if type(fns) not in (np.ndarray, list, ):
-            raise Exception("combine: file names input must be an ndarray");
-        _eval("%s = combine(%s);" % (vn, " iData(\'" + "\'), iData(\'".join(fns) + "\') "), nargout=0)
-
-    def create_idata_array(vn, shape):
-        if len(shape) == 1:
-            shape = (shape[0], 1)
-        shape = str(list(shape)).replace("[","").replace("]","")
-        _eval("%s = zeros(iData, %s);" % (vn, shape), nargout=0)
-
-    filenames, rank = _lowest_level_irr_squeezecast(filenames)
-    
-    retobj = None
-    if rank == 0:
-        retobj = IData(url=None)
-        combine_atomic(retobj.varname, filenames)
-    elif rank > 0:
-        shape = np.shape(filenames)[0:rank]
-        retobj = IData(url=None)
-        create_idata_array(retobj.varname, shape)
-        
-        vnargs = (retobj.varname, )
-        args = ()
-        ndaargs = (filenames, )
-        _vectorized(shape, combine_atomic, vnargs, args, ndaargs)
-    else:
-        raise Exception("combine: rank must be in Z_0")
-    
-    return retobj
-
-
-def _create_empty_idata():
-    retvar = IData(url=None)
-    _eval("%s = iData;" % retvar.varname, nargout=0)
-    return retvar
-
-
-def _create_empty_idata_array(shape):
-    retvar = IData(url=None)
-    if len(shape) == 1:
-        shape = (shape[0], 1)
-    shape_str = str(list(shape)).replace("[","").replace("]","")
-    _eval("%s = zeros(iData, %s);" % (retvar.varname, shape_str), nargout=0)
-
-    return retvar
 
 
 def subtract_data(sample: IData, background: IData) -> IData:
@@ -1407,7 +1417,7 @@ def divide_data(sample: IData, background: IData) -> IData:
     return retobj
 
 
-def Scale(dataset: IData, axis: int=0, scale: float=1.0) -> IData:
+def scale(dataset: IData, axis: int=0, scale: float=1.0) -> IData:
     ''' Scale dataset by real number. '''
     logging.debug("Scale")
 
@@ -1432,7 +1442,7 @@ def Scale(dataset: IData, axis: int=0, scale: float=1.0) -> IData:
     return retobj
 
 
-def Add(dataset: IData, axis: int=0, scalar: float=0) -> IData:
+def add(dataset: IData, axis: int=0, scalar: float=0) -> IData:
     ''' Add real number to dataset. '''
     logging.debug("Add")
 
@@ -1456,3 +1466,4 @@ def Add(dataset: IData, axis: int=0, scalar: float=0) -> IData:
         _vectorized(shape, add_atomic, vnargs, args, ndaargs)
 
     return retobj
+
