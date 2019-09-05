@@ -2190,15 +2190,12 @@ class GraphInterface {
       let entry = null;
       for (let i=0;i<lks.length;i++) {
         entry = lks[i];
-        // NOTE: the second condition was most likely superfluous and this only worked
-        // because "from" link indices wer always zero (single output nodes)
-        //if (entry[2] == id && entry[1] == a1.idx && entry[3] == a2.idx) {
+        // clear all links hitting a (downstream anchor)
         if (entry[2] == id && entry[3] == a.idx) {
-          // clear all links hitting a2
           this.link_rm(entry[0], entry[1], entry[2], entry[3])
         }
+        // clear all links from a (upstream anchor)
         if (entry[0] == id && entry[1] == a.idx) {
-          // clear all links hitting a2
           this.link_rm(entry[0], entry[1], entry[2], entry[3])
         }
       }

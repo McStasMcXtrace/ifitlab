@@ -45,6 +45,8 @@ class ConnectionRulesIfl extends ConnectionRulesBase {
   static getLinkBasetype(a1, a2) {
     if (a1.idx==-1 && a2.idx==-1) return "link_double_center"; else return "link_single";
   }
+  static canConverge() { return false; }
+  static canDiverge() { return true; }
 }
 
 
