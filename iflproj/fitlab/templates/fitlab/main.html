@@ -28,6 +28,7 @@
 </div>
 <div id="status" style="position:absolute;margin:auto;"><label id="lblStatus"></label></div>
 
+<div id="graph_menu_0" style="position:absolute;left:404px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_1" style="position:absolute;left:303px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_2" style="position:absolute;left:202px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
 <div id="graph_menu_3" style="position:absolute;left:101px;overflow-y:hidden;overflow-x:hidden;margin:auto;margin-bottom:1px;"></div>
@@ -342,10 +343,12 @@ $(document).ready(() => {
   // create node menu
   let typeobj = { "addresses" : nodeAddresses, 'tree' : nodeTypes };
   let menuCB = intface.setCreateNodeConf.bind(intface)
-  let menu1 = new NodeTypeMenu('graph_menu_1', 'handles', typeobj);
+  let menu0 = new NodeTypeMenu('graph_menu_0', 'handles', typeobj);
+  menu0.rgstrClickConf(menuCB);
+  let menu1 = new NodeTypeMenu('graph_menu_1', 'tools', typeobj);
   menu1.rgstrClickConf(menuCB);
-  let menu2 = new NodeTypeMenu('graph_menu_2', 'tools', typeobj);
-  menu2.rgstrClickConf(menuCB);
+  let menu2 = new NodeTypeMenu('graph_menu_2', 'transforms', typeobj);
+  menu2.rgstrClickConf(menuCB);  
   let menu3 = new NodeTypeMenu('graph_menu_3', 'operators', typeobj);
   menu3.rgstrClickConf(menuCB);
   let menu4 = new NodeTypeMenu('graph_menu_4', 'models', typeobj);

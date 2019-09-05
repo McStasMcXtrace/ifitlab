@@ -180,7 +180,8 @@ namecategories = collections.OrderedDict({
     'IFunc.guess' : 'tools',
     'IFunc.fixpars' : 'tools',
     'fit' : 'tools',
-
+    'Combine_data' : 'tools',
+    
     'Lin' : 'models',
     'Gauss' : 'models',
     'Lorentz' : 'models',
@@ -188,18 +189,18 @@ namecategories = collections.OrderedDict({
     'mult_models' : 'models',
     'separate' : 'models',
 
-    'Combine_data' : 'operators',
-    'log' : 'operators',
-    'power': 'operators',
-    'scale' : 'operators',
-    'add' : 'operators',
-    'from_model' : 'operators',
+    'log' : 'transforms',
+    'power': 'transforms',
+    'scale' : 'transforms',
+    'add' : 'transforms',
+    'transpose' : 'transforms',
+    'from_model' : 'transforms',
+    
     'add_data' : 'operators',
     'subtract_data' : 'operators',
     'multiply_data' : 'operators',
     'divide_data' : 'operators',
     'catenate' : 'operators',
-    'transpose' : 'operators',
 })
 
 
