@@ -311,7 +311,7 @@ class IData(enginterface.ObjReprJson):
         depth parameter (same as combine).
         '''
         def rmint_atomic(vn, start, end):
-            _eval("%s = xlim(%s, [%f %f], 'exclude');" % (vn, vn, start, end), nargout=0)
+            _eval("%s = xlim(%s, [%g %g], 'exclude');" % (vn, vn, start, end), nargout=0)
 
         min = _ifregular_squeeze_cast(min)
         max = _ifregular_squeeze_cast(max)
@@ -1423,9 +1423,9 @@ def scale(dataset: IData, axis: int=0, scale: float=1.0) -> IData:
 
     def scale_atomic(vn_dest, vn_source, axis, scale):
         if axis==0:
-            _eval("%s = %s * %f;" % (vn_dest, vn_source, scale), nargout=0)
+            _eval("%s = %s * %g;" % (vn_dest, vn_source, scale), nargout=0)
         else:
-            _eval("%s = setaxis(%s, %d, getaxis(%s, %d) * %f);" % (vn_dest, vn_source, axis, vn_source, axis, scale), nargout=0)
+            _eval("%s = setaxis(%s, %d, getaxis(%s, %d) * %g);" % (vn_dest, vn_source, axis, vn_source, axis, scale), nargout=0)
 
     shape = dataset._get_datashape()
     retobj = None
@@ -1448,9 +1448,9 @@ def add(dataset: IData, axis: int=0, scalar: float=0) -> IData:
 
     def add_atomic(vn_dest, vn_source, axis, scalar):
         if axis==0:
-            _eval("%s = %s + %f;" % (vn_dest, vn_source, scalar), nargout=0)
+            _eval("%s = %s + %g;" % (vn_dest, vn_source, scalar), nargout=0)
         else:
-            _eval("%s = setaxis(%s, %d, getaxis(%s, %d) + %f);" % (vn_dest, vn_source, axis, vn_source, axis, scalar), nargout=0)
+            _eval("%s = setaxis(%s, %d, getaxis(%s, %d) + %g);" % (vn_dest, vn_source, axis, vn_source, axis, scalar), nargout=0)
 
     shape = dataset._get_datashape()
     retobj = None
