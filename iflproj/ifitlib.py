@@ -1434,7 +1434,7 @@ def scale(dataset: IData, axis: int=0, scale: float=1.0) -> IData:
         scale_atomic(retobj.varname, dataset.varname, axis, scale)
     else:
         retobj = _create_empty_idata_array(shape)
-        vnargs = (retobj.varname, dataset.varname, axis, scale, )
+        vnargs = (retobj.varname, dataset.varname, )
         args = (axis, scale, )
         ndaargs = ()
         _vectorized(shape, scale_atomic, vnargs, args, ndaargs)
@@ -1452,7 +1452,6 @@ def add(dataset: IData, axis: int=0, scalar: float=0) -> IData:
         else:
             _eval("%s = setaxis(%s, %d, getaxis(%s, %d) + %f);" % (vn_dest, vn_source, axis, vn_source, axis, scalar), nargout=0)
 
-
     shape = dataset._get_datashape()
     retobj = None
     if shape in (None, tuple(),):
@@ -1460,7 +1459,7 @@ def add(dataset: IData, axis: int=0, scalar: float=0) -> IData:
         add_atomic(retobj.varname, dataset.varname, axis, scalar)
     else:
         retobj = _create_empty_idata_array(shape)
-        vnargs = (retobj.varname, dataset.varname, axis, scalar, )
+        vnargs = (retobj.varname, dataset.varname, )
         args = (axis, scalar, )
         ndaargs = ()
         _vectorized(shape, add_atomic, vnargs, args, ndaargs)
