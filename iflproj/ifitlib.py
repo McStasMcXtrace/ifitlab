@@ -194,7 +194,9 @@ namecategories = collections.OrderedDict({
     'scale' : 'operators',
     'add' : 'operators',
     'from_model' : 'operators',
+    'add_data' : 'operators',
     'subtract_data' : 'operators',
+    'multiply_data' : 'operators',
     'divide_data' : 'operators',
     'catenate' : 'operators',
     'transpose' : 'operators',
@@ -468,7 +470,11 @@ def _get_plot_2D(axisvals, signal, yerr, xlabel, ylabel, title):
         # Real number from 0 to len(cm)-1 [0:63]
         xp = (len(cm)-1) * x
         # Simply round off and return
-        idx = np.int(np.round(xp))
+        if np.isnan(xp):
+            #idx=np.int(len(cm)-1)
+            idx=0
+        else:
+            idx = np.int(np.round(xp))
         return cm[idx]
         
     
@@ -1363,6 +1369,33 @@ def catenate(data: IData) -> IData:
     return retobj
 
 
+def add_data(sample: IData, background: IData) -> IData:
+    ''' Add datasets. '''
+    logging.debug("add")
+
+    def add_atomic(vn_out, vn_1, vn_2):
+        _eval("%s = %s + %s;" % (vn_out, vn_1, vn_2), nargout=0)
+
+    ds1 = sample._get_datashape()
+    ds2 = background._get_datashape()
+    if ds1 != ds2:
+        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+
+    shape = ds1
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        add_atomic(retobj.varname, sample.varname, background.varname)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, sample.varname, background.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, add_atomic, vnargs, args, ndaargs)
+        
+    return retobj
+
+
 def subtract_data(sample: IData, background: IData) -> IData:
     ''' Subtract a calibration set, e.g. background from data. '''
     logging.debug("subtract")
@@ -1386,6 +1419,33 @@ def subtract_data(sample: IData, background: IData) -> IData:
         args = ()
         ndaargs = ()
         _vectorized(shape, subtract_atomic, vnargs, args, ndaargs)
+
+    return retobj
+
+
+def multiply_data(sample: IData, background: IData) -> IData:
+    ''' Multiply datasets '''
+    logging.debug("multiply")
+
+    def multiply_atomic(vn_out, vn_1, vn_2):
+        _eval("%s = %s .* %s;" % (vn_out, vn_1, vn_2), nargout=0)
+
+    ds1 = sample._get_datashape()
+    ds2 = background._get_datashape()
+    if ds1 != ds2:
+        raise Exception("datashape mismatch, %s vs. %s" % (str(ds1), str(ds2)))
+
+    shape = ds1
+    retobj = None
+    if shape in (None, tuple(),):
+        retobj = _create_empty_idata()
+        multiply_atomic(retobj.varname, sample.varname, background.varname)
+    else:
+        retobj = _create_empty_idata_array(shape)
+        vnargs = (retobj.varname, sample.varname, background.varname, )
+        args = ()
+        ndaargs = ()
+        _vectorized(shape, multiply_atomic, vnargs, args, ndaargs)
 
     return retobj
 
