@@ -2,10 +2,8 @@ import time
 import json
 
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
 import sys
 import os
-import logging
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 

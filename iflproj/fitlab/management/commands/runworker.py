@@ -137,7 +137,6 @@ class Workers:
             e.wait()
 
     def monitor_wrk(self):
-
         try:
             while not self.terminated:
                 last = timezone.now()
@@ -452,27 +451,6 @@ class Workers:
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
                     graphreply.save()
-                
-                # reset all (admin power command)
-                elif task.cmd == "admin_resetall":
-                    sesionobjs = GraphSession.objects.all()
-                    numreset = 0
-                    for obj in sesionobjs:
-                        # TODO: create a plural shutdown_sessions to improve lock acquisition performance
-                        self.shutdown_session(str(obj.id), nosave=False)
-
-                        if obj.stashed_pickle != "reset":
-                            numreset = numreset + 1
-
-                        obj.stashed_pickle = "reset"
-                        obj.quicksave_pickle = "reset"
-                        obj.loglines = ""
-                        obj.logheader = ""
-                        obj.stashed_matfile = ""
-                        obj.quicksave_matfile = ""
-                        obj.save()
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "msg" : "sessions activaly reset: %d" % numreset }))
-                    graphreply.save()
 
                 # reset
                 elif task.cmd == "reset":
@@ -634,6 +612,61 @@ class Workers:
                     graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "delete success"}' )
                     graphreply.save()
 
+
+                # reset all sessions (admin command)
+                elif task.cmd == "admin_resetall":
+                    sesionobjs = GraphSession.objects.all()
+                    numreset = 0
+                    for obj in sesionobjs:
+                        # TODO: create a plural shutdown_sessions to improve lock acquisition performance
+                        self.shutdown_session(str(obj.id), nosave=False)
+
+                        if obj.stashed_pickle != "reset":
+                            numreset = numreset + 1
+
+                        obj.stashed_pickle = "reset"
+                        obj.quicksave_pickle = "reset"
+                        obj.loglines = ""
+                        obj.logheader = ""
+                        obj.stashed_matfile = ""
+                        obj.quicksave_matfile = ""
+                        obj.save()
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "msg" : "sessions activaly reset: %d" % numreset }))
+                    graphreply.save()
+
+                # shutdown all sessions (admin command)
+                elif task.cmd == "admin_shutdownall":
+                    numshutdown = 0
+                    keys = list(self.sessions)
+                    for k in keys:
+                        # (k becomes the session id)
+                        self.shutdown_session(k, nosave=False)
+                        numshutdown = numshutdown + 1
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "msg" : "sessions shut down: %d" % numshutdown }))
+                    graphreply.save()
+
+                # shutdown all sessions (admin command)
+                elif task.cmd == "admin_showvars":
+                    who = []
+                    try:
+                        someses = self.sessions[next(iter(self.sessions))]
+                        who = someses.graph.middleware.totalwho()
+                    except:
+                        pass
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "vars" : who }))
+                    graphreply.save()
+
+                # shutdown all sessions (admin command)
+                elif task.cmd == "admin_matlabcmd":
+                    someses = self.sessions[next(iter(self.sessions))]
+                    who = someses.graph.middleware.totalwho()
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "msg" : "not implemented" }))
+                    graphreply.save()
+
+                #
                 else:
                     raise Exception("invalid command: %s" % task.cmd)
 
