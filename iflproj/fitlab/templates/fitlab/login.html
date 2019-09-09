@@ -1,7 +1,8 @@
 <!DOCTYPE html>
+<html>
 <meta charset="utf-8">
-
 <head>
+  <script>window.onload = function() { document.getElementById("username").focus(); }</script>
 </head>
 
 <body>
@@ -9,18 +10,15 @@
 <legend>Login</legend>
 <form action="/ifl/login_submit", method="post">
 <table>
-<tr>
-<td style="padding-left:25px;">Username</td>
-<td style="padding-left:25px;"><input type="text" name="username"/></td>
-</tr>
-<tr>
-<td style="padding-left:25px;">Password</td>
-<td style="padding-left:25px;"><input type="password" name="password"/></td>
-</tr>
-<tr>
-<td></td>
-<td style="text-align:right;"><input type="submit" value="Login"></input></td>
-</tr>
+  <tr>
+  <td style="padding-left:25px;">Username</td>
+  <td style="padding-left:25px;"><input type="text" name="username" id="username"/></td>
+  </tr><tr>
+  <td style="padding-left:25px;">Password</td>
+  <td style="padding-left:25px;"><input type="password" name="password"/></td>
+  </tr><tr><td></td>
+  <td style="text-align:right;"><input type="submit" value="Login"></input></td>
+  </tr>
 </table>
 </form>
 
