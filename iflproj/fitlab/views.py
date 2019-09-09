@@ -70,6 +70,9 @@ def login_debuguser(req):
     password = 'admin123'
 
     user = authenticate(username=username, password=password)
+    if user is None or not user.is_active:
+        return redirect(index)
+
     login_native(req, user)
     req.session['username'] = username
 
@@ -88,6 +91,9 @@ def login(req):
 def login_submit(req):
     username = req.POST["username"]
     user = authenticate(username=username, password=req.POST["password"])
+    if user is None or not user.is_active:
+        return redirect(index)
+    
     login_native(req, user)
     req.session['username'] = username
 
@@ -114,7 +120,7 @@ def logout_user(req):
     print('loging out user: %s' % username)
     logout(req)
 
-    _command(req, "autosave_shutdown", validate=False, username=username)
+    _command(req, "autosave_shutdown", nowait=True, validate=False, username=username)
     return HttpResponse("%s has been loged out, autosaving active sessions ... <a href='/ifl/login'>login</a>" % username)
 
 @login_required
