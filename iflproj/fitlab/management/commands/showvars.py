@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 from fitlab.models import GraphSession, GraphUiRequest, GraphReply
 
 class Command(BaseCommand):
-    help = '''List variables in middleware, MATLAB or diff.'''
+    help = '''List of currently loaded MATLAB variables.'''
 
     def add_arguments(self, parser):
         pass

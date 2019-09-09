@@ -658,12 +658,16 @@ class Workers:
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "vars" : who }))
                     graphreply.save()
 
-                # shutdown all sessions (admin command)
+                # execute live matlab command (admin command)
                 elif task.cmd == "admin_matlabcmd":
-                    someses = self.sessions[next(iter(self.sessions))]
-                    who = someses.graph.middleware.totalwho()
+                    mlcmd = task.sync_obj["mlcmd"]
+                    nargout = task.sync_obj["nargout"]
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "msg" : "not implemented" }))
+                    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+                    import ifitlib
+                    ans = ifitlib._eval(mlcmd, nargout=nargout, dontlog=True)
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "ans" : json.dumps(ans) }))
                     graphreply.save()
 
                 #
