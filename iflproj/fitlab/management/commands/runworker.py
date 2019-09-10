@@ -286,7 +286,7 @@ class Workers:
             self.sessions[task.gs_id] = session
 
         except Exception as e:
-            _log("autoload failed... (%s)" % str(e), error=True)
+            _log("autoload failed: %s (%s)" % (str(e), task.gs_id), error=True)
             return self.revert_session(task)
 
         return self.sessions.get(task.gs_id, None)
@@ -316,7 +316,7 @@ class Workers:
             self.sessions[task.gs_id] = session
 
         except Exception as e:
-            _log("revert failed (%s)" % str(e), error=True)
+            _log("revert failed: %s (%s)" % (str(e), task.gs_id), error=True)
             # fallback: reconstruct
             return self.reconstruct_session(task)
 
@@ -329,7 +329,7 @@ class Workers:
         try:
             obj = GraphSession.objects.filter(id=task.gs_id)[0]
         except:
-            raise Exception("requested gs_id yielded no db object")
+            raise Exception("requested gs_id yielded no db object (%s)" % task.gs_id)
         if obj.username != task.username:
             raise Exception("username validation failed for session id: %s, sender: %s" % (obj.username, task.username))
 
@@ -354,7 +354,7 @@ class Workers:
             obj.save()
             self.sessions[task.gs_id] = session
         except Exception as e:
-            _log("reconstruct failed: %s" % str(e), error=True)
+            _log("reconstruct failed: %s (%s)" % (str(e), task.gs_id), error=True)
 
         return session
 
