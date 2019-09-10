@@ -259,7 +259,7 @@ class Workers:
                     session.graph.shutdown()
                     del self.sessions[gs_id]
                 except Exception as e:
-                    _log("session shutdown error: " + str(e) + " (%d)" % gs_id, error=True)
+                    _log("session shutdown error: " + str(e) + " (%s)" % gs_id, error=True)
 
     def load_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
@@ -476,7 +476,7 @@ class Workers:
                 elif task.cmd == "save":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%d)" % task.gs_id)
+                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
 
                     anyerrors = session.graph.graph_update(task.sync_obj['sync'])
                     if anyerrors:
@@ -492,7 +492,7 @@ class Workers:
                 elif task.cmd == "update_run":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%d)" % task.gs_id)
+                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
 
                     json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
 
@@ -503,7 +503,7 @@ class Workers:
                 elif task.cmd == "update":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%d)" % task.gs_id)
+                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
                     
                     error1 = session.graph.graph_update(task.sync_obj['sync'])
                     error2 = session.graph.graph_coords(task.sync_obj['coords'])
@@ -519,7 +519,7 @@ class Workers:
                 elif task.cmd == "clear_data":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%d)" % task.gs_id)
+                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
 
                     session.graph.reset_all_objs()
                     update = session.graph.extract_update()
@@ -531,7 +531,7 @@ class Workers:
                 elif task.cmd == "extract_log":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%d)" % task.gs_id)
+                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
                     
                     self.extract_log(session)
 
