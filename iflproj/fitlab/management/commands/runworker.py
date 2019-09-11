@@ -3,7 +3,6 @@ Worker process which handles all ui requests in parallel.
 '''
 import time
 import threading
-import logging
 import json
 import re
 import importlib
@@ -62,7 +61,6 @@ class SoftGraphSession:
 
     def test(self):
         cmds = json.loads('[[["node_add",454.25,401.3333333333333,"o0","","","obj"],["node_rm","o0"]],[["node_add",382.75,281.3333333333333,"o1","","","Pars"],["node_rm","o1"]],[["node_add",348,367.3333333333333,"f0","","C","Colour"],["node_rm","f0"]],[["link_add","o1",0,"f0",0,0],["link_rm","o1",0,"f0",0,0]],[["link_add","f0",0,"o0",0,0],["link_rm","f0",0,"o0",0,0]],[["node_data","o1","\\"red\\""],["node_data","o1",{}]]]')
-
 
         self.graph.graph_change(cmds)
         self.graph.execute_node("o0")
@@ -270,9 +268,9 @@ class Workers:
         try:
             obj = GraphSession.objects.filter(id=task.gs_id)[0]
         except:
-            raise Exception("requested gs_id yielded no db object: %s" % task.gs_id)
+            raise Exception("requested session id yielded no db object (%s)" % task.gs_id)
         if obj.username != task.username:
-            raise Exception("username validation failed for session id: %s, sender: %s" % (obj.username, task.username))
+            raise Exception("username validation failed for sender: %s (%s)" % (task.username, task.gs_id))
 
         try:
             if not obj.stashed:
@@ -282,7 +280,8 @@ class Workers:
             session = SoftGraphSession(task.gs_id, obj.username)
             session.graph = from_djangodb_str(obj.stashed_pickle)
             filepath = os.path.join(settings.MATFILES_DIRNAME, obj.stashed_matfile)
-            session.graph.middleware.get_load_fct()(filepath)
+            if os.path.isfile(filepath):
+                session.graph.middleware.get_load_fct()(filepath)
             self.sessions[task.gs_id] = session
 
         except Exception as e:
@@ -312,7 +311,10 @@ class Workers:
             session = SoftGraphSession(task.gs_id, obj.username)
             session.graph = from_djangodb_str(obj.quicksave_pickle)
             filepath = os.path.join(settings.MATFILES_DIRNAME, obj.quicksave_matfile)
-            session.graph.middleware.get_load_fct()(filepath)
+            if os.path.isfile(filepath):
+                session.graph.middleware.get_load_fct()(filepath)
+            else:
+                raise Exception("matfile not found (%s)" % task.gs_id)
             self.sessions[task.gs_id] = session
 
         except Exception as e:
@@ -359,6 +361,7 @@ class Workers:
         return session
 
     def autosave(self, session):
+        ''' pariodic, automatic save or "stash" session '''
         # python structure
         obj = GraphSession.objects.filter(id=session.gs_id)[0]
         obj.stashed_pickle = to_djangodb_str(session.graph)
@@ -375,6 +378,7 @@ class Workers:
         obj.save()
 
     def quicksave(self, session):
+        ''' user controlled save action '''
         # python structure
         obj = GraphSession.objects.filter(id=session.gs_id)[0]
         obj.quicksave_pickle = to_djangodb_str(session.graph)
@@ -390,7 +394,7 @@ class Workers:
         obj.quicksaved = timezone.now()
         obj.save()
 
-    def get_user_softsessions(self, task):
+    def _get_user_softsessions(self, task):
         sess = self.sessions
         return [sess[key] for key in sess.keys() if sess[key].username == task.username]
 
@@ -492,7 +496,7 @@ class Workers:
                 elif task.cmd == "update_run":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
+                        raise Exception("update_run failed: session was not live (%s)" % task.gs_id)
 
                     json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
 
@@ -503,7 +507,7 @@ class Workers:
                 elif task.cmd == "update":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
+                        raise Exception("update failed: session was not live (%s)" % task.gs_id)
                     
                     error1 = session.graph.graph_update(task.sync_obj['sync'])
                     error2 = session.graph.graph_coords(task.sync_obj['coords'])
@@ -511,7 +515,7 @@ class Workers:
                     # purge previous graph replies (depending on view setting, these may not be read)
                     # TODO: impl
 
-                    # NOTE: at this time, update replies are not read and not needed
+                    # NOTE: at this time, update replies are not read, nor is this needed
                     #graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(error1))
                     #graphreply.save()
 
@@ -519,7 +523,7 @@ class Workers:
                 elif task.cmd == "clear_data":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
+                        raise Exception("clear_data failed: session was not live (%s)" % task.gs_id)
 
                     session.graph.reset_all_objs()
                     update = session.graph.extract_update()
@@ -531,7 +535,7 @@ class Workers:
                 elif task.cmd == "extract_log":
                     session = self.get_soft_session(task)
                     if not session:
-                        raise Exception("save failed: session was not live (%s)" % task.gs_id)
+                        raise Exception("extract_log failed: session was not live (%s)" % task.gs_id)
                     
                     self.extract_log(session)
 
@@ -540,7 +544,7 @@ class Workers:
 
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":
-                    for session in self.get_user_softsessions(task):
+                    for session in self._get_user_softsessions(task):
                         self.shutdown_session(task.gs_id)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save-shutdown successful"}' )
@@ -567,7 +571,7 @@ class Workers:
                     self.quicksave(session)
                     self.autosave(session)
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id )
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id)
                     graphreply.save()
 
                 # clone
@@ -595,7 +599,7 @@ class Workers:
                     newobj.stashed = timezone.now()
                     newobj.save()
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id )
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id)
                     graphreply.save()
 
                 # delete

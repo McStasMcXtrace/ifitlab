@@ -243,6 +243,7 @@ function simpleajax(url, data, gs_id, tab_id, success_cb, fail_cb=null, showfail
       isalive = false;
       alert("Please restart the session. Fatal error: " + fatalerror);
       //location.reload();
+      // TODO: decide on a better way to handle this situations
       close();
     }
 
