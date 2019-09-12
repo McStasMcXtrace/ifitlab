@@ -43,6 +43,7 @@ class SoftGraphSession:
         self.graph = enginterface.FlatGraph(tree, mdl)
 
         self.touched = timezone.now()
+        self.lock = threading.Lock()
 
     def _loadNodeTypesJsFile(self):
         text = open('fitlab/static/fitlab/nodetypes.js').read()
@@ -250,14 +251,15 @@ class Workers:
         with self.shutdownlock:
             session = self.sessions.get(gs_id, None)
             if session:
-                try:
-                    if not nosave:
-                        self.autosave(session)
-                    self.extract_log(session)
-                    session.graph.shutdown()
-                    del self.sessions[gs_id]
-                except Exception as e:
-                    _log("session shutdown error: " + str(e) + " (%s)" % gs_id, error=True)
+                with session.lock:
+                    try:
+                        if not nosave:
+                            self.autosave(session)
+                        self.extract_log(session)
+                        session.graph.shutdown()
+                        del self.sessions[gs_id]
+                    except Exception as e:
+                        _log("session shutdown error: " + str(e) + " (%s)" % gs_id, error=True)
 
     def load_session(self, task):
         ''' fallbacks are: load -> revert -> reconstruct '''
@@ -314,7 +316,7 @@ class Workers:
             if os.path.isfile(filepath):
                 session.graph.middleware.get_load_fct()(filepath)
             else:
-                raise Exception("matfile not found (%s)" % task.gs_id)
+                raise Exception("matfile not found")
             self.sessions[task.gs_id] = session
 
         except Exception as e:
@@ -417,24 +419,27 @@ class Workers:
 
             _log("doing task '%s' (%s)" % (task.cmd, task.gs_id))
             try:
+
                 # attach/load-attach
                 if task.cmd == "load":
                     session = self.get_soft_session(task)
                     if not session:
                         session = self.load_session(task)
-                    
+
                     gd = None
                     update = None
-                    try:
-                        gd = session.graph.extract_graphdef()
-                        update = session.graph.extract_update()
-                        
-                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
-                        graphreply.save()
-                    except:
-                        _log("autoload failed, requesting fallback cmd='revert' (%s)" % task.gs_id, error=True)
-                        task.cmd = "revert"
-                        self.taskqueue.put(task)
+                    with session.lock:
+                        try:
+                            gd = session.graph.extract_graphdef()
+                            update = session.graph.extract_update()
+
+                        except:
+                            _log("autoload failed, requesting fallback cmd='revert' (%s)" % task.gs_id, error=True)
+                            task.cmd = "revert"
+                            self.taskqueue.put(task)
+
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
+                    graphreply.save()
 
                 # revert - to last active save
                 elif task.cmd == "revert":
@@ -443,15 +448,15 @@ class Workers:
                     # quickload the session AKA revert
                     session = self.revert_session(task)
 
-                    # construct the graph reply
                     gd = None
                     update = None
-                    try:
-                        gd = session.graph.extract_graphdef()
-                        update = session.graph.extract_update()
-                    except:
-                        if not session:
-                            raise Exception("session could not be reverted: %s" % task.gs_id)
+                    with session.lock:
+                        try:
+                            gd = session.graph.extract_graphdef()
+                            update = session.graph.extract_update()
+                        except:
+                            if not session:
+                                raise Exception("session could not be reverted: %s" % task.gs_id)
 
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "graphdef" : gd, "dataupdate" : update }))
                     graphreply.save()
@@ -461,13 +466,14 @@ class Workers:
                     self.shutdown_session(task.gs_id, nosave=True)
 
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
-
                     obj.stashed_pickle = "reset"
                     obj.quicksave_pickle = "reset"
                     obj.loglines = ""
                     obj.logheader = ""
                     obj.stashed_matfile = ""
                     obj.quicksave_matfile = ""
+                    obj.stashed = timezone.now()
+                    obj.quicksaved = timezone.now()
                     obj.save()
 
                     gd = None
@@ -482,15 +488,16 @@ class Workers:
                     if not session:
                         raise Exception("save failed: session was not live (%s)" % task.gs_id)
 
-                    anyerrors = session.graph.graph_update(task.sync_obj['sync'])
-                    if anyerrors:
-                        raise Exception("errors encountered during update: %s" % anyerrors)
-
-                    session.graph.graph_coords(task.sync_obj['coords'])
-                    self.quicksave(session)
-
-                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save success"}' )
-                    graphreply.save()
+                    with session.lock:
+                        anyerrors = session.graph.graph_update(task.sync_obj['sync'])
+                        if anyerrors:
+                            raise Exception("errors encountered during update: %s" % anyerrors)
+    
+                        session.graph.graph_coords(task.sync_obj['coords'])
+                        self.quicksave(session)
+    
+                        graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "save success"}' )
+                        graphreply.save()
 
                 # update & run
                 elif task.cmd == "update_run":
@@ -498,10 +505,11 @@ class Workers:
                     if not session:
                         raise Exception("update_run failed: session was not live (%s)" % task.gs_id)
 
-                    json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
-
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
-                    graphreply.save()
+                    with session.lock:
+                        json_obj = session.update_and_execute(task.sync_obj['run_id'], task.sync_obj['sync'])
+    
+                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps(json_obj))
+                        graphreply.save()
 
                 # update
                 elif task.cmd == "update":
@@ -509,8 +517,9 @@ class Workers:
                     if not session:
                         raise Exception("update failed: session was not live (%s)" % task.gs_id)
                     
-                    error1 = session.graph.graph_update(task.sync_obj['sync'])
-                    error2 = session.graph.graph_coords(task.sync_obj['coords'])
+                    with session.lock:
+                        error1 = session.graph.graph_update(task.sync_obj['sync'])
+                        error2 = session.graph.graph_coords(task.sync_obj['coords'])
                     
                     # purge previous graph replies (depending on view setting, these may not be read)
                     # TODO: impl
@@ -525,22 +534,24 @@ class Workers:
                     if not session:
                         raise Exception("clear_data failed: session was not live (%s)" % task.gs_id)
 
-                    session.graph.reset_all_objs()
-                    update = session.graph.extract_update()
-                    
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
-                    graphreply.save()
+                    with session.lock:
+                        session.graph.reset_all_objs()
+                        update = session.graph.extract_update()
+
+                        graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "dataupdate" : update }))
+                        graphreply.save()
 
                 # extract log lines
                 elif task.cmd == "extract_log":
                     session = self.get_soft_session(task)
                     if not session:
                         raise Exception("extract_log failed: session was not live (%s)" % task.gs_id)
-                    
-                    self.extract_log(session)
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "command log extraction successful"}' )
-                    graphreply.save()
+                    with session.lock:
+                        self.extract_log(session)
+
+                        graphreply = GraphReply(reqid=task.reqid, reply_json='{"message" : "command log extraction successful"}' )
+                        graphreply.save()
 
                 # save & shutdown
                 elif task.cmd == "autosave_shutdown":
@@ -566,13 +577,14 @@ class Workers:
                     obj.excomment = ""
                     obj.save()
                     session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
-                    self.sessions[obj.id] = session
-
-                    self.quicksave(session)
-                    self.autosave(session)
-
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id)
-                    graphreply.save()
+                    with session.lock:
+                        self.sessions[obj.id] = session
+    
+                        self.quicksave(session)
+                        self.autosave(session)
+    
+                        graphreply = GraphReply(reqid=task.reqid, reply_json=obj.id)
+                        graphreply.save()
 
                 # clone
                 elif task.cmd == "clone":
@@ -589,18 +601,25 @@ class Workers:
                     if not ses:
                         gd = json.loads(obj.graphdef)
                     else:
-                        gd = ses.graph.extract_graphdef()
+                        with ses.lock:
+                            gd = ses.graph.extract_graphdef()
 
                     newobj.graphdef = json.dumps(gd)
                     newobj.example = False
                     newobj.title = obj.title + " [CLONE]"
                     newobj.description = obj.description
                     newobj.username = task.username
-                    newobj.stashed = timezone.now()
                     newobj.save()
 
-                    graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id)
-                    graphreply.save()
+                    session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
+                    with session.lock:
+                        self.sessions[obj.id] = session
+    
+                        self.quicksave(session)
+                        self.autosave(session)
+
+                        graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id)
+                        graphreply.save()
 
                 # delete
                 elif task.cmd == "delete":
@@ -634,7 +653,10 @@ class Workers:
                         obj.logheader = ""
                         obj.stashed_matfile = ""
                         obj.quicksave_matfile = ""
+                        obj.stashed = timezone.now()
+                        obj.quicksaved = timezone.now()
                         obj.save()
+
                     graphreply = GraphReply(reqid=task.reqid, reply_json=json.dumps({ "msg" : "sessions activaly reset: %d" % numreset }))
                     graphreply.save()
 
