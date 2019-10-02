@@ -1761,16 +1761,513 @@
       }
     },
     {
-      "created": "2019-09-26 16:24:41.728831+00:00",
+      "created": "2019-05-21 12:09:39+00:00",
       "org_username": "mcstas",
       "title": "ex. 4) SANS Nanodisc",
       "description": "",
       "excomment": "sine2020 nanodisc",
       "listidx": 10,
       "graphdef": {
-        "nodes": {},
-        "links": {},
-        "datas": {},
+        "nodes": {
+          "f0": [
+            578.1736007163489,
+            332.576448702281,
+            "f0",
+            "",
+            "IData",
+            "tools.IData"
+          ],
+          "o0": [
+            578.1736007163489,
+            242.57644870228103,
+            "o0",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "o1": [
+            693.2524562002627,
+            242.71150472350502,
+            "o1",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "f1": [
+            693.2524562002627,
+            332.711504723505,
+            "f1",
+            "",
+            "IData",
+            "tools.IData"
+          ],
+          "f6": [
+            1159.1147972056988,
+            799.5386814561841,
+            "f6",
+            "",
+            "fit",
+            "tools.fit"
+          ],
+          "id4": [
+            1051.0795187435601,
+            638.4557203064323,
+            "id4",
+            "",
+            "guinierre",
+            "handles.idata"
+          ],
+          "m0": [
+            951.2828779787043,
+            640.6235056347218,
+            "m0",
+            "",
+            "mask",
+            "tools.IData.mask"
+          ],
+          "o2": [
+            934.8731251891794,
+            547.5591729750682,
+            "o2",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "o3": [
+            967.6926307682292,
+            547.5591729750682,
+            "o3",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "f2": [
+            682.2624461768847,
+            526.3045257250856,
+            "f2",
+            "",
+            "subtract",
+            "operators.subtract_data"
+          ],
+          "f4": [
+            683.7246742596826,
+            675.3429429317907,
+            "f4",
+            "",
+            "log",
+            "transforms.log"
+          ],
+          "f8": [
+            697.2719987713638,
+            818.1099566682708,
+            "f8",
+            "",
+            "power",
+            "transforms.power"
+          ],
+          "f5": [
+            1254.3045014572863,
+            631.3798741006005,
+            "f5",
+            "",
+            "Lin",
+            "models.Lin"
+          ],
+          "m1": [
+            1158.3499565408436,
+            642.997193686931,
+            "m1",
+            "",
+            "mask",
+            "tools.IData.mask"
+          ],
+          "o4": [
+            1141.9402037513187,
+            549.9328610272775,
+            "o4",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "o6": [
+            1174.7597093303684,
+            549.9328610272775,
+            "o6",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "f3": [
+            1002.9031230339227,
+            227.69097610882858,
+            "f3",
+            "",
+            "IData_1d",
+            "tools.IData_1d"
+          ],
+          "o5": [
+            972.1213101346125,
+            143.11864023809682,
+            "o5",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "o7": [
+            1002.9031230339227,
+            137.69097610882858,
+            "o7",
+            "",
+            "",
+            "handles.literal"
+          ],
+          "id2": [
+            1114.8162869967823,
+            233.7017471085989,
+            "id2",
+            "",
+            "results",
+            "handles.idata"
+          ],
+          "f9": [
+            1173.1362409462467,
+            323.49869660058397,
+            "f9",
+            "",
+            "fit",
+            "tools.fit"
+          ],
+          "if2": [
+            1260.7148164849013,
+            382.8264741122138,
+            "if2",
+            "",
+            "final",
+            "handles.ifunc"
+          ],
+          "if0": [
+            1268.5494040588192,
+            824.981927993399,
+            "if0",
+            "",
+            "allfits",
+            "handles.ifunc"
+          ],
+          "id0": [
+            610.7625147135005,
+            428.147688915743,
+            "id0",
+            "",
+            "sample",
+            "handles.idata"
+          ],
+          "id5": [
+            730.0776697053949,
+            427.72334890642315,
+            "id5",
+            "",
+            "background",
+            "handles.idata"
+          ],
+          "id1": [
+            763.4703346441592,
+            604.9670159630805,
+            "id1",
+            "",
+            "signal",
+            "handles.idata"
+          ],
+          "id3": [
+            766.6225186105038,
+            729.203699094832,
+            "id3",
+            "",
+            "",
+            "handles.idata"
+          ],
+          "f11": [
+            1196.5494575973698,
+            164.8444267560239,
+            "f11",
+            "",
+            "Lin",
+            "models.Lin"
+          ],
+          "o8": [
+            1033.684935933233,
+            143.11864023809684,
+            "o8",
+            "",
+            "",
+            "handles.literal"
+          ]
+        },
+        "links": {
+          "f0": [
+            [
+              "f0",
+              0,
+              "id0",
+              0,
+              0
+            ]
+          ],
+          "o0": [
+            [
+              "o0",
+              0,
+              "f0",
+              0,
+              0
+            ]
+          ],
+          "o1": [
+            [
+              "o1",
+              0,
+              "f1",
+              0,
+              0
+            ]
+          ],
+          "f1": [
+            [
+              "f1",
+              0,
+              "id5",
+              0,
+              0
+            ]
+          ],
+          "f6": [
+            [
+              "f6",
+              0,
+              "if0",
+              0,
+              0
+            ]
+          ],
+          "id4": [
+            [
+              "id4",
+              0,
+              "f6",
+              0,
+              0
+            ]
+          ],
+          "m0": [
+            [
+              "m0",
+              -1,
+              "id4",
+              -1,
+              0
+            ]
+          ],
+          "o2": [
+            [
+              "o2",
+              0,
+              "m0",
+              0,
+              0
+            ]
+          ],
+          "o3": [
+            [
+              "o3",
+              0,
+              "m0",
+              1,
+              0
+            ]
+          ],
+          "f2": [
+            [
+              "f2",
+              0,
+              "id1",
+              0,
+              0
+            ]
+          ],
+          "f4": [
+            [
+              "f4",
+              0,
+              "id3",
+              0,
+              0
+            ]
+          ],
+          "f8": [
+            [
+              "f8",
+              0,
+              "id4",
+              0,
+              0
+            ]
+          ],
+          "f5": [
+            [
+              "f5",
+              0,
+              "f6",
+              1,
+              0
+            ]
+          ],
+          "m1": [
+            [
+              "m1",
+              -1,
+              "id4",
+              -1,
+              0
+            ]
+          ],
+          "o4": [
+            [
+              "o4",
+              0,
+              "m1",
+              0,
+              0
+            ]
+          ],
+          "o6": [
+            [
+              "o6",
+              0,
+              "m1",
+              1,
+              0
+            ]
+          ],
+          "f3": [
+            [
+              "f3",
+              0,
+              "id2",
+              0,
+              0
+            ]
+          ],
+          "o5": [
+            [
+              "o5",
+              0,
+              "f3",
+              0,
+              0
+            ]
+          ],
+          "o7": [
+            [
+              "o7",
+              0,
+              "f3",
+              1,
+              0
+            ]
+          ],
+          "id2": [
+            [
+              "id2",
+              0,
+              "f9",
+              0,
+              0
+            ]
+          ],
+          "f9": [
+            [
+              "f9",
+              0,
+              "if2",
+              0,
+              0
+            ]
+          ],
+          "id0": [
+            [
+              "id0",
+              0,
+              "f2",
+              0,
+              0
+            ]
+          ],
+          "id5": [
+            [
+              "id5",
+              0,
+              "f2",
+              1,
+              0
+            ]
+          ],
+          "id1": [
+            [
+              "id1",
+              0,
+              "f4",
+              0,
+              0
+            ]
+          ],
+          "id3": [
+            [
+              "id3",
+              0,
+              "f8",
+              0,
+              0
+            ]
+          ],
+          "f11": [
+            [
+              "f11",
+              0,
+              "f9",
+              1,
+              0
+            ]
+          ],
+          "o8": [
+            [
+              "o8",
+              0,
+              "f3",
+              2,
+              0
+            ]
+          ]
+        },
+        "datas": {
+          "f0": "eyJkYXRhc2hhcGUiOiBudWxsfQ==",
+          "o0": "Imh0dHA6Ly9lbGVhcm4xLmZ5c2lrLmR0dS5kay9zdGF0aWMvZGF0YS9tY3N0YXNfTmFub2Rpc2NfTG9raV8yMDE5MDUyMV8xMTEwMTIvUURldGVjdG9yLnppcCI=",
+          "o1": "Imh0dHA6Ly9lbGVhcm4xLmZ5c2lrLmR0dS5kay9zdGF0aWMvZGF0YS9tY3N0YXNfTmFub2Rpc2NfTG9raV8yMDE5MDUyMV8wOTUyMDgvUURldGVjdG9yLnppcCI=",
+          "f1": "eyJkYXRhc2hhcGUiOiBudWxsfQ==",
+          "f6": "eyJvcHRpbWl6ZXIiOiAiZm1pbnBvd2VsbCJ9",
+          "o2": "Wy0xLCAtMSwgLTEsIC0xLCAtMSwgLTEsIC0xLCAtMSwgLTEsIC0xLCAtMSwgLTEsIC0xLCAtMSwgLTEsIC0xLCAtMSwgLTEsIC0xLCAtMV0=",
+          "o3": "WzAuMDAzNCwgMC4wMDM0LCAwLjAwMzQsIDAuMDAzNCwgMC4wMDM0LCAwLjAwMzQsIDAuMDAzNCwgMC4wMDM0LCAwLjAwMzQsIDAuMDAzNCwgMC4wMDM0LCAwLjAwMzQsIDAuMDAzNCwgMC4wMDM0LCAwLjAwMzQsIDAuMDAzNCwgMC4wMDM0LCAwLjAwMzQsIDAuMDAzNCwgMC4wMDM0XQ==",
+          "f2": "e30=",
+          "f4": "eyJheGlzIjogMH0=",
+          "f8": "eyJheGlzIjogMSwgInBvd2VyIjogMn0=",
+          "f5": "eyJkYXRhc2hhcGUiOiBbMjBdfQ==",
+          "o4": "WzAuMDEyOCwgMC4wMTI4LCAwLjAxMjgsIDAuMDEyOCwgMC4wMTI4LCAwLjAxMjgsIDAuMDEyOCwgMC4wMTI4LCAwLjAxMjgsIDAuMDEyOCwgMC4wMTI4LCAwLjAxMjgsIDAuMDEyOCwgMC4wMTI4LCAwLjAxMjgsIDAuMDEyOCwgMC4wMTI4LCAwLjAxMjgsIDAuMDEyOCwgMC4wMTI4XQ==",
+          "o6": "WzMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDMsIDNd",
+          "f3": "e30=",
+          "o5": "WzAuMCwgMS4wLCA0LjQ3MzE2MzIyNDg1NDk5LCAxMC43NDQ4NDA1MzUxMDg4NTksIDIwLjAwOTE4OTIzNjE5NTA5LCAzMi40MTAxMjEzNTQ0OTc5MjUsIDQ4LjA2MzQyNTUzODU4MDE2LCA2Ny4wNjY2MzM4MTU4Nzc2NSwgODkuNTA0MzY5NDUwNTEyMTksIDExNS40NTE1OTgxMjQ5MTg0MywgMTQ0Ljk3NTc2Mjk1NjAyNzUsIDE3OC4xMzgyNjcwNDE5ODE3MiwgMjE0Ljk5NTU0NzU3OTczMjksIDI1NS41OTk4ODA1MzYxNjM2OCwgMjk5Ljk5OTk5OTk5OTk5OTk0XQ==",
+          "o7": "WzE5LjA5MDgyNzQ4Mzk2NzMzLCAxOC45OTEzOTUyMTc5NDAzMTUsIDE4Ljg1ODM1ODE0Mzc4NjM3LCAxOC43NDIwMjA5MTA3NzIyODMsIDE4LjYwNjIwODQ4NDIxMzYxNCwgMTguNDYxNjQzNTA0MTYxNDQ0LCAxOC4yOTQ3NDUwODMwNjI5ODUsIDE4LjE1OTc0NTc1Nzc0MTY0LCAxNy45MDI1NzAyNDg4NTI5NzgsIDE3LjczNjQ4MDk4NDEzODk4NiwgMTcuNTIzMjk3Mzg1MDQ1NjIsIDE3LjI0NDIxNDY3ODEwMTI2LCAxNy4wMDQwNDk4NjcxMzQ0OTgsIDE2Ljc3MDM5MzI4NzI0NDY5LCAxNi4yNjQyODczNjYxNTI4MzZd",
+          "f9": "eyJvcHRpbWl6ZXIiOiAiZm1pbnBvd2VsbCJ9",
+          "f11": "eyJkYXRhc2hhcGUiOiBudWxsfQ==",
+          "o8": "WzAuMiwgMC4yLCAwLjIsIDAuMywgMC4zLCAwLjMsIDAuNSwgMC41LCAwLjUsIDAuNSwgMC41LCAwLjgsIDAuOCwgMC44LCAwLjhd"
+        },
         "labels": {}
       }
     },
