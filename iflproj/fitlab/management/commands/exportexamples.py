@@ -46,7 +46,7 @@ class Command(BaseCommand):
                 }
                 entries.append(entry)
 
-            text = json.dumps(obj)
+            text = json.dumps(obj, indent=2)
             dtstr = datetime.now().strftime("%Y%m%d")
             open("examples_%s.ifl" % dtstr, "w").write(text)
 
