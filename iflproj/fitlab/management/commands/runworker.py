@@ -384,7 +384,7 @@ class Workers:
         # python structure
         obj = GraphSession.objects.filter(id=session.gs_id)[0]
         obj.quicksave_pickle = to_djangodb_str(session.graph)
-        obj.graphdef = json.dumps( session.graph.extract_graphdef() )
+        obj.graphdef = json.dumps(session.graph.extract_graphdef())
 
         # mat file
         if not os.path.exists(settings.MATFILES_DIRNAME):
@@ -393,6 +393,21 @@ class Workers:
         save_fct = session.graph.middleware.get_save_fct()
         save_fct(filepath)
         obj.quicksave_matfile = filepath
+        obj.quicksaved = timezone.now()
+        obj.save()
+    
+    def reset_session(self, gs_id):
+        '''  '''
+        self.shutdown_session(gs_id, nosave=True)
+
+        obj = GraphSession.objects.filter(id=gs_id)[0]
+        obj.stashed_pickle = "reset"
+        obj.quicksave_pickle = "reset"
+        obj.loglines = ""
+        obj.logheader = ""
+        obj.stashed_matfile = ""
+        obj.quicksave_matfile = ""
+        obj.stashed = timezone.now()
         obj.quicksaved = timezone.now()
         obj.save()
 
@@ -463,18 +478,7 @@ class Workers:
 
                 # reset
                 elif task.cmd == "reset":
-                    self.shutdown_session(task.gs_id, nosave=True)
-
-                    obj = GraphSession.objects.filter(id=task.gs_id)[0]
-                    obj.stashed_pickle = "reset"
-                    obj.quicksave_pickle = "reset"
-                    obj.loglines = ""
-                    obj.logheader = ""
-                    obj.stashed_matfile = ""
-                    obj.quicksave_matfile = ""
-                    obj.stashed = timezone.now()
-                    obj.quicksaved = timezone.now()
-                    obj.save()
+                    self.reset_session(task.gs_id)
 
                     gd = None
                     update = None
@@ -588,38 +592,33 @@ class Workers:
 
                 # clone
                 elif task.cmd == "clone":
-                    newobj = GraphSession()
-                    newobj.example = False
-                    newobj.username = task.username
-
-                    # copy graph structure and literal data
+                    # get graph definition from clonable
                     gd = None
                     obj = GraphSession.objects.filter(id=task.gs_id)[0]
                     if obj.username != task.username and obj.example == False:
                         raise Exception("will not clone non-example session from other users")
-                    ses = self.get_soft_session(task)
-                    if not ses:
+                    session = self.get_soft_session(task)
+                    if not session:
+                        # get stored graphdef
                         gd = json.loads(obj.graphdef)
                     else:
-                        with ses.lock:
-                            gd = ses.graph.extract_graphdef()
+                        # get live session graphdef
+                        with session.lock:
+                            gd = session.graph.extract_graphdef()
 
-                    newobj.graphdef = json.dumps(gd)
+                    newobj = GraphSession()
                     newobj.example = False
+                    newobj.graphdef = json.dumps(gd)
                     newobj.title = obj.title + " [CLONE]"
                     newobj.description = obj.description
                     newobj.username = task.username
                     newobj.save()
 
-                    session = SoftGraphSession(gs_id=str(obj.id), username=obj.username)
-                    with session.lock:
-                        self.sessions[obj.id] = session
-    
-                        self.quicksave(session)
-                        self.autosave(session)
+                    # this causes loading to fail, resulting in a reconstruct @ load or revert
+                    self.reset_session(newobj.id)
 
-                        graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id)
-                        graphreply.save()
+                    graphreply = GraphReply(reqid=task.reqid, reply_json=newobj.id)
+                    graphreply.save()
 
                 # delete
                 elif task.cmd == "delete":
