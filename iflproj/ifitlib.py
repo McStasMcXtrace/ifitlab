@@ -1397,7 +1397,10 @@ def transpose(data: IData) -> IData:
 def catenate(data: IData) -> IData:
     ''' Concatenate dataset (k x R^n -> R^n+1). '''
     def catenate_atomic(vn_dest, vn_source):
-        _eval("%s = cat(0,%s)';" % (vn_dest, vn_source), nargout=0)
+        _eval("%s = cat(0,%s);" % (vn_dest, vn_source), nargout=0)
+        _eval("xlabel(%s,xlabel(%s(1)));" % (vn_dest, vn_source), nargout=0)
+        _eval("%s = ylabel(%s,'Data Series');" % (vn_dest, vn_dest), nargout=0)
+        _eval("%s.Signal = transpose(%s.Signal);" % (vn_dest, vn_dest), nargout=0)
 
     retobj = _create_empty_idata()
     catenate_atomic(retobj.varname, data.varname)
