@@ -405,7 +405,7 @@ def _get_iData_repr(idata_symb):
     if not ndims == len(axes_names):
         # handles the case of non-existing axis names, i.e. from loading an image file
         for i in range(ndims):
-            _eval('%s = %s.setaxis(%d,%s{%d});' % (idata_symb,idata_symb,i+1,idata_symb,i+1), nargout=0)
+            _eval("%s = %s.setaxis(%d,reshape(%s{%d},1,[]));" % (idata_symb,idata_symb,i+1,idata_symb,i+1), nargout=0)
         axes_names = _eval('%s.Axes;' % idata_symb, nargout=1) # Ensure we use the auto-generated axis names
     axesvals = []
     pltdct = {}
@@ -417,6 +417,8 @@ def _get_iData_repr(idata_symb):
     # fallback labels
     if xlabel == "":
         xlabel = "x"
+    if ylabel == "":
+        ylabel = "y"
     if ylabel == "Data Signal":
         ylabel = "y"
     
@@ -1400,6 +1402,7 @@ def catenate(data: IData) -> IData:
         _eval("%s = cat(0,%s);" % (vn_dest, vn_source), nargout=0)
         _eval("xlabel(%s,xlabel(%s(1)));" % (vn_dest, vn_source), nargout=0)
         _eval("%s = ylabel(%s,'Data Series');" % (vn_dest, vn_dest), nargout=0)
+        _eval("%s = %s.setaxis(%d,reshape(%s{%d},1,[]));" % (vn_dest,vn_dest,2,vn_dest,2), nargout=0)
         _eval("%s.Signal = transpose(%s.Signal);" % (vn_dest, vn_dest), nargout=0)
 
     retobj = _create_empty_idata()
