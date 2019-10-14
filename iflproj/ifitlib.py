@@ -187,6 +187,7 @@ namecategories = collections.OrderedDict({
     'Lin' : 'models',
     'Gauss' : 'models',
     'Lorentz' : 'models',
+    'Exp' : 'models',
     'add_models' : 'models',
     'mult_models' : 'models',
     'separate' : 'models',
@@ -1177,6 +1178,9 @@ def Lin(datashape:list=None) -> IFunc:
     ''' Creates a Linear IFunc model. '''
     return IFunc(datashape, 'strline')
 
+def Exp(datashape:list=None) -> IFunc:
+    ''' Creates an exponential IFunc model. '''
+    return IFunc(datashape, 'expon')
 
 def IData_1d(axis: list, signal: list, error: list) -> IData:
     ''' Creates an (x, y) IData object from two lists. '''
