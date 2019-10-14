@@ -1349,7 +1349,7 @@ def log(data: IData, axis: int=0) -> IData:
     vn_dest = retobj.varname
     vn_source = data.varname
     if axis==0:
-        _eval("%s = log(%s);" % (vn_dest, vn_source), nargout=0)
+        _eval("%s = real(log(%s));" % (vn_dest, vn_source), nargout=0)
     else:
         _eval("%s = setaxis(%s, %d, log(getaxis(%s, %d)));" % (vn_dest, vn_source, axis, vn_source, axis), nargout=0)
     return retobj
